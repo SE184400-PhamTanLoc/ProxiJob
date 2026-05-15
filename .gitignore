@@ -1,6 +1,18 @@
-# Chặn tất cả các file appsettings có chứa password thật
+## [Phần 1: Bảo mật - Quan trọng nhất]
 src/**/appsettings.json
 src/**/appsettings.Development.json
-
-# Chỉ cho phép push file Example làm mẫu
 !src/**/appsettings.Example.json
+
+## [Phần 2: File rác khi Build]
+[Bb]in/
+[Oo]bj/
+*.user
+*.userosscache
+*.sln.docstates
+
+## [Phần 3: File cấu hình của Visual Studio]
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
