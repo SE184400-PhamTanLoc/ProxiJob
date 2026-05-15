@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ProxiJob.Job.Domain\ProxiJob.Job.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

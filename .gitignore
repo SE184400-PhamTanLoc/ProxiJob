@@ -1,0 +1,6 @@
+# Chặn tất cả các file appsettings có chứa password thật
+src/**/appsettings.json
+src/**/appsettings.Development.json
+
+# Chỉ cho phép push file Example làm mẫu
+!src/**/appsettings.Example.json
