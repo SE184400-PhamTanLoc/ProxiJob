@@ -22,16 +22,12 @@ namespace ProxiJob.Identity.API.Controllers
         {
             try
             {
-                var result = await _mediator.Send(command, cancellationToken);
-                return Ok(result);
+                await _mediator.Send(command, cancellationToken);
+                return Ok(new { message = "success" });
             }
             catch (ValidationException ex)
             {
                 return BadRequest(new { errors = ex.Errors.Select(e => e.ErrorMessage) });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(new { message = ex.Message });
             }
         }
 
