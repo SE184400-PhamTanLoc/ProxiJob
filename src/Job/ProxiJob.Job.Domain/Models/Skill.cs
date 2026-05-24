@@ -1,4 +1,4 @@
-﻿using ProxiJob.Shared.Kernel;
+using ProxiJob.Shared.Kernel;
 
 namespace ProxiJob.Job.Domain.Models
 {
@@ -6,5 +6,7 @@ namespace ProxiJob.Job.Domain.Models
     {
         public string Name { get; set; }
         public string Description { get; set; }
+        
+        public virtual ICollection<JobPostSkill> JobPostSkills { get; set; }
     }
 }

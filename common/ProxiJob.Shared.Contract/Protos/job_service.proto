@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option csharp_namespace = "ProxiJob.Shared.Contract.Protos";
+
+package jobservice;
+
+service JobGrpcService {
+  rpc GetPublishedJobs (Empty) returns (GetPublishedJobsResponse);
+  rpc GetJobPostById (GetJobPostByIdRequest) returns (JobPostGrpcDto);
+}
+
+message Empty {}
+
+message GetJobPostByIdRequest {
+  int32 jobPostId = 1;
+}
+
+message JobPostGrpcDto {
+  int32 jobPostId = 1;
+  string title = 2;
+  string address = 3;
+  double latitude = 4;
+  double longitude = 5;
+  string categoryName = 6;
+  double minSalary = 7;
+  int32 remainingSlots = 8;
+}
+
+message GetPublishedJobsResponse {
+  repeated JobPostGrpcDto jobs = 1;
+}

@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ProxiJob.Job.Application\ProxiJob.Job.Application.csproj" />
     <ProjectReference Include="..\ProxiJob.Job.Domain\ProxiJob.Job.Domain.csproj" />
+    <ProjectReference Include="..\..\..\common\ProxiJob.Shared.Contract\ProxiJob.Shared.Contract.csproj" />
   </ItemGroup>
 
   <ItemGroup>
