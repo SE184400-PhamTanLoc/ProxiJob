@@ -61,6 +61,10 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
+await IdentityDatabaseInitializer.InitializeAsync(
+    app.Services,
+    app.Logger);
+
 app.MapControllers();
 
 app.Run();

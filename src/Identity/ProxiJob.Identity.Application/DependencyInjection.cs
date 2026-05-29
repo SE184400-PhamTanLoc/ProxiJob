@@ -2,6 +2,8 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using ProxiJob.Identity.Application.Common.Behaviors;
+using ProxiJob.Identity.Application.Common.Interfaces;
+using ProxiJob.Identity.Application.Services;
 using System.Reflection;
 
 namespace ProxiJob.Identity.Application
@@ -18,6 +20,7 @@ namespace ProxiJob.Identity.Application
             });
 
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+            services.AddScoped<IAuthSessionService, AuthSessionService>();
 
             return services;
         }

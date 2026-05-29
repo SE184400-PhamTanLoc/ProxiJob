@@ -15,6 +15,7 @@ namespace ProxiJob.Identity.Infrastructure.Data
         public DbSet<Wallet> Wallets { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<UserRole> UserRoles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,6 +64,13 @@ namespace ProxiJob.Identity.Infrastructure.Data
                 e.HasIndex(x => x.Token).IsUnique();
             });
 
+            modelBuilder.Entity<UserRole>(e =>
+            {
+                e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => x.UserId).IsUnique();
+            });
+
             // 5. Global Query Filters (Soft Delete)
             modelBuilder.Entity<User>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<Role>().HasQueryFilter(x => !x.IsDeleted);
@@ -72,6 +80,7 @@ namespace ProxiJob.Identity.Infrastructure.Data
             modelBuilder.Entity<Wallet>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<Transaction>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<RefreshToken>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<UserRole>().HasQueryFilter(x => !x.IsDeleted);
         }
     }
 }

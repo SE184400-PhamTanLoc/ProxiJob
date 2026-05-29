@@ -1,4 +1,5 @@
 using FluentValidation;
+using ProxiJob.Identity.Domain.Enums;
 
 namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
 {
@@ -20,6 +21,9 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
             RuleFor(x => x.ConfirmPassword)
                 .NotEmpty().WithMessage("ConfirmPassword is required.")
                 .Equal(x => x.Password).WithMessage("Passwords do not match.");
+
+            RuleFor(x => x.UserType)
+                .IsInEnum().WithMessage("UserType must be Student or Business.");
         }
     }
 }

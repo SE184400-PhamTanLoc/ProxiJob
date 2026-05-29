@@ -1,26 +1,33 @@
 using MediatR;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Application.DTOs;
+using ProxiJob.Identity.Domain.Constants;
+using ProxiJob.Identity.Domain.Enums;
 using ProxiJob.Identity.Domain.Models;
-using RefreshTokenModel = ProxiJob.Identity.Domain.Models.RefreshToken;
 
 namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
 {
     public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthResponseDto>
     {
         private readonly IAuthRepository _authRepository;
-        private readonly ITokenService _tokenService;
+        private readonly IRoleRepository _roleRepository;
+        private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly IAuthSessionService _authSessionService;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IUnitOfWork _unitOfWork;
 
         public RegisterCommandHandler(
             IAuthRepository authRepository,
-            ITokenService tokenService,
+            IRoleRepository roleRepository,
+            ISubscriptionRepository subscriptionRepository,
+            IAuthSessionService authSessionService,
             IPasswordHasher passwordHasher,
             IUnitOfWork unitOfWork)
         {
             _authRepository = authRepository;
-            _tokenService = tokenService;
+            _roleRepository = roleRepository;
+            _subscriptionRepository = subscriptionRepository;
+            _authSessionService = authSessionService;
             _passwordHasher = passwordHasher;
             _unitOfWork = unitOfWork;
         }
@@ -30,6 +37,13 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
             var existing = await _authRepository.GetUserByEmailAsync(request.Email, cancellationToken);
             if (existing != null)
                 throw new InvalidOperationException("Email is already in use.");
+
+            var roleName = request.UserType switch
+            {
+                UserType.Student => RoleNames.Student,
+                UserType.Business => RoleNames.Business,
+                _ => throw new InvalidOperationException("Invalid user type.")
+            };
 
             var user = new User
             {
@@ -44,30 +58,17 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
             await _authRepository.AddUserAsync(user, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var accessToken = _tokenService.GenerateAccessToken(user, "Student");
-            var refreshTokenValue = _tokenService.GenerateRefreshToken();
+            await _roleRepository.AssignRoleToUserAsync(user.Id, roleName, request.Email, cancellationToken);
 
-            var refreshToken = new RefreshTokenModel
+            if (request.UserType == UserType.Business)
             {
-                UserId = user.Id,
-                Token = refreshTokenValue,
-                ExpiryDate = _tokenService.GetRefreshTokenExpiry(),
-                IsRevoked = false,
-                CreatedBy = user.Email
-            };
+                await _subscriptionRepository.AssignSubscriptionAsync(
+                    user.Id, SubscriptionNames.Free, request.Email, cancellationToken);
+            }
 
-            await _authRepository.AddRefreshTokenAsync(refreshToken, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            return new AuthResponseDto
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshTokenValue,
-                Expiration = _tokenService.GetAccessTokenExpiry(),
-                UserId = user.Id,
-                Email = user.Email,
-                FullName = user.FullName
-            };
+            return await _authSessionService.IssueSessionAsync(user, cancellationToken);
         }
     }
 }

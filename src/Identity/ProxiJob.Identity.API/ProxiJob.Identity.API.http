@@ -1,6 +1,53 @@
 @ProxiJob.Identity.API_HostAddress = http://localhost:5231
 
-GET {{ProxiJob.Identity.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Đăng ký Sinh viên
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
+Content-Type: application/json
 
-###
+{
+  "fullName": "Nguyen Van A",
+  "email": "student@example.com",
+  "password": "Password1!",
+  "confirmPassword": "Password1!",
+  "userType": 0
+}
+
+### Đăng ký Chủ quán (Business)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Tran Thi B",
+  "email": "business@example.com",
+  "password": "Password1!",
+  "confirmPassword": "Password1!",
+  "userType": 1
+}
+
+### Đăng nhập
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "business@example.com",
+  "password": "Password1!"
+}
+
+### Thông tin tài khoản (cần Bearer token)
+GET {{ProxiJob.Identity.API_HostAddress}}/api/auth/me
+Authorization: Bearer {{accessToken}}
+
+### Danh sách gói dịch vụ
+GET {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions
+
+### Gói hiện tại
+GET {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions/me
+Authorization: Bearer {{accessToken}}
+
+### Nâng cấp Enterprise (Business)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions/upgrade
+Authorization: Bearer {{accessToken}}
+
+### Tính năng Enterprise-only
+GET {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions/enterprise-features
+Authorization: Bearer {{accessToken}}

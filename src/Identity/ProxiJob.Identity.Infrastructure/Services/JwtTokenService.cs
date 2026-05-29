@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using ProxiJob.Identity.Application.Common.Interfaces;
+using ProxiJob.Identity.Domain.Constants;
 using ProxiJob.Identity.Domain.Models;
 
 namespace ProxiJob.Identity.Infrastructure.Services
@@ -25,17 +26,19 @@ namespace ProxiJob.Identity.Infrastructure.Services
             _refreshTokenExpirationDays = int.Parse(configuration["JwtSettings:RefreshTokenExpirationDays"]!);
         }
 
-        public string GenerateAccessToken(User user, string role)
+        public string GenerateAccessToken(User user, string role, string subscriptionTier, int jobPostLimit)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(ClaimTypes.Role, role),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new(JwtRegisteredClaimNames.Email, user.Email),
+                new(ClaimTypes.Role, role),
+                new(ClaimNames.SubscriptionTier, subscriptionTier),
+                new(ClaimNames.JobPostLimit, jobPostLimit.ToString()),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
             var token = new JwtSecurityToken(
