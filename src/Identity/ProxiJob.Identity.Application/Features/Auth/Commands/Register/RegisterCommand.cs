@@ -10,5 +10,5 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
         string Password,
         string ConfirmPassword,
         UserType UserType
-    ) : IRequest<AuthResponseDto>;
+    ) : IRequest<MessageResponseDto>;
 }

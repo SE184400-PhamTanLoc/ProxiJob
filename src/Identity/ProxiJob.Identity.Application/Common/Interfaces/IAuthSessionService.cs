@@ -5,6 +5,6 @@ namespace ProxiJob.Identity.Application.Common.Interfaces
 {
     public interface IAuthSessionService
     {
-        Task<AuthResponseDto> IssueSessionAsync(User user, CancellationToken cancellationToken = default);
+        Task<AuthTokensDto> IssueSessionAsync(User user, CancellationToken cancellationToken = default);
     }
 }

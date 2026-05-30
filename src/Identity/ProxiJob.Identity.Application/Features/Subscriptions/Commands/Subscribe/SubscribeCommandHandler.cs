@@ -1,11 +1,13 @@
 using MediatR;
+using ProxiJob.Identity.Application.Common.Exceptions;
 using ProxiJob.Identity.Application.Common.Interfaces;
+using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Application.DTOs;
 using ProxiJob.Identity.Domain.Constants;
 
-namespace ProxiJob.Identity.Application.Features.Subscriptions.Commands.UpgradeSubscription
+namespace ProxiJob.Identity.Application.Features.Subscriptions.Commands.Subscribe
 {
-    public class UpgradeSubscriptionCommandHandler : IRequestHandler<UpgradeSubscriptionCommand, AuthResponseDto>
+    public class SubscribeCommandHandler : IRequestHandler<SubscribeCommand, AuthTokensDto>
     {
         private readonly IAuthRepository _authRepository;
         private readonly ICurrentUserService _currentUser;
@@ -13,7 +15,7 @@ namespace ProxiJob.Identity.Application.Features.Subscriptions.Commands.UpgradeS
         private readonly IAuthSessionService _authSessionService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public UpgradeSubscriptionCommandHandler(
+        public SubscribeCommandHandler(
             IAuthRepository authRepository,
             ICurrentUserService currentUser,
             ISubscriptionRepository subscriptionRepository,
@@ -27,23 +29,24 @@ namespace ProxiJob.Identity.Application.Features.Subscriptions.Commands.UpgradeS
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<AuthResponseDto> Handle(UpgradeSubscriptionCommand request, CancellationToken cancellationToken)
+        public async Task<AuthTokensDto> Handle(SubscribeCommand request, CancellationToken cancellationToken)
         {
             if (_currentUser.UserId is not int userId)
-                throw new UnauthorizedAccessException("User is not authenticated.");
+                throw new UnauthorizedAccessException(BusinessMessages.NotAuthenticated);
 
             if (_currentUser.Role != RoleNames.Business)
-                throw new UnauthorizedAccessException("Only business accounts can upgrade subscription.");
+                throw new ForbiddenAccessException(BusinessMessages.BusinessSubscribeOnly);
 
-            var (currentTier, _) = await _subscriptionRepository.GetUserTierInfoAsync(userId, cancellationToken);
-            if (currentTier == SubscriptionNames.Enterprise)
-                throw new InvalidOperationException("Account is already on the Enterprise plan.");
+            var active = await _subscriptionRepository.GetActiveByUserIdAsync(userId, cancellationToken);
+            if (active?.SubscriptionId == request.PlanId)
+                throw new InvalidOperationException(BusinessMessages.AlreadyOnPlan);
 
             var user = await _authRepository.GetUserByIdAsync(userId, cancellationToken)
-                ?? throw new UnauthorizedAccessException("User not found.");
+                ?? throw new UnauthorizedAccessException(BusinessMessages.UserNotFound);
 
-            await _subscriptionRepository.UpgradeSubscriptionAsync(
-                userId, SubscriptionNames.Enterprise, user.Email, cancellationToken);
+            // TODO: tích hợp thanh toán trước khi kích hoạt gói
+            await _subscriptionRepository.SubscribeToPlanByIdAsync(
+                userId, request.PlanId, user.Email, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return await _authSessionService.IssueSessionAsync(user, cancellationToken);

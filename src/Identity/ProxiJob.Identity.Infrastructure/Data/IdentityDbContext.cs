@@ -16,6 +16,7 @@ namespace ProxiJob.Identity.Infrastructure.Data
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
+        public DbSet<SubscriptionFeature> SubscriptionFeatures { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -35,7 +36,12 @@ namespace ProxiJob.Identity.Infrastructure.Data
             // 2. Decimal types
             modelBuilder.Entity<Wallet>(e => e.Property(x => x.Balance).HasColumnType("decimal(18,2)"));
             modelBuilder.Entity<Transaction>(e => e.Property(x => x.Amount).HasColumnType("decimal(18,2)"));
-            modelBuilder.Entity<Subscription>(e => e.Property(x => x.Price).HasColumnType("decimal(18,2)"));
+            modelBuilder.Entity<Subscription>(e =>
+            {
+                e.Property(x => x.Price).HasColumnType("decimal(18,2)");
+                e.Property(x => x.VariableCost).HasColumnType("decimal(18,2)");
+                e.Property(x => x.GrossMargin).HasColumnType("decimal(18,2)");
+            });
 
             // 3. Timestamps as UTC
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -71,6 +77,12 @@ namespace ProxiJob.Identity.Infrastructure.Data
                 e.HasIndex(x => x.UserId).IsUnique();
             });
 
+            modelBuilder.Entity<SubscriptionFeature>(e =>
+            {
+                e.HasOne(x => x.Subscription).WithMany().HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => new { x.SubscriptionId, x.Code }).IsUnique();
+            });
+
             // 5. Global Query Filters (Soft Delete)
             modelBuilder.Entity<User>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<Role>().HasQueryFilter(x => !x.IsDeleted);
@@ -81,6 +93,7 @@ namespace ProxiJob.Identity.Infrastructure.Data
             modelBuilder.Entity<Transaction>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<RefreshToken>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<UserRole>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<SubscriptionFeature>().HasQueryFilter(x => !x.IsDeleted);
         }
     }
 }

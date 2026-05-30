@@ -1,4 +1,5 @@
 using FluentValidation;
+using ProxiJob.Identity.Application.Common.Messages;
 
 namespace ProxiJob.Identity.Application.Features.Auth.Commands.Login
 {
@@ -7,11 +8,11 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.Login
         public LoginCommandValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("Email is required.")
-                .EmailAddress().WithMessage("Email is not valid.");
+                .NotEmpty().WithMessage(ValidationMessages.EmailRequired)
+                .EmailAddress().WithMessage(ValidationMessages.EmailInvalid);
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Password is required.");
+                .NotEmpty().WithMessage(ValidationMessages.PasswordRequired);
         }
     }
 }

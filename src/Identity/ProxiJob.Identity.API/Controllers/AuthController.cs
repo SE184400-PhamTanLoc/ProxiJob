@@ -2,10 +2,14 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Application.Features.Auth.Commands.Login;
 using ProxiJob.Identity.Application.Features.Auth.Commands.Logout;
 using ProxiJob.Identity.Application.Features.Auth.Commands.RefreshToken;
 using ProxiJob.Identity.Application.Features.Auth.Commands.Register;
+using ProxiJob.Identity.Domain.Constants;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace ProxiJob.Identity.API.Controllers
 {
@@ -30,6 +34,10 @@ namespace ProxiJob.Identity.API.Controllers
             catch (ValidationException ex)
             {
                 return BadRequest(new { errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
             }
         }
 
@@ -63,6 +71,10 @@ namespace ProxiJob.Identity.API.Controllers
                 var result = await _mediator.Send(command, cancellationToken);
                 return Ok(result);
             }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
             catch (UnauthorizedAccessException ex)
             {
                 return Unauthorized(new { message = ex.Message });
@@ -76,8 +88,8 @@ namespace ProxiJob.Identity.API.Controllers
         {
             var result = await _mediator.Send(command, cancellationToken);
             return result
-                ? Ok(new { message = "Logged out successfully." })
-                : BadRequest(new { message = "Invalid or already revoked token." });
+                ? Ok(new { message = BusinessMessages.LogoutSuccess })
+                : BadRequest(new { message = BusinessMessages.LogoutFailed });
         }
 
         /// <summary>Thông tin tài khoản đang đăng nhập</summary>
@@ -85,13 +97,17 @@ namespace ProxiJob.Identity.API.Controllers
         [Authorize]
         public IActionResult Me()
         {
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                ?? User.FindFirst("sub")?.Value;
-            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
-                ?? User.FindFirst("email")?.Value;
-            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            var tier = User.FindFirst(ProxiJob.Identity.Domain.Constants.ClaimNames.SubscriptionTier)?.Value;
-            var jobPostLimit = User.FindFirst(ProxiJob.Identity.Domain.Constants.ClaimNames.JobPostLimit)?.Value;
+            var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var email = User.FindFirstValue(JwtRegisteredClaimNames.Email)
+                ?? User.FindFirstValue(ClaimTypes.Email);
+            var role = User.FindFirstValue(ClaimTypes.Role);
+            var tier = User.FindFirstValue(ClaimNames.SubscriptionTier);
+            var jobPostLimit = User.FindFirstValue(ClaimNames.JobPostLimit);
+            var featureCodes = User.FindFirstValue(ClaimNames.Features)?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                ?? Array.Empty<string>();
+            var hasHrManagement = featureCodes.Contains(FeatureCodes.HrManagement);
+            var hasPriorityDisplay = featureCodes.Contains(FeatureCodes.PriorityListing);
 
             return Ok(new
             {
@@ -99,7 +115,9 @@ namespace ProxiJob.Identity.API.Controllers
                 email,
                 role,
                 subscriptionTier = tier,
-                jobPostLimit
+                jobPostLimit,
+                hasPriorityDisplay,
+                hasHrManagement
             });
         }
     }

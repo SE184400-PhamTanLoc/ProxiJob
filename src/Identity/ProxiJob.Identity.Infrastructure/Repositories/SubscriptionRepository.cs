@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ProxiJob.Identity.Application.Common.Interfaces;
+using ProxiJob.Identity.Application.Common.Messages;
+using ProxiJob.Identity.Application.DTOs;
 using ProxiJob.Identity.Domain.Constants;
 using ProxiJob.Identity.Domain.Models;
 using ProxiJob.Identity.Infrastructure.Data;
@@ -38,37 +40,76 @@ namespace ProxiJob.Identity.Infrastructure.Repositories
                 .Join(_context.Subscriptions,
                     us => us.SubscriptionId,
                     s => s.Id,
-                    (us, s) => new { s.Name, s.JobPostLimit })
-                .OrderByDescending(x => x.Name)
+                    (us, s) => new { s.Name, s.JobPostLimit, s.Price })
+                .OrderByDescending(x => x.Price)
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (active == null)
-                return (SubscriptionNames.Free, 0);
+                return (SubscriptionNames.None, 0);
 
             return (active.Name, active.JobPostLimit);
         }
 
-        public async Task AssignSubscriptionAsync(int userId, string subscriptionName, string createdBy, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<string>> GetUserFeatureCodesAsync(int userId, CancellationToken cancellationToken = default)
         {
-            var plan = await GetByNameAsync(subscriptionName, cancellationToken)
-                ?? throw new InvalidOperationException($"Subscription '{subscriptionName}' is not configured.");
+            var active = await GetActiveByUserIdAsync(userId, cancellationToken);
+            if (active == null)
+                return Array.Empty<string>();
 
-            var now = DateTime.UtcNow;
-            await _context.UserSubscriptions.AddAsync(new UserSubscription
-            {
-                UserId = userId,
-                SubscriptionId = plan.Id,
-                StartDate = now,
-                EndDate = now.AddDays(plan.DurationDays),
-                Status = "Active",
-                CreatedBy = createdBy
-            }, cancellationToken);
+            var features = await GetFeaturesForSubscriptionAsync(active.SubscriptionId, cancellationToken);
+            return features.Select(f => f.Code).ToList();
         }
 
-        public async Task UpgradeSubscriptionAsync(int userId, string targetSubscriptionName, string updatedBy, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<SubscriptionFeature>> GetFeaturesForSubscriptionAsync(
+            int subscriptionId, CancellationToken cancellationToken = default)
+            => await _context.SubscriptionFeatures
+                .Where(f => f.SubscriptionId == subscriptionId)
+                .OrderBy(f => f.Code)
+                .ToListAsync(cancellationToken);
+
+        public async Task<IReadOnlyList<PlanComparisonDto>> GetPlanComparisonAsync(CancellationToken cancellationToken = default)
         {
-            var plan = await GetByNameAsync(targetSubscriptionName, cancellationToken)
-                ?? throw new InvalidOperationException($"Subscription '{targetSubscriptionName}' is not configured.");
+            var plans = await _context.Subscriptions
+                .Where(s => SubscriptionNames.AllPaidPlans.Contains(s.Name))
+                .OrderBy(s => s.Price)
+                .ToListAsync(cancellationToken);
+
+            var result = plans.Select(plan => new PlanComparisonDto
+            {
+                Id = plan.Id,
+                PlanName = plan.Name,
+                Description = plan.Description,
+                Price = plan.Price,
+                VariableCost = plan.VariableCost,
+                GrossMargin = plan.GrossMargin,
+                BillingType = plan.BillingType.ToString(),
+                JobPostLimit = plan.JobPostLimit,
+                DurationDays = plan.DurationDays,
+                HasPriorityDisplay = plan.HasPriorityDisplay,
+                HasHrManagement = plan.HasHrManagement
+            }).ToList();
+
+            return result;
+        }
+
+        public async Task AssignSubscriptionAsync(int userId, string subscriptionName, string createdBy, CancellationToken cancellationToken = default)
+            => await SubscribeToPlanAsync(userId, subscriptionName, createdBy, cancellationToken);
+
+        public async Task SubscribeToPlanAsync(int userId, string planName, string updatedBy, CancellationToken cancellationToken = default)
+        {
+            var plan = await GetByNameAsync(planName, cancellationToken)
+                ?? throw new InvalidOperationException(BusinessMessages.SubscriptionNotConfigured);
+
+            await SubscribeToPlanByIdAsync(userId, plan.Id, updatedBy, cancellationToken);
+        }
+
+        public async Task SubscribeToPlanByIdAsync(int userId, int planId, string updatedBy, CancellationToken cancellationToken = default)
+        {
+            var plan = await GetByIdAsync(planId, cancellationToken)
+                ?? throw new InvalidOperationException(BusinessMessages.PlanNotFound);
+
+            if (!SubscriptionNames.AllPaidPlans.Contains(plan.Name))
+                throw new InvalidOperationException(BusinessMessages.InvalidPlanId);
 
             var activeSubscriptions = await _context.UserSubscriptions
                 .Where(us => us.UserId == userId && us.Status == "Active")

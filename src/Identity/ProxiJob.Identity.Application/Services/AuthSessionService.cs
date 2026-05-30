@@ -28,13 +28,14 @@ namespace ProxiJob.Identity.Application.Services
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<AuthResponseDto> IssueSessionAsync(User user, CancellationToken cancellationToken = default)
+        public async Task<AuthTokensDto> IssueSessionAsync(User user, CancellationToken cancellationToken = default)
         {
             var roleName = await _roleRepository.GetUserRoleNameAsync(user.Id, cancellationToken)
                 ?? RoleNames.Student;
             var (tier, jobPostLimit) = await _subscriptionRepository.GetUserTierInfoAsync(user.Id, cancellationToken);
+            var featureCodes = await _subscriptionRepository.GetUserFeatureCodesAsync(user.Id, cancellationToken);
 
-            var accessToken = _tokenService.GenerateAccessToken(user, roleName, tier, jobPostLimit);
+            var accessToken = _tokenService.GenerateAccessToken(user, roleName, tier, jobPostLimit, featureCodes);
             var refreshTokenValue = _tokenService.GenerateRefreshToken();
 
             var refreshToken = new RefreshTokenModel
@@ -49,17 +50,11 @@ namespace ProxiJob.Identity.Application.Services
             await _authRepository.AddRefreshTokenAsync(refreshToken, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            return new AuthResponseDto
+            return new AuthTokensDto
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshTokenValue,
-                Expiration = _tokenService.GetAccessTokenExpiry(),
-                UserId = user.Id,
-                Email = user.Email,
-                FullName = user.FullName,
-                Role = roleName,
-                SubscriptionTier = tier,
-                JobPostLimit = jobPostLimit
+                Expiration = _tokenService.GetAccessTokenExpiry()
             };
         }
     }

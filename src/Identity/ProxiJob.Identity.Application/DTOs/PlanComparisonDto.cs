@@ -1,16 +1,14 @@
-using ProxiJob.Identity.Domain.Enums;
-using ProxiJob.Shared.Kernel;
-
-namespace ProxiJob.Identity.Domain.Models
+namespace ProxiJob.Identity.Application.DTOs
 {
-    public class Subscription : BaseEntity
+    public class PlanComparisonDto
     {
-        public string Name { get; set; }
+        public int Id { get; set; }
+        public string PlanName { get; set; }
         public string Description { get; set; }
         public decimal Price { get; set; }
         public decimal VariableCost { get; set; }
         public decimal GrossMargin { get; set; }
-        public BillingType BillingType { get; set; }
+        public string BillingType { get; set; }
         public int JobPostLimit { get; set; }
         public int DurationDays { get; set; }
         public bool HasPriorityDisplay { get; set; }

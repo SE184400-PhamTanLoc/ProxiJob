@@ -1,10 +1,11 @@
 using MediatR;
 using ProxiJob.Identity.Application.Common.Interfaces;
+using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Application.DTOs;
 
 namespace ProxiJob.Identity.Application.Features.Auth.Commands.RefreshToken
 {
-    public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, AuthResponseDto>
+    public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, AuthTokensDto>
     {
         private readonly IAuthRepository _authRepository;
         private readonly IAuthSessionService _authSessionService;
@@ -20,20 +21,20 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.RefreshToken
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<AuthResponseDto> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
+        public async Task<AuthTokensDto> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
         {
             var storedToken = await _authRepository.GetRefreshTokenAsync(request.RefreshToken, cancellationToken);
 
             if (storedToken == null)
-                throw new UnauthorizedAccessException("Invalid refresh token.");
+                throw new UnauthorizedAccessException(BusinessMessages.InvalidRefreshToken);
             if (storedToken.IsRevoked)
-                throw new UnauthorizedAccessException("Refresh token has been revoked.");
+                throw new UnauthorizedAccessException(BusinessMessages.RefreshTokenRevoked);
             if (storedToken.ExpiryDate < DateTime.UtcNow)
-                throw new UnauthorizedAccessException("Refresh token has expired.");
+                throw new UnauthorizedAccessException(BusinessMessages.RefreshTokenExpired);
 
             var user = await _authRepository.GetUserByIdAsync(storedToken.UserId, cancellationToken);
             if (user == null || !user.IsActive)
-                throw new UnauthorizedAccessException("User not found or inactive.");
+                throw new UnauthorizedAccessException(BusinessMessages.UserNotFoundOrInactive);
 
             await _authRepository.RevokeRefreshTokenAsync(storedToken, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

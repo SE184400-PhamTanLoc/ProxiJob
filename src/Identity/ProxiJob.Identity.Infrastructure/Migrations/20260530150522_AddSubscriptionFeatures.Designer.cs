@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProxiJob.Identity.Infrastructure.Data;
@@ -11,9 +12,11 @@ using ProxiJob.Identity.Infrastructure.Data;
 namespace ProxiJob.Identity.Infrastructure.Migrations
 {
     [DbContext(typeof(IdentityDbContext))]
-    partial class IdentityDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260530150522_AddSubscriptionFeatures")]
+    partial class AddSubscriptionFeatures
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -176,10 +179,6 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("BillingType")
-                        .HasColumnType("integer")
-                        .HasColumnName("billingtype");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("createdat");
@@ -189,26 +188,9 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
                     b.Property<int>("DurationDays")
                         .HasColumnType("integer")
                         .HasColumnName("durationdays");
-
-                    b.Property<decimal>("GrossMargin")
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("grossmargin");
-
-                    b.Property<bool>("HasHrManagement")
-                        .HasColumnType("boolean")
-                        .HasColumnName("hashrmanagement");
-
-                    b.Property<bool>("HasPriorityDisplay")
-                        .HasColumnType("boolean")
-                        .HasColumnName("hasprioritydisplay");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -234,10 +216,6 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text")
                         .HasColumnName("updatedby");
-
-                    b.Property<decimal>("VariableCost")
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("variablecost");
 
                     b.HasKey("Id");
 

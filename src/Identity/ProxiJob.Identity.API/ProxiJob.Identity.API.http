@@ -1,18 +1,6 @@
-@ProxiJob.Identity.API_HostAddress = http://localhost:5231
+@ProxiJob.Identity.API_HostAddress = https://localhost:7159
 
-### Đăng ký Sinh viên
-POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
-Content-Type: application/json
-
-{
-  "fullName": "Nguyen Van A",
-  "email": "student@example.com",
-  "password": "Password1!",
-  "confirmPassword": "Password1!",
-  "userType": 0
-}
-
-### Đăng ký Chủ quán (Business)
+### Đăng ký Chủ quán → chỉ trả { "message": "Tạo tài khoản thành công." }, sau đó login
 POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
 Content-Type: application/json
 
@@ -24,7 +12,7 @@ Content-Type: application/json
   "userType": 1
 }
 
-### Đăng nhập
+### Đăng nhập → accessToken, refreshToken, expiration
 POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/login
 Content-Type: application/json
 
@@ -33,21 +21,18 @@ Content-Type: application/json
   "password": "Password1!"
 }
 
-### Thông tin tài khoản (cần Bearer token)
-GET {{ProxiJob.Identity.API_HostAddress}}/api/auth/me
+### Danh sách gói dịch vụ (public)
+GET {{ProxiJob.Identity.API_HostAddress}}/api/plans
+
+### Gói đang dùng
+GET {{ProxiJob.Identity.API_HostAddress}}/api/plans/current
 Authorization: Bearer {{accessToken}}
 
-### Danh sách gói dịch vụ
-GET {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions
-
-### Gói hiện tại
-GET {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions/me
+### Mua gói — planId lấy từ GET /api/plans (ví dụ Standard)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/purchase
 Authorization: Bearer {{accessToken}}
+Content-Type: application/json
 
-### Nâng cấp Enterprise (Business)
-POST {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions/upgrade
-Authorization: Bearer {{accessToken}}
-
-### Tính năng Enterprise-only
-GET {{ProxiJob.Identity.API_HostAddress}}/api/subscriptions/enterprise-features
-Authorization: Bearer {{accessToken}}
+{
+  "planId": 3
+}

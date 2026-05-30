@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ProxiJob.Identity.Application.Common.Interfaces;
+using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Domain.Models;
 using ProxiJob.Identity.Infrastructure.Data;
 
@@ -25,7 +26,7 @@ namespace ProxiJob.Identity.Infrastructure.Repositories
         public async Task AssignRoleToUserAsync(int userId, string roleName, string createdBy, CancellationToken cancellationToken = default)
         {
             var role = await GetByNameAsync(roleName, cancellationToken)
-                ?? throw new InvalidOperationException($"Role '{roleName}' is not configured.");
+                ?? throw new InvalidOperationException(BusinessMessages.RoleNotConfigured);
 
             var existing = await _context.UserRoles
                 .FirstOrDefaultAsync(ur => ur.UserId == userId, cancellationToken);

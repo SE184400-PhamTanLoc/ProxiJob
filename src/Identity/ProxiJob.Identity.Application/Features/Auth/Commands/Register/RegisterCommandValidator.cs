@@ -1,4 +1,5 @@
 using FluentValidation;
+using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Domain.Enums;
 
 namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
@@ -8,22 +9,22 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
         public RegisterCommandValidator()
         {
             RuleFor(x => x.FullName)
-                .NotEmpty().WithMessage("FullName is required.");
+                .NotEmpty().WithMessage(ValidationMessages.FullNameRequired);
 
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("Email is required.")
-                .EmailAddress().WithMessage("Email is not valid.");
+                .NotEmpty().WithMessage(ValidationMessages.EmailRequired)
+                .EmailAddress().WithMessage(ValidationMessages.EmailInvalid);
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage("Password is required.")
-                .MinimumLength(8).WithMessage("Password must be at least 8 characters.");
+                .NotEmpty().WithMessage(ValidationMessages.PasswordRequired)
+                .MinimumLength(8).WithMessage(ValidationMessages.PasswordMinLength);
 
             RuleFor(x => x.ConfirmPassword)
-                .NotEmpty().WithMessage("ConfirmPassword is required.")
-                .Equal(x => x.Password).WithMessage("Passwords do not match.");
+                .NotEmpty().WithMessage(ValidationMessages.ConfirmPasswordRequired)
+                .Equal(x => x.Password).WithMessage(ValidationMessages.PasswordsDoNotMatch);
 
             RuleFor(x => x.UserType)
-                .IsInEnum().WithMessage("UserType must be Student or Business.");
+                .IsInEnum().WithMessage(ValidationMessages.UserTypeInvalid);
         }
     }
 }

@@ -4,5 +4,6 @@ namespace ProxiJob.Identity.Domain.Constants
     {
         public const string SubscriptionTier = "subscription_tier";
         public const string JobPostLimit = "job_post_limit";
+        public const string Features = "features";
     }
 }

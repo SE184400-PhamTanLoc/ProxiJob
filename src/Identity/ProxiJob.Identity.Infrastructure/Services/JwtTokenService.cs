@@ -26,7 +26,7 @@ namespace ProxiJob.Identity.Infrastructure.Services
             _refreshTokenExpirationDays = int.Parse(configuration["JwtSettings:RefreshTokenExpirationDays"]!);
         }
 
-        public string GenerateAccessToken(User user, string role, string subscriptionTier, int jobPostLimit)
+        public string GenerateAccessToken(User user, string role, string subscriptionTier, int jobPostLimit, IReadOnlyList<string> featureCodes)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -38,6 +38,7 @@ namespace ProxiJob.Identity.Infrastructure.Services
                 new(ClaimTypes.Role, role),
                 new(ClaimNames.SubscriptionTier, subscriptionTier),
                 new(ClaimNames.JobPostLimit, jobPostLimit.ToString()),
+                new(ClaimNames.Features, string.Join(",", featureCodes)),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
