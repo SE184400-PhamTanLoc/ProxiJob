@@ -31,6 +31,7 @@ namespace ProxiJob.Identity.Infrastructure.Services
             string role,
             string subscriptionTier,
             int jobPostLimit,
+            int jobPostsUsed,
             IReadOnlyList<string> featureCodes,
             string? profileReadiness = null,
             decimal reputationScore = 0)
@@ -45,6 +46,7 @@ namespace ProxiJob.Identity.Infrastructure.Services
                 new(ClaimTypes.Role, role),
                 new(ClaimNames.SubscriptionTier, subscriptionTier),
                 new(ClaimNames.JobPostLimit, jobPostLimit.ToString()),
+                new(ClaimNames.JobPostsUsed, jobPostsUsed.ToString()),
                 new(ClaimNames.Features, string.Join(",", featureCodes)),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };

@@ -2,7 +2,10 @@ namespace ProxiJob.Identity.Application.Common.Messages
 {
     public static class BusinessMessages
     {
-        public const string RegisterSuccess = "Tạo tài khoản thành công.";
+        public const string RegisterSuccess = "Tạo tài khoản thành công. Bạn được đăng tối đa 3 tin miễn phí, sau đó cần mua gói dịch vụ.";
+        public const string BusinessJobPostOnly = "Chỉ tài khoản chủ quán mới sử dụng được tính năng này.";
+        public const string FreeTrialExhausted = "Bạn đã dùng hết 3 lần đăng tin miễn phí. Vui lòng mua gói dịch vụ tại POST /api/plans/purchase.";
+        public const string JobPostLimitReached = "Đã đạt giới hạn số tin đăng của gói hiện tại. Vui lòng nâng cấp gói.";
         public const string RegisterStudentSuccess = "Tạo tài khoản thành công. Vui lòng đăng nhập và đăng ký hồ sơ năng lực (POST /api/student/profile/register).";
         public const string ProfileRegistered = "Đăng ký hồ sơ năng lực thành công. Gọi POST /api/student/profile/activate khi sẵn sàng nhận việc.";
         public const string ProfileAlreadyRegistered = "Hồ sơ đã được đăng ký. Dùng PUT /api/student/profile để sửa hoặc POST /api/student/profile/activate.";

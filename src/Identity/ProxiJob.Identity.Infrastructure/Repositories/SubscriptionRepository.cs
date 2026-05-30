@@ -44,21 +44,45 @@ namespace ProxiJob.Identity.Infrastructure.Repositories
                 .OrderByDescending(x => x.Price)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (active == null)
-                return (SubscriptionNames.None, 0);
+            if (active != null)
+                return (active.Name, active.JobPostLimit);
 
-            return (active.Name, active.JobPostLimit);
+            var role = await GetUserRoleNameAsync(userId, cancellationToken);
+            if (role == RoleNames.Business)
+                return (SubscriptionNames.Trial, BusinessQuotaConstants.FreeTrialJobPostLimit);
+
+            return (SubscriptionNames.None, 0);
         }
 
         public async Task<IReadOnlyList<string>> GetUserFeatureCodesAsync(int userId, CancellationToken cancellationToken = default)
         {
             var active = await GetActiveByUserIdAsync(userId, cancellationToken);
-            if (active == null)
+            if (active != null)
+            {
+                var features = await GetFeaturesForSubscriptionAsync(active.SubscriptionId, cancellationToken);
+                return features.Select(f => f.Code).ToList();
+            }
+
+            var role = await GetUserRoleNameAsync(userId, cancellationToken);
+            if (role != RoleNames.Business)
                 return Array.Empty<string>();
 
-            var features = await GetFeaturesForSubscriptionAsync(active.SubscriptionId, cancellationToken);
-            return features.Select(f => f.Code).ToList();
+            var used = await _context.Users
+                .Where(u => u.Id == userId)
+                .Select(u => u.JobPostsUsed)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (used < BusinessQuotaConstants.FreeTrialJobPostLimit)
+                return new[] { FeatureCodes.WebPostJob };
+
+            return Array.Empty<string>();
         }
+
+        private async Task<string?> GetUserRoleNameAsync(int userId, CancellationToken cancellationToken)
+            => await _context.UserRoles
+                .Where(ur => ur.UserId == userId)
+                .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (_, r) => r.Name)
+                .FirstOrDefaultAsync(cancellationToken);
 
         public async Task<IReadOnlyList<SubscriptionFeature>> GetFeaturesForSubscriptionAsync(
             int subscriptionId, CancellationToken cancellationToken = default)

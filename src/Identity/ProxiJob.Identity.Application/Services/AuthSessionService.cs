@@ -11,6 +11,7 @@ namespace ProxiJob.Identity.Application.Services
         private readonly IAuthRepository _authRepository;
         private readonly IRoleRepository _roleRepository;
         private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly IJobPostQuotaService _jobPostQuotaService;
         private readonly IStudentProfileRepository _studentProfileRepository;
         private readonly ITokenService _tokenService;
         private readonly IUnitOfWork _unitOfWork;
@@ -19,6 +20,7 @@ namespace ProxiJob.Identity.Application.Services
             IAuthRepository authRepository,
             IRoleRepository roleRepository,
             ISubscriptionRepository subscriptionRepository,
+            IJobPostQuotaService jobPostQuotaService,
             IStudentProfileRepository studentProfileRepository,
             ITokenService tokenService,
             IUnitOfWork unitOfWork)
@@ -26,6 +28,7 @@ namespace ProxiJob.Identity.Application.Services
             _authRepository = authRepository;
             _roleRepository = roleRepository;
             _subscriptionRepository = subscriptionRepository;
+            _jobPostQuotaService = jobPostQuotaService;
             _studentProfileRepository = studentProfileRepository;
             _tokenService = tokenService;
             _unitOfWork = unitOfWork;
@@ -35,7 +38,7 @@ namespace ProxiJob.Identity.Application.Services
         {
             var roleName = await _roleRepository.GetUserRoleNameAsync(user.Id, cancellationToken)
                 ?? RoleNames.Student;
-            var (tier, jobPostLimit) = await _subscriptionRepository.GetUserTierInfoAsync(user.Id, cancellationToken);
+            var quota = await _jobPostQuotaService.GetQuotaAsync(user.Id, roleName, cancellationToken);
             var featureCodes = await _subscriptionRepository.GetUserFeatureCodesAsync(user.Id, cancellationToken);
 
             string? profileReadiness = null;
@@ -48,7 +51,14 @@ namespace ProxiJob.Identity.Application.Services
             }
 
             var accessToken = _tokenService.GenerateAccessToken(
-                user, roleName, tier, jobPostLimit, featureCodes, profileReadiness, reputationScore);
+                user,
+                roleName,
+                quota.SubscriptionTier,
+                quota.JobPostLimit,
+                quota.JobPostsUsed,
+                featureCodes,
+                profileReadiness,
+                reputationScore);
             var refreshTokenValue = _tokenService.GenerateRefreshToken();
 
             var refreshToken = new RefreshTokenModel

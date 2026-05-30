@@ -2,6 +2,7 @@ using MediatR;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Application.DTOs;
+using ProxiJob.Identity.Application.Services;
 using ProxiJob.Identity.Domain.Constants;
 
 namespace ProxiJob.Identity.Application.Features.Subscriptions.Queries.GetMyFeatures
@@ -11,15 +12,18 @@ namespace ProxiJob.Identity.Application.Features.Subscriptions.Queries.GetMyFeat
         private readonly ICurrentUserService _currentUser;
         private readonly IRoleRepository _roleRepository;
         private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly IJobPostQuotaService _jobPostQuotaService;
 
         public GetMyFeaturesQueryHandler(
             ICurrentUserService currentUser,
             IRoleRepository roleRepository,
-            ISubscriptionRepository subscriptionRepository)
+            ISubscriptionRepository subscriptionRepository,
+            IJobPostQuotaService jobPostQuotaService)
         {
             _currentUser = currentUser;
             _roleRepository = roleRepository;
             _subscriptionRepository = subscriptionRepository;
+            _jobPostQuotaService = jobPostQuotaService;
         }
 
         public async Task<MyFeaturesDto> Handle(GetMyFeaturesQuery request, CancellationToken cancellationToken)
@@ -28,7 +32,7 @@ namespace ProxiJob.Identity.Application.Features.Subscriptions.Queries.GetMyFeat
                 throw new UnauthorizedAccessException(BusinessMessages.NotAuthenticated);
 
             var role = await _roleRepository.GetUserRoleNameAsync(userId, cancellationToken) ?? RoleNames.Student;
-            var (tier, limit) = await _subscriptionRepository.GetUserTierInfoAsync(userId, cancellationToken);
+            var quota = await _jobPostQuotaService.GetQuotaAsync(userId, role, cancellationToken);
 
             var active = await _subscriptionRepository.GetActiveByUserIdAsync(userId, cancellationToken);
             decimal price = 0;
@@ -55,8 +59,12 @@ namespace ProxiJob.Identity.Application.Features.Subscriptions.Queries.GetMyFeat
             return new MyFeaturesDto
             {
                 Role = role,
-                SubscriptionTier = tier,
-                JobPostLimit = limit,
+                SubscriptionTier = quota.SubscriptionTier,
+                JobPostLimit = quota.JobPostLimit,
+                JobPostsUsed = quota.JobPostsUsed,
+                JobPostsRemaining = quota.JobPostsRemaining,
+                CanPostJob = quota.CanPostJob,
+                MustPurchasePlan = quota.MustPurchasePlan,
                 Price = price,
                 StartDate = startDate,
                 EndDate = endDate,

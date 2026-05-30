@@ -91,38 +91,5 @@ namespace ProxiJob.Identity.API.Controllers
                 ? Ok(new { message = BusinessMessages.LogoutSuccess })
                 : BadRequest(new { message = BusinessMessages.LogoutFailed });
         }
-
-        /// <summary>Thông tin tài khoản đang đăng nhập</summary>
-        [HttpGet("me")]
-        [Authorize]
-        public IActionResult Me()
-        {
-            var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-            var email = User.FindFirstValue(JwtRegisteredClaimNames.Email)
-                ?? User.FindFirstValue(ClaimTypes.Email);
-            var role = User.FindFirstValue(ClaimTypes.Role);
-            var tier = User.FindFirstValue(ClaimNames.SubscriptionTier);
-            var jobPostLimit = User.FindFirstValue(ClaimNames.JobPostLimit);
-            var featureCodes = User.FindFirstValue(ClaimNames.Features)?
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                ?? Array.Empty<string>();
-            var hasHrManagement = featureCodes.Contains(FeatureCodes.HrManagement);
-            var hasPriorityDisplay = featureCodes.Contains(FeatureCodes.PriorityListing);
-            var profileReadiness = User.FindFirstValue(ClaimNames.ProfileReadiness);
-            var reputationScore = User.FindFirstValue(ClaimNames.ReputationScore);
-
-            return Ok(new
-            {
-                userId,
-                email,
-                role,
-                subscriptionTier = tier,
-                jobPostLimit,
-                hasPriorityDisplay,
-                hasHrManagement,
-                profileReadiness,
-                reputationScore
-            });
-        }
     }
 }

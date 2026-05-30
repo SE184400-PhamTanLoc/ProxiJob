@@ -1,6 +1,6 @@
 @ProxiJob.Identity.API_HostAddress = https://localhost:7159
 
-### Đăng ký Chủ quán → chỉ trả { "message": "Tạo tài khoản thành công." }, sau đó login
+### Đăng ký Chủ quán → 3 tin miễn phí (không gán gói trả phí), sau đó login
 POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
 Content-Type: application/json
 
@@ -24,8 +24,16 @@ Content-Type: application/json
 ### Danh sách gói dịch vụ (public) — lấy id từng gói
 GET {{ProxiJob.Identity.API_HostAddress}}/api/plans
 
-### Gói đang dùng
+### Gói đang dùng + hạn mức đăng tin (subscriptionTier: Trial, jobPostLimit: 3)
 GET {{ProxiJob.Identity.API_HostAddress}}/api/plans/current
+Authorization: Bearer {{accessToken}}
+
+### Hạn mức đăng tin (chủ quán)
+GET {{ProxiJob.Identity.API_HostAddress}}/api/plans/job-posts/quota
+Authorization: Bearer {{accessToken}}
+
+### Trừ 1 lượt sau khi đăng tin thành công (Job service gọi)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/job-posts/consume
 Authorization: Bearer {{accessToken}}
 
 ### Tạo đơn thanh toán (Mock — dev)

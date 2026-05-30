@@ -9,6 +9,7 @@ namespace ProxiJob.Identity.Application.Common.Interfaces
             string role,
             string subscriptionTier,
             int jobPostLimit,
+            int jobPostsUsed,
             IReadOnlyList<string> featureCodes,
             string? profileReadiness = null,
             decimal reputationScore = 0);

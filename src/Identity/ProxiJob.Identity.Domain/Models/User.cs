@@ -11,5 +11,6 @@ namespace ProxiJob.Identity.Domain.Models
         public string? PhoneNumber { get; set; }
         public string? AvatarUrl { get; set; }
         public bool IsActive { get; set; } = true;
+        public int JobPostsUsed { get; set; }
     }
 }
