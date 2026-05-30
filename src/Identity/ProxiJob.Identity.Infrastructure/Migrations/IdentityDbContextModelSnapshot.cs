@@ -22,6 +22,97 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ProxiJob.Identity.Domain.Models.PaymentOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdat");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("createdby");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expiresat");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("text")
+                        .HasColumnName("failurereason");
+
+                    b.Property<string>("Gateway")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("gateway");
+
+                    b.Property<string>("GatewayTransactionId")
+                        .HasColumnType("text")
+                        .HasColumnName("gatewaytransactionid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("isdeleted");
+
+                    b.Property<string>("OrderCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ordercode");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paidat");
+
+                    b.Property<string>("PaymentUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("paymenturl");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscriptionid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedat");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updatedby");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("userid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderCode")
+                        .IsUnique();
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("identity_paymentorders");
+                });
+
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.Permission", b =>
                 {
                     b.Property<int>("Id")
@@ -165,6 +256,102 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("identity_roles");
+                });
+
+            modelBuilder.Entity("ProxiJob.Identity.Domain.Models.StudentProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text")
+                        .HasColumnName("address");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text")
+                        .HasColumnName("bio");
+
+                    b.Property<string>("City")
+                        .HasColumnType("text")
+                        .HasColumnName("city");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdat");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dateofbirth");
+
+                    b.Property<string>("Gender")
+                        .HasColumnType("text")
+                        .HasColumnName("gender");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("isdeleted");
+
+                    b.Property<string>("Major")
+                        .HasColumnType("text")
+                        .HasColumnName("major");
+
+                    b.Property<string>("ReadinessStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("readinessstatus");
+
+                    b.Property<DateTime?>("ReadyForWorkAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("readyforworkat");
+
+                    b.Property<decimal>("ReputationScore")
+                        .HasColumnType("decimal(5,2)")
+                        .HasColumnName("reputationscore");
+
+                    b.Property<int>("ReviewCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("reviewcount");
+
+                    b.Property<string>("School")
+                        .HasColumnType("text")
+                        .HasColumnName("school");
+
+                    b.Property<string>("Skills")
+                        .HasColumnType("text")
+                        .HasColumnName("skills");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedat");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updatedby");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("userid");
+
+                    b.Property<int?>("YearOfStudy")
+                        .HasColumnType("integer")
+                        .HasColumnName("yearofstudy");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("identity_studentprofiles");
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.Subscription", b =>
@@ -576,6 +763,21 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.ToTable("identity_wallets");
                 });
 
+            modelBuilder.Entity("ProxiJob.Identity.Domain.Models.PaymentOrder", b =>
+                {
+                    b.HasOne("ProxiJob.Identity.Domain.Models.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProxiJob.Identity.Domain.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.RefreshToken", b =>
                 {
                     b.HasOne("ProxiJob.Identity.Domain.Models.User", null)
@@ -583,6 +785,17 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ProxiJob.Identity.Domain.Models.StudentProfile", b =>
+                {
+                    b.HasOne("ProxiJob.Identity.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.SubscriptionFeature", b =>

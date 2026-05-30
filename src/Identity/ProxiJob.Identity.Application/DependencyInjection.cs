@@ -21,6 +21,7 @@ namespace ProxiJob.Identity.Application
 
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
             services.AddScoped<IAuthSessionService, AuthSessionService>();
+            services.AddScoped<IPaymentService, PaymentService>();
 
             return services;
         }

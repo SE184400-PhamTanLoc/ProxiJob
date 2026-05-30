@@ -3,6 +3,16 @@ namespace ProxiJob.Identity.Application.Common.Messages
     public static class BusinessMessages
     {
         public const string RegisterSuccess = "Tạo tài khoản thành công.";
+        public const string RegisterStudentSuccess = "Tạo tài khoản thành công. Vui lòng đăng nhập và đăng ký hồ sơ năng lực (POST /api/student/profile/register).";
+        public const string ProfileRegistered = "Đăng ký hồ sơ năng lực thành công. Gọi POST /api/student/profile/activate khi sẵn sàng nhận việc.";
+        public const string ProfileAlreadyRegistered = "Hồ sơ đã được đăng ký. Dùng PUT /api/student/profile để sửa hoặc POST /api/student/profile/activate.";
+        public const string ProfileNotRegistered = "Chưa đăng ký hồ sơ. Vui lòng gọi POST /api/student/profile/register trước.";
+        public const string StudentProfileNotFound = "Không tìm thấy hồ sơ sinh viên.";
+        public const string StudentProfileOnly = "Chỉ tài khoản sinh viên mới sử dụng được tính năng này.";
+        public const string ProfileReadyForWork = "Hồ sơ đã sẵn sàng nhận việc.";
+        public const string ProfileAlreadyReady = "Hồ sơ đã ở trạng thái sẵn sàng nhận việc.";
+        public const string ProfileIncomplete = "Vui lòng bổ sung đủ thông tin: {0}.";
+        public const string ProfileNotReadyForWork = "Hồ sơ chưa sẵn sàng nhận việc. Vui lòng hoàn thiện hồ sơ trước.";
         public const string EmailInUse = "Email này đã được sử dụng.";
         public const string InvalidUserType = "Loại tài khoản không hợp lệ.";
         public const string InvalidCredentials = "Tài khoản hoặc mật khẩu không chính xác.";
@@ -24,5 +34,14 @@ namespace ProxiJob.Identity.Application.Common.Messages
         public const string RoleNotConfigured = "Vai trò hệ thống chưa được cấu hình.";
         public const string SubscriptionNotConfigured = "Gói dịch vụ chưa được cấu hình.";
         public const string FeatureNotAllowed = "Gói dịch vụ hiện tại không bao gồm tính năng này.";
+        public const string GatewayRequired = "Vui lòng chọn cổng thanh toán (Mock, VNPay, MoMo).";
+        public const string InvalidGateway = "Cổng thanh toán không hợp lệ. Chọn: Mock, VNPay, MoMo.";
+        public const string GatewayNotEnabled = "Cổng thanh toán chưa được cấu hình hoặc chưa bật.";
+        public const string PaymentOrderCreated = "Vui lòng hoàn tất thanh toán tại liên kết bên dưới.";
+        public const string PaymentOrderNotFound = "Không tìm thấy đơn thanh toán.";
+        public const string PaymentOrderAccessDenied = "Bạn không có quyền xem đơn thanh toán này.";
+        public const string PaymentNotCompleted = "Đơn thanh toán chưa được hoàn tất.";
+        public const string PaymentOrderExpired = "Đơn thanh toán đã hết hạn.";
+        public const string MockPaymentOnly = "Chỉ áp dụng cho đơn thanh toán Mock.";
     }
 }

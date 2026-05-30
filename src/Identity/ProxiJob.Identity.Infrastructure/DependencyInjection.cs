@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Domain.Constants;
 using ProxiJob.Identity.Infrastructure.Authorization;
+using ProxiJob.Identity.Infrastructure.Payments;
 using ProxiJob.Identity.Infrastructure.Repositories;
 using ProxiJob.Identity.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -22,10 +23,29 @@ namespace ProxiJob.Identity.Infrastructure
             services.AddScoped<IAuthRepository, AuthRepository>();
             services.AddScoped<IRoleRepository, RoleRepository>();
             services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+            services.AddScoped<IPaymentRepository, PaymentRepository>();
+            services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<IClientIpResolver, ClientIpResolver>();
             services.AddScoped<ITokenService, JwtTokenService>();
             services.AddScoped<IPasswordHasher, PasswordHasherService>();
             services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
+
+            services.Configure<PaymentSettings>(configuration.GetSection("PaymentSettings"));
+            services.Configure<VNPaySettings>(configuration.GetSection("VNPay"));
+            services.Configure<MoMoSettings>(configuration.GetSection("MoMo"));
+            services.AddHttpClient("MoMo");
+
+            services.AddScoped<MockPaymentGateway>();
+            services.AddScoped<IPaymentGateway>(sp => sp.GetRequiredService<MockPaymentGateway>());
+
+            services.AddScoped<VNPayPaymentGateway>();
+            services.AddScoped<IPaymentGateway>(sp => sp.GetRequiredService<VNPayPaymentGateway>());
+            services.AddScoped<IVNPayCallbackHandler>(sp => sp.GetRequiredService<VNPayPaymentGateway>());
+
+            services.AddScoped<MoMoPaymentGateway>();
+            services.AddScoped<IPaymentGateway>(sp => sp.GetRequiredService<MoMoPaymentGateway>());
+            services.AddScoped<IMoMoCallbackHandler>(sp => sp.GetRequiredService<MoMoPaymentGateway>());
 
             // JWT Authentication
             var secretKey = configuration["JwtSettings:SecretKey"]!;
@@ -73,6 +93,12 @@ namespace ProxiJob.Identity.Infrastructure
 
                 options.AddPolicy(PolicyNames.PriorityListing, policy =>
                     policy.Requirements.Add(new FeatureRequirement(FeatureCodes.PriorityListing)));
+
+                options.AddPolicy(PolicyNames.ReadyForWork, policy =>
+                {
+                    policy.RequireRole(RoleNames.Student);
+                    policy.RequireClaim(ClaimNames.ProfileReadiness, ProfileReadinessStatus.ReadyForWork);
+                });
             });
 
             return services;

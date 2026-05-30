@@ -108,6 +108,8 @@ namespace ProxiJob.Identity.API.Controllers
                 ?? Array.Empty<string>();
             var hasHrManagement = featureCodes.Contains(FeatureCodes.HrManagement);
             var hasPriorityDisplay = featureCodes.Contains(FeatureCodes.PriorityListing);
+            var profileReadiness = User.FindFirstValue(ClaimNames.ProfileReadiness);
+            var reputationScore = User.FindFirstValue(ClaimNames.ReputationScore);
 
             return Ok(new
             {
@@ -117,7 +119,9 @@ namespace ProxiJob.Identity.API.Controllers
                 subscriptionTier = tier,
                 jobPostLimit,
                 hasPriorityDisplay,
-                hasHrManagement
+                hasHrManagement,
+                profileReadiness,
+                reputationScore
             });
         }
     }

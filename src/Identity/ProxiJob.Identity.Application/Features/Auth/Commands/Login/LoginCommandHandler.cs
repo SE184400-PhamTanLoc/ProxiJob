@@ -2,7 +2,6 @@ using MediatR;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Application.DTOs;
-
 namespace ProxiJob.Identity.Application.Features.Auth.Commands.Login
 {
     public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthTokensDto>

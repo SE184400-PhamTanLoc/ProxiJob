@@ -8,5 +8,6 @@ namespace ProxiJob.Identity.Domain.Constants
         public const string WebPostJob = "Feature_WebPostJob";
         public const string HrManagement = "Feature_HrManagement";
         public const string PriorityListing = "Feature_PriorityListing";
+        public const string ReadyForWork = "ReadyForWork";
     }
 }

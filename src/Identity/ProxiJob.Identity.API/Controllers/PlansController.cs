@@ -42,7 +42,7 @@ namespace ProxiJob.Identity.API.Controllers
             }
         }
 
-        /// <summary>Mua hoặc đổi gói — body: { "planId": 1 } (id lấy từ GET /api/plans)</summary>
+        /// <summary>Tạo đơn thanh toán — body: { "planId": 1, "gateway": "Mock" | "VNPay" | "MoMo" }</summary>
         [HttpPost("purchase")]
         [Authorize]
         public async Task<IActionResult> PurchasePlan([FromBody] SubscribeCommand command, CancellationToken cancellationToken)

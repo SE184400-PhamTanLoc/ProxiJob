@@ -26,7 +26,14 @@ namespace ProxiJob.Identity.Infrastructure.Services
             _refreshTokenExpirationDays = int.Parse(configuration["JwtSettings:RefreshTokenExpirationDays"]!);
         }
 
-        public string GenerateAccessToken(User user, string role, string subscriptionTier, int jobPostLimit, IReadOnlyList<string> featureCodes)
+        public string GenerateAccessToken(
+            User user,
+            string role,
+            string subscriptionTier,
+            int jobPostLimit,
+            IReadOnlyList<string> featureCodes,
+            string? profileReadiness = null,
+            decimal reputationScore = 0)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -41,6 +48,12 @@ namespace ProxiJob.Identity.Infrastructure.Services
                 new(ClaimNames.Features, string.Join(",", featureCodes)),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            if (role == RoleNames.Student && !string.IsNullOrEmpty(profileReadiness))
+            {
+                claims.Add(new Claim(ClaimNames.ProfileReadiness, profileReadiness));
+                claims.Add(new Claim(ClaimNames.ReputationScore, reputationScore.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)));
+            }
 
             var token = new JwtSecurityToken(
                 issuer: _issuer,

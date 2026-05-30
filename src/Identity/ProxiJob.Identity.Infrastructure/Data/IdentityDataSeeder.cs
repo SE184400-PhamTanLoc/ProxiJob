@@ -13,6 +13,7 @@ namespace ProxiJob.Identity.Infrastructure.Data
             await SeedRolesAsync(context);
             await SyncSubscriptionPlansAsync(context);
             await SyncSubscriptionFeaturesAsync(context);
+            await EnsureStudentProfilesAsync(context);
             logger.LogInformation("Identity seed data applied.");
         }
 
@@ -139,6 +140,38 @@ namespace ProxiJob.Identity.Infrastructure.Data
                     await EnsureFeatureAsync(context, plan.Id, FeatureCodes.PriorityListing,
                         "Ưu tiên hiển thị tin tuyển dụng", ClientChannels.Web);
                 }
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        private static async Task EnsureStudentProfilesAsync(IdentityDbContext context)
+        {
+            var studentRoleId = await context.Roles
+                .Where(r => r.Name == RoleNames.Student)
+                .Select(r => r.Id)
+                .FirstOrDefaultAsync();
+
+            if (studentRoleId == 0)
+                return;
+
+            var studentUserIds = await context.UserRoles
+                .Where(ur => ur.RoleId == studentRoleId)
+                .Select(ur => ur.UserId)
+                .ToListAsync();
+
+            foreach (var userId in studentUserIds)
+            {
+                var exists = await context.StudentProfiles.AnyAsync(p => p.UserId == userId);
+                if (exists)
+                    continue;
+
+                await context.StudentProfiles.AddAsync(new StudentProfile
+                {
+                    UserId = userId,
+                    ReadinessStatus = ProfileReadinessStatus.Incomplete,
+                    CreatedBy = "System"
+                });
             }
 
             await context.SaveChangesAsync();
