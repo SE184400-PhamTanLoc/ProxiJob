@@ -7,18 +7,18 @@ using ProxiJob.Identity.Application.Services;
 using ProxiJob.Identity.Domain.Constants;
 using ProxiJob.Identity.Domain.Models;
 
-namespace ProxiJob.Identity.Application.Features.Students.Commands.RegisterStudentProfile
+namespace ProxiJob.Identity.Application.Features.Business.Commands.RegisterBusinessProfile
 {
-    public class RegisterStudentProfileCommandHandler : IRequestHandler<RegisterStudentProfileCommand, StudentProfileDto>
+    public class RegisterBusinessProfileCommandHandler : IRequestHandler<RegisterBusinessProfileCommand, BusinessProfileDto>
     {
         private readonly ICurrentUserService _currentUser;
-        private readonly IStudentProfileRepository _profileRepository;
+        private readonly IBusinessProfileRepository _profileRepository;
         private readonly IAuthRepository _authRepository;
         private readonly IUnitOfWork _unitOfWork;
 
-        public RegisterStudentProfileCommandHandler(
+        public RegisterBusinessProfileCommandHandler(
             ICurrentUserService currentUser,
-            IStudentProfileRepository profileRepository,
+            IBusinessProfileRepository profileRepository,
             IAuthRepository authRepository,
             IUnitOfWork unitOfWork)
         {
@@ -28,12 +28,12 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.RegisterStude
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<StudentProfileDto> Handle(RegisterStudentProfileCommand request, CancellationToken cancellationToken)
+        public async Task<BusinessProfileDto> Handle(RegisterBusinessProfileCommand request, CancellationToken cancellationToken)
         {
             if (_currentUser.UserId is not int userId)
                 throw new UnauthorizedAccessException(BusinessMessages.NotAuthenticated);
-            if (_currentUser.Role != RoleNames.Student)
-                throw new ForbiddenAccessException(BusinessMessages.StudentProfileOnly);
+            if (_currentUser.Role != RoleNames.Business)
+                throw new ForbiddenAccessException(BusinessMessages.BusinessProfileOnly);
 
             var user = await _authRepository.GetUserByIdAsync(userId, cancellationToken)
                 ?? throw new UnauthorizedAccessException(BusinessMessages.UserNotFound);
@@ -43,15 +43,15 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.RegisterStude
 
             if (profile != null)
             {
-                if (profile.ReadinessStatus == ProfileReadinessStatus.ReadyForWork)
-                    throw new InvalidOperationException(BusinessMessages.ProfileAlreadyRegistered);
+                if (profile.ReadinessStatus == ProfileReadinessStatus.ProfileComplete)
+                    throw new InvalidOperationException(BusinessMessages.BusinessProfileAlreadyComplete);
 
-                if (StudentProfileMapper.IsRegistered(profile))
-                    throw new InvalidOperationException(BusinessMessages.ProfileAlreadyRegistered);
+                if (BusinessProfileMapper.IsRegistered(profile))
+                    throw new InvalidOperationException(BusinessMessages.BusinessProfileAlreadyRegistered);
             }
             else
             {
-                profile = new StudentProfile
+                profile = new BusinessProfile
                 {
                     UserId = userId,
                     ReadinessStatus = ProfileReadinessStatus.Incomplete,
@@ -60,11 +60,11 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.RegisterStude
                 };
             }
 
-            StudentProfileMapper.ApplyFull(
+            BusinessProfileMapper.ApplyFull(
                 user, profile,
-                request.PhoneNumber, request.AvatarUrl, request.DateOfBirth, request.Gender,
-                request.Address, request.City, request.School, request.Major,
-                request.YearOfStudy, request.Bio, request.Skills);
+                request.PhoneNumber, request.AvatarUrl,
+                request.BusinessName, request.BusinessType,
+                request.Address, request.City, request.TaxCode, request.Description);
 
             profile.UpdatedAt = DateTime.UtcNow;
             profile.UpdatedBy = user.Email;
@@ -77,7 +77,7 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.RegisterStude
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             profile.User = user;
-            return StudentProfileMapper.ToDto(profile);
+            return BusinessProfileMapper.ToDto(profile);
         }
     }
 }

@@ -3,6 +3,15 @@ namespace ProxiJob.Identity.Application.Common.Messages
     public static class BusinessMessages
     {
         public const string RegisterSuccess = "Tạo tài khoản thành công. Bạn được đăng tối đa 3 tin miễn phí, sau đó cần mua gói dịch vụ.";
+        public const string RegisterBusinessSuccess = "Tạo tài khoản thành công. Vui lòng đăng nhập và đăng ký hồ sơ doanh nghiệp (POST /api/business/profile/register).";
+        public const string BusinessProfileRegistered = "Đăng ký hồ sơ doanh nghiệp thành công. Gọi POST /api/business/profile/activate khi đã đủ thông tin.";
+        public const string BusinessProfileAlreadyRegistered = "Hồ sơ doanh nghiệp đã được đăng ký. Dùng PUT /api/business/profile để sửa hoặc POST /api/business/profile/activate.";
+        public const string BusinessProfileNotRegistered = "Chưa đăng ký hồ sơ doanh nghiệp. Vui lòng gọi POST /api/business/profile/register trước.";
+        public const string BusinessProfileNotFound = "Không tìm thấy hồ sơ doanh nghiệp.";
+        public const string BusinessProfileOnly = "Chỉ tài khoản chủ quán mới sử dụng được tính năng này.";
+        public const string BusinessProfileComplete = "Hồ sơ doanh nghiệp đã hoàn thiện.";
+        public const string BusinessProfileAlreadyComplete = "Hồ sơ doanh nghiệp đã ở trạng thái hoàn thiện.";
+        public const string BusinessProfileNotComplete = "Hồ sơ doanh nghiệp chưa hoàn thiện. Vui lòng hoàn thiện hồ sơ trước.";
         public const string BusinessJobPostOnly = "Chỉ tài khoản chủ quán mới sử dụng được tính năng này.";
         public const string FreeTrialExhausted = "Bạn đã dùng hết 3 lần đăng tin miễn phí. Vui lòng mua gói dịch vụ tại POST /api/plans/purchase.";
         public const string JobPostLimitReached = "Đã đạt giới hạn số tin đăng của gói hiện tại. Vui lòng nâng cấp gói.";

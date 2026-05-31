@@ -56,9 +56,12 @@ namespace ProxiJob.Identity.Application.Features.Auth.Commands.Register
             await _roleRepository.AssignRoleToUserAsync(user.Id, roleName, request.Email, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var message = request.UserType == UserType.Student
-                ? BusinessMessages.RegisterStudentSuccess
-                : BusinessMessages.RegisterSuccess;
+            var message = request.UserType switch
+            {
+                UserType.Student => BusinessMessages.RegisterStudentSuccess,
+                UserType.Business => BusinessMessages.RegisterBusinessSuccess,
+                _ => BusinessMessages.RegisterSuccess
+            };
 
             return new MessageResponseDto { Message = message };
         }

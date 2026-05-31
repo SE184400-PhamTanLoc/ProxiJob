@@ -2,33 +2,32 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProxiJob.Identity.Application.Features.Students.Commands.CompleteStudentProfile;
-using ProxiJob.Identity.Application.Features.Students.Commands.RegisterStudentProfile;
-using ProxiJob.Identity.Application.Features.Students.Commands.UpdateMyStudentProfile;
-using ProxiJob.Identity.Application.Features.Students.Queries.GetMyStudentProfile;
 using ProxiJob.Identity.Application.Common.Messages;
+using ProxiJob.Identity.Application.Features.Business.Commands.CompleteBusinessProfile;
+using ProxiJob.Identity.Application.Features.Business.Commands.RegisterBusinessProfile;
+using ProxiJob.Identity.Application.Features.Business.Commands.UpdateMyBusinessProfile;
+using ProxiJob.Identity.Application.Features.Business.Queries.GetMyBusinessProfile;
 namespace ProxiJob.Identity.API.Controllers
 {
-    /// <summary>Hồ sơ năng lực sinh viên (E-Portfolio)</summary>
+    /// <summary>Hồ sơ doanh nghiệp / chủ quán</summary>
     [ApiController]
-    [Route("api/student/profile")]
+    [Route("api/business/profile")]
     [Authorize]
-    public class StudentProfileController : ControllerBase
+    public class BusinessProfileController : ControllerBase
     {
         private readonly IMediator _mediator;
 
-        public StudentProfileController(IMediator mediator) => _mediator = mediator;
+        public BusinessProfileController(IMediator mediator) => _mediator = mediator;
 
-        /// <summary>Đăng ký hồ sơ lần đầu (sau đăng ký tài khoản + đăng nhập)</summary>
         [HttpPost("register")]
         public async Task<IActionResult> RegisterProfile(
-            [FromBody] RegisterStudentProfileCommand command,
+            [FromBody] RegisterBusinessProfileCommand command,
             CancellationToken cancellationToken)
         {
             try
             {
                 var result = await _mediator.Send(command, cancellationToken);
-                return Ok(new { message = BusinessMessages.ProfileRegistered, profile = result });
+                return Ok(new { message = BusinessMessages.BusinessProfileRegistered, profile = result });
             }
             catch (ValidationException ex)
             {
@@ -44,13 +43,12 @@ namespace ProxiJob.Identity.API.Controllers
             }
         }
 
-        /// <summary>Xem hồ sơ + tiến độ hoàn thiện</summary>
         [HttpGet]
         public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
         {
             try
             {
-                var result = await _mediator.Send(new GetMyStudentProfileQuery(), cancellationToken);
+                var result = await _mediator.Send(new GetMyBusinessProfileQuery(), cancellationToken);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
@@ -63,10 +61,9 @@ namespace ProxiJob.Identity.API.Controllers
             }
         }
 
-        /// <summary>Sửa hồ sơ (sau khi đã đăng ký)</summary>
         [HttpPut]
         public async Task<IActionResult> UpdateProfile(
-            [FromBody] UpdateMyStudentProfileCommand command,
+            [FromBody] UpdateMyBusinessProfileCommand command,
             CancellationToken cancellationToken)
         {
             try
@@ -88,13 +85,12 @@ namespace ProxiJob.Identity.API.Controllers
             }
         }
 
-        /// <summary>Kích hoạt trạng thái Sẵn sàng nhận việc + token mới</summary>
         [HttpPost("activate")]
         public async Task<IActionResult> ActivateProfile(CancellationToken cancellationToken)
         {
             try
             {
-                var result = await _mediator.Send(new CompleteStudentProfileCommand(), cancellationToken);
+                var result = await _mediator.Send(new CompleteBusinessProfileCommand(), cancellationToken);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)

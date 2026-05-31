@@ -33,7 +33,7 @@ namespace ProxiJob.Identity.Infrastructure.Services
             int jobPostLimit,
             int jobPostsUsed,
             IReadOnlyList<string> featureCodes,
-            string? profileReadiness = null,
+            string? profileStatus = null,
             decimal reputationScore = 0)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
@@ -51,9 +51,11 @@ namespace ProxiJob.Identity.Infrastructure.Services
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
-            if (role == RoleNames.Student && !string.IsNullOrEmpty(profileReadiness))
+            if ((role == RoleNames.Student || role == RoleNames.Business) && !string.IsNullOrEmpty(profileStatus))
             {
-                claims.Add(new Claim(ClaimNames.ProfileReadiness, profileReadiness));
+                claims.Add(new Claim(ClaimNames.ProfileStatus, profileStatus));
+                if (role == RoleNames.Student)
+                    claims.Add(new Claim(ClaimNames.ProfileReadiness, profileStatus));
                 claims.Add(new Claim(ClaimNames.ReputationScore, reputationScore.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)));
             }
 

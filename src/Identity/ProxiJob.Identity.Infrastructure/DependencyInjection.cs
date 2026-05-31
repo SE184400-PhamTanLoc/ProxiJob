@@ -25,6 +25,7 @@ namespace ProxiJob.Identity.Infrastructure
             services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
             services.AddScoped<IPaymentRepository, PaymentRepository>();
             services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
+            services.AddScoped<IBusinessProfileRepository, BusinessProfileRepository>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IClientIpResolver, ClientIpResolver>();
             services.AddScoped<ITokenService, JwtTokenService>();
@@ -97,7 +98,13 @@ namespace ProxiJob.Identity.Infrastructure
                 options.AddPolicy(PolicyNames.ReadyForWork, policy =>
                 {
                     policy.RequireRole(RoleNames.Student);
-                    policy.RequireClaim(ClaimNames.ProfileReadiness, ProfileReadinessStatus.ReadyForWork);
+                    policy.RequireClaim(ClaimNames.ProfileStatus, ProfileReadinessStatus.ReadyForWork);
+                });
+
+                options.AddPolicy(PolicyNames.ProfileComplete, policy =>
+                {
+                    policy.RequireRole(RoleNames.Business);
+                    policy.RequireClaim(ClaimNames.ProfileStatus, ProfileReadinessStatus.ProfileComplete);
                 });
             });
 

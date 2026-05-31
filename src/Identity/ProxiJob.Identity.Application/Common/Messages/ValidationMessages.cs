@@ -30,5 +30,12 @@ namespace ProxiJob.Identity.Application.Common.Messages
         public const string SkillsMaxLength = "Kỹ năng tối đa 500 ký tự.";
         public const string AvatarUrlMaxLength = "Link ảnh đại diện tối đa 500 ký tự.";
         public const string ProfileValidationFailed = "Thông tin hồ sơ chưa hợp lệ: {0}";
+        public const string BusinessNameRequired = "Tên quán / doanh nghiệp không được để trống.";
+        public const string BusinessNameMaxLength = "Tên quán tối đa 200 ký tự.";
+        public const string BusinessTypeRequired = "Loại hình kinh doanh không được để trống.";
+        public const string BusinessTypeInvalid = "Loại hình phải là: Cafe, NhaHang, Bar, FastFood, Bakery hoặc Khac.";
+        public const string BusinessDescriptionMinLength = "Mô tả quán phải có ít nhất 20 ký tự.";
+        public const string BusinessDescriptionMaxLength = "Mô tả tối đa 2000 ký tự.";
+        public const string TaxCodeInvalid = "Mã số thuế không hợp lệ (10 số hoặc 10-3).";
     }
 }
