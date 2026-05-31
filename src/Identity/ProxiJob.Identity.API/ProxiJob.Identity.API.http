@@ -1,6 +1,6 @@
 @ProxiJob.Identity.API_HostAddress = https://localhost:7159
 
-### Đăng ký Chủ quán → 3 tin miễn phí (không gán gói trả phí), sau đó login
+### Đăng ký Chủ quán
 POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
 Content-Type: application/json
 
@@ -12,7 +12,7 @@ Content-Type: application/json
   "userType": 1
 }
 
-### Đăng nhập → accessToken, refreshToken, expiration
+### Đăng nhập
 POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/login
 Content-Type: application/json
 
@@ -21,58 +21,29 @@ Content-Type: application/json
   "password": "Password1!"
 }
 
-### Danh sách gói dịch vụ (public) — lấy id từng gói
+### Danh sách gói
 GET {{ProxiJob.Identity.API_HostAddress}}/api/plans
 
-### Gói đang dùng + hạn mức đăng tin (subscriptionTier: Trial, jobPostLimit: 3)
+### Gói hiện tại
 GET {{ProxiJob.Identity.API_HostAddress}}/api/plans/current
 Authorization: Bearer {{accessToken}}
 
-### Hạn mức đăng tin (chủ quán)
-GET {{ProxiJob.Identity.API_HostAddress}}/api/plans/job-posts/quota
-Authorization: Bearer {{accessToken}}
-
-### Trừ 1 lượt sau khi đăng tin thành công (Job service gọi)
-POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/job-posts/consume
-Authorization: Bearer {{accessToken}}
-
-### Tạo đơn thanh toán (Mock — dev)
+### Tạo đơn chuyển khoản (QR + mã nội dung)
 POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/purchase
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "planId": 3,
-  "gateway": "Mock"
+  "planId": 3
 }
 
-### Xác nhận thanh toán Mock (thay cho bấm link paymentUrl)
-POST {{ProxiJob.Identity.API_HostAddress}}/api/payments/mock/confirm/1
+### Xem QR tĩnh (trình duyệt)
+GET {{ProxiJob.Identity.API_HostAddress}}/images/payment-qr.jpg
 
-### Kiểm tra trạng thái đơn
+### Trạng thái đơn
 GET {{ProxiJob.Identity.API_HostAddress}}/api/payments/1
 Authorization: Bearer {{accessToken}}
 
-### Lấy JWT sau khi Paid
+### JWT sau khi Paid
 POST {{ProxiJob.Identity.API_HostAddress}}/api/payments/1/session
 Authorization: Bearer {{accessToken}}
-
-### Tạo đơn VNPay (cần bật VNPay trong appsettings)
-POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/purchase
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "planId": 3,
-  "gateway": "VNPay"
-}
-
-### Tạo đơn MoMo (cần bật MoMo trong appsettings)
-POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/purchase
-Authorization: Bearer {{accessToken}}
-Content-Type: application/json
-
-{
-  "planId": 3,
-  "gateway": "MoMo"
-}

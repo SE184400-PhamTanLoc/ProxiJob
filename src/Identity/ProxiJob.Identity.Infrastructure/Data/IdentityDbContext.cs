@@ -93,6 +93,8 @@ namespace ProxiJob.Identity.Infrastructure.Data
                 e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
                 e.Property(x => x.ExpiresAt).HasColumnType("timestamp with time zone");
                 e.Property(x => x.PaidAt).HasColumnType("timestamp with time zone");
+                e.Property(x => x.ConfirmedBy).HasMaxLength(256);
+                e.Property(x => x.AdminNote).HasMaxLength(500);
                 e.HasIndex(x => x.OrderCode).IsUnique();
                 e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<Subscription>().WithMany().HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Restrict);

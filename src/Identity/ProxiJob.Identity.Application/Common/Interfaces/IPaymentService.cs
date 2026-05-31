@@ -1,5 +1,4 @@
 using ProxiJob.Identity.Application.DTOs;
-using ProxiJob.Identity.Domain.Enums;
 
 namespace ProxiJob.Identity.Application.Common.Interfaces
 {
@@ -8,19 +7,24 @@ namespace ProxiJob.Identity.Application.Common.Interfaces
         Task<PurchasePlanResponseDto> InitiatePurchaseAsync(
             int userId,
             int planId,
-            PaymentGatewayType gateway,
-            string clientIp,
             CancellationToken cancellationToken = default);
 
         Task<PaymentOrderStatusDto> GetOrderStatusAsync(int orderId, int userId, CancellationToken cancellationToken = default);
 
         Task<AuthTokensDto?> IssueTokensIfPaidAsync(int orderId, int userId, CancellationToken cancellationToken = default);
 
-        Task<bool> ProcessCallbackAsync(
-            PaymentGatewayType gateway,
-            IReadOnlyDictionary<string, string> parameters,
+        Task<IReadOnlyList<AdminPaymentOrderDto>> GetPendingBankTransferOrdersAsync(CancellationToken cancellationToken = default);
+
+        Task<AdminPaymentOrderDto> ConfirmBankTransferOrderAsync(
+            int orderId,
+            string adminEmail,
+            string? adminNote,
             CancellationToken cancellationToken = default);
 
-        Task<bool> ConfirmMockPaymentAsync(int orderId, CancellationToken cancellationToken = default);
+        Task<AdminPaymentOrderDto> RejectBankTransferOrderAsync(
+            int orderId,
+            string adminEmail,
+            string? adminNote,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -10,5 +10,6 @@ namespace ProxiJob.Identity.Domain.Constants
         public const string PriorityListing = "Feature_PriorityListing";
         public const string ReadyForWork = "ReadyForWork";
         public const string ProfileComplete = "ProfileComplete";
+        public const string AdminOnly = "AdminOnly";
     }
 }

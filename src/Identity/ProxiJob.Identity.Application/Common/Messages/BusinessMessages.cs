@@ -46,14 +46,16 @@ namespace ProxiJob.Identity.Application.Common.Messages
         public const string RoleNotConfigured = "Vai trò hệ thống chưa được cấu hình.";
         public const string SubscriptionNotConfigured = "Gói dịch vụ chưa được cấu hình.";
         public const string FeatureNotAllowed = "Gói dịch vụ hiện tại không bao gồm tính năng này.";
-        public const string GatewayRequired = "Vui lòng chọn cổng thanh toán (Mock, VNPay, MoMo).";
-        public const string InvalidGateway = "Cổng thanh toán không hợp lệ. Chọn: Mock, VNPay, MoMo.";
-        public const string GatewayNotEnabled = "Cổng thanh toán chưa được cấu hình hoặc chưa bật.";
+        public const string BankTransferOnly = "Chỉ áp dụng cho đơn chuyển khoản ngân hàng.";
+        public const string BankTransferNotConfigured = "Chưa cấu hình thông tin chuyển khoản (BankTransfer trong appsettings).";
+        public const string PaymentOrderNotPending = "Đơn thanh toán không ở trạng thái chờ xác nhận.";
+        public const string PaymentConfirmed = "Đã xác nhận thanh toán và kích hoạt gói dịch vụ.";
+        public const string PaymentRejected = "Đã từ chối đơn thanh toán.";
+        public const string AdminOnly = "Chỉ tài khoản quản trị mới sử dụng được tính năng này.";
         public const string PaymentOrderCreated = "Vui lòng hoàn tất thanh toán tại liên kết bên dưới.";
         public const string PaymentOrderNotFound = "Không tìm thấy đơn thanh toán.";
         public const string PaymentOrderAccessDenied = "Bạn không có quyền xem đơn thanh toán này.";
         public const string PaymentNotCompleted = "Đơn thanh toán chưa được hoàn tất.";
         public const string PaymentOrderExpired = "Đơn thanh toán đã hết hạn.";
-        public const string MockPaymentOnly = "Chỉ áp dụng cho đơn thanh toán Mock.";
     }
 }

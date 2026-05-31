@@ -27,6 +27,25 @@ namespace ProxiJob.Identity.Infrastructure.Repositories
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync(cancellationToken);
 
+        public async Task<IReadOnlyList<PaymentOrder>> GetByStatusAsync(
+            PaymentOrderStatus status,
+            PaymentGatewayType? gateway,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.PaymentOrders.AsQueryable()
+                .Where(o => o.Status == status);
+
+            if (gateway.HasValue)
+                query = query.Where(o => o.Gateway == gateway.Value);
+
+            return await query
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public Task<PaymentOrder?> GetByIdWithUserAsync(int id, CancellationToken cancellationToken = default)
+            => GetByIdAsync(id, cancellationToken);
+
         public async Task AddAsync(PaymentOrder order, CancellationToken cancellationToken = default)
             => await _context.PaymentOrders.AddAsync(order, cancellationToken);
 

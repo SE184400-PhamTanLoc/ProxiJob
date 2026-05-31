@@ -8,6 +8,8 @@ namespace ProxiJob.Identity.Application.Common.Interfaces
         Task<PaymentOrder?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
         Task<PaymentOrder?> GetByOrderCodeAsync(string orderCode, CancellationToken cancellationToken = default);
         Task<PaymentOrder?> GetPendingByUserAndPlanAsync(int userId, int planId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<PaymentOrder>> GetByStatusAsync(PaymentOrderStatus status, PaymentGatewayType? gateway, CancellationToken cancellationToken = default);
+        Task<PaymentOrder?> GetByIdWithUserAsync(int id, CancellationToken cancellationToken = default);
         Task AddAsync(PaymentOrder order, CancellationToken cancellationToken = default);
         Task UpdateAsync(PaymentOrder order, CancellationToken cancellationToken = default);
     }
