@@ -1,7 +1,7 @@
-using ProxiJob.Management.Application.Common.Interfaces;
+using ProxiJob.Job.Application.Common.Interfaces;
 using ProxiJob.Shared.Contract.Identity;
 
-namespace ProxiJob.Management.API.Services;
+namespace ProxiJob.Job.API.Services;
 
 public class CurrentUserService : ICurrentUserService
 {

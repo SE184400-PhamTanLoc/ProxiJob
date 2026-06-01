@@ -18,13 +18,13 @@ namespace ProxiJob.Job.Application.Features.Applications.Commands
     public class ApplyShiftCommandHandler : IRequestHandler<ApplyShiftCommand, int>
     {
         private readonly IJobDbContext _context;
-        private readonly IIdentityServiceGrpcClient _identityService;
+        private readonly IIdentityGrpcClient _identityGrpc;
         private readonly IPublishEndpoint _publishEndpoint;
 
-        public ApplyShiftCommandHandler(IJobDbContext context, IIdentityServiceGrpcClient identityService, IPublishEndpoint publishEndpoint)
+        public ApplyShiftCommandHandler(IJobDbContext context, IIdentityGrpcClient identityGrpc, IPublishEndpoint publishEndpoint)
         {
             _context = context;
-            _identityService = identityService;
+            _identityGrpc = identityGrpc;
             _publishEndpoint = publishEndpoint;
         }
 
@@ -57,22 +57,14 @@ namespace ProxiJob.Job.Application.Features.Applications.Commands
             if (conflictingApp != null)
                 throw new Exception("You have an approved shift that conflicts with this time.");
 
-            string CVUrl = null;
-            try 
-            {
-                CVUrl = await _identityService.GetStudentCVUrlAsync(request.StudentId, cancellationToken);
-            }
-            catch 
-            {
-                // Fallback or log
-            }
+            var cvUrl = await _identityGrpc.GetStudentCVUrlAsync(request.StudentId, cancellationToken);
 
             var application = new Domain.Models.Application
             {
                 JobShiftId = request.ShiftId,
                 StudentId = request.StudentId,
                 Introduction = request.Introduction,
-                CVUrl = CVUrl,
+                CVUrl = cvUrl,
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = request.CreatedBy,

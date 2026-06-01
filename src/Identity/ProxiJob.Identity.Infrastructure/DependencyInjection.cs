@@ -7,6 +7,7 @@ using ProxiJob.Identity.Domain.Constants;
 using ProxiJob.Identity.Infrastructure.Authorization;
 using ProxiJob.Identity.Infrastructure.Payments;
 using ProxiJob.Identity.Infrastructure.Repositories;
+using ProxiJob.Identity.Application.Services;
 using ProxiJob.Identity.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Text;
@@ -28,6 +29,8 @@ namespace ProxiJob.Identity.Infrastructure
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IClientIpResolver, ClientIpResolver>();
             services.AddScoped<ITokenService, JwtTokenService>();
+            services.AddScoped<IAccessTokenValidator, JwtAccessTokenValidator>();
+            services.AddScoped<IUserContextService, UserContextService>();
             services.AddScoped<IPasswordHasher, PasswordHasherService>();
             services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
 

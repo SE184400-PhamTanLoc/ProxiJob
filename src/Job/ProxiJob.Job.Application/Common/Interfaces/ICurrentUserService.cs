@@ -1,6 +1,6 @@
 using ProxiJob.Shared.Contract.Identity;
 
-namespace ProxiJob.Management.Application.Common.Interfaces;
+namespace ProxiJob.Job.Application.Common.Interfaces;
 
 public interface ICurrentUserService
 {

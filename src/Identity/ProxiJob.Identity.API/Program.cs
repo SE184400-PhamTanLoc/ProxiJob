@@ -3,6 +3,7 @@ using ProxiJob.Identity.API.Filters;
 using ProxiJob.Identity.Application;
 using ProxiJob.Identity.Infrastructure;
 using ProxiJob.Identity.Infrastructure.Data;
+using ProxiJob.Identity.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,8 @@ builder.Services.AddApplication();
 
 // --- Infrastructure Layer (Repositories + JWT Auth) ---
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddGrpc();
 
 builder.Services.AddControllers(options =>
     options.Filters.Add<ForbiddenAccessExceptionFilter>());
@@ -69,5 +72,6 @@ await IdentityDatabaseInitializer.InitializeAsync(
     app.Logger);
 
 app.MapControllers();
+app.MapGrpcService<IdentityGrpcServiceImpl>();
 
 app.Run();

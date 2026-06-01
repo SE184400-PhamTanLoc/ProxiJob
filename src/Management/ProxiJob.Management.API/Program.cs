@@ -14,6 +14,7 @@ builder.Services.AddDbContext<ManagementDbContext>(options =>
         b => b.MigrationsAssembly("ProxiJob.Management.Infrastructure")));
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ProxiJob.Management.Application.Common.Interfaces.IIdentityGrpcClient, ProxiJob.Management.Infrastructure.Services.IdentityGrpcClient>();
 builder.Services.AddScoped<ProxiJob.Management.Application.Common.Interfaces.ICurrentUserService, ProxiJob.Management.API.Services.CurrentUserService>();
 builder.Services.AddScoped<ProxiJob.Management.Application.Common.Interfaces.IManagementDbContext>(provider => provider.GetRequiredService<ManagementDbContext>());
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ProxiJob.Management.Application.Features.Employees.Commands.CreateEmployeeCommand).Assembly));
@@ -60,6 +61,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ProxiJob.Management.API.Middleware.IdentityUserContextMiddleware>();
 
 app.UseAuthorization();
 

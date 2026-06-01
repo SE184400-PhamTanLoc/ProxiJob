@@ -109,7 +109,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("identity_businessprofiles");
+                    b.ToTable("identity_businessprofiles", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.PaymentOrder", b =>
@@ -210,7 +210,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("identity_paymentorders");
+                    b.ToTable("identity_paymentorders", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.Permission", b =>
@@ -254,7 +254,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_permissions");
+                    b.ToTable("identity_permissions", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.RefreshToken", b =>
@@ -311,7 +311,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("identity_refreshtokens");
+                    b.ToTable("identity_refreshtokens", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.Role", b =>
@@ -355,7 +355,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_roles");
+                    b.ToTable("identity_roles", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.StudentProfile", b =>
@@ -458,7 +458,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("identity_studentprofiles");
+                    b.ToTable("identity_studentprofiles", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.Subscription", b =>
@@ -535,7 +535,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_subscriptions");
+                    b.ToTable("identity_subscriptions", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.SubscriptionFeature", b =>
@@ -592,7 +592,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.HasIndex("SubscriptionId", "Code")
                         .IsUnique();
 
-                    b.ToTable("identity_subscriptionfeatures");
+                    b.ToTable("identity_subscriptionfeatures", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.Transaction", b =>
@@ -646,7 +646,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasIndex("WalletId");
 
-                    b.ToTable("identity_transactions");
+                    b.ToTable("identity_transactions", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.User", b =>
@@ -717,7 +717,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("identity_users");
+                    b.ToTable("identity_users", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.UserRole", b =>
@@ -765,7 +765,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("identity_userroles");
+                    b.ToTable("identity_userroles", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.UserSubscription", b =>
@@ -825,7 +825,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("identity_usersubscriptions");
+                    b.ToTable("identity_usersubscriptions", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.Wallet", b =>
@@ -871,7 +871,7 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("identity_wallets");
+                    b.ToTable("identity_wallets", (string)null);
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.BusinessProfile", b =>

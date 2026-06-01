@@ -13,7 +13,9 @@ builder.Services.AddDbContext<JobDbContext>(options =>
         b => b.MigrationsAssembly("ProxiJob.Job.Infrastructure")));
 
 builder.Services.AddScoped<ProxiJob.Job.Application.Common.Interfaces.IJobDbContext>(provider => provider.GetRequiredService<JobDbContext>());
-builder.Services.AddScoped<ProxiJob.Job.Application.Common.Interfaces.IIdentityServiceGrpcClient, ProxiJob.Job.Infrastructure.Services.IdentityServiceGrpcClient>();
+builder.Services.AddSingleton<ProxiJob.Job.Application.Common.Interfaces.IIdentityGrpcClient, ProxiJob.Job.Infrastructure.Services.IdentityGrpcClient>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ProxiJob.Job.Application.Common.Interfaces.ICurrentUserService, ProxiJob.Job.API.Services.CurrentUserService>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ProxiJob.Job.Application.Features.Categories.Commands.CreateCategoryCommand).Assembly));
 // ------------------
 
@@ -45,6 +47,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ProxiJob.Job.API.Middleware.IdentityUserContextMiddleware>();
 
 app.UseAuthorization();
 
