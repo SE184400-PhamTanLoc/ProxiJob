@@ -6,4 +6,23 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ProxiJob.Management.Application\ProxiJob.Management.Application.csproj" />
+    <ProjectReference Include="..\ProxiJob.Management.Domain\ProxiJob.Management.Domain.csproj" />
+    <ProjectReference Include="..\..\..\common\ProxiJob.Shared.Kernel\ProxiJob.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\..\common\ProxiJob.Shared.Contract\ProxiJob.Shared.Contract.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.4" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.2" />
+    <PackageReference Include="MassTransit" Version="8.2.2" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.2.2" />
+  </ItemGroup>
+
 </Project>

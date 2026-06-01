@@ -86,9 +86,12 @@ namespace ProxiJob.Job.Application.Features.Applications.Commands
                 await _publishEndpoint.Publish(new ApplicationApprovedEvent(
                     application.Id,
                     application.StudentId,
+                    application.JobShift.JobPost.BusinessId,
+                    application.JobShiftId,
                     application.JobShift.JobPost.Title,
                     application.JobShift.StartTime,
-                    application.JobShift.EndTime
+                    application.JobShift.EndTime,
+                    application.JobShift.Salary
                 ), cancellationToken);
 
                 if (application.JobShift.RemainingSlots == 0)

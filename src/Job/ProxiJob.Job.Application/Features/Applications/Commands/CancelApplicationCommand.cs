@@ -62,6 +62,8 @@ namespace ProxiJob.Job.Application.Features.Applications.Commands
                 await _publishEndpoint.Publish(new ApplicationCancelledEvent(
                     application.Id,
                     application.StudentId,
+                    application.JobShift.JobPost.BusinessId,
+                    application.JobShiftId,
                     application.JobShift.JobPost.Title,
                     request.Note
                 ), cancellationToken);

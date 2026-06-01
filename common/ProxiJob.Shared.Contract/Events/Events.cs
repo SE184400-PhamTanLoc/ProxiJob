@@ -33,9 +33,12 @@ namespace ProxiJob.Shared.Contract.Events
     public record ApplicationApprovedEvent(
         int ApplicationId,
         int StudentId,
+        int BusinessId,
+        int JobShiftId,
         string JobTitle,
         DateTime ShiftStartTime,
-        DateTime ShiftEndTime
+        DateTime ShiftEndTime,
+        decimal Salary
     );
 
     public record ApplicationRejectedEvent(
@@ -48,7 +51,28 @@ namespace ProxiJob.Shared.Contract.Events
     public record ApplicationCancelledEvent(
         int ApplicationId,
         int StudentId,
+        int BusinessId,
+        int JobShiftId,
         string JobTitle,
         string Note
+    );
+
+    // ── Management Service Events ──────────────────────────────
+
+    public record EmployeeAbsentEvent(
+        int EmployeeId,
+        int BusinessId,
+        int WorkScheduleId,
+        DateOnly Date,
+        string EmployeeName
+    );
+
+    public record PayrollPaidEvent(
+        int PayrollId,
+        int EmployeeId,
+        int BusinessId,
+        decimal FinalAmount,
+        DateOnly PayDate,
+        string EmployeeName
     );
 }
