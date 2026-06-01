@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using ProxiJob.Identity.Application.Common.Interfaces;
+using ProxiJob.Identity.Domain.Constants;
 using ProxiJob.Identity.Domain.Models;
 
 namespace ProxiJob.Identity.Infrastructure.Services
@@ -25,18 +26,38 @@ namespace ProxiJob.Identity.Infrastructure.Services
             _refreshTokenExpirationDays = int.Parse(configuration["JwtSettings:RefreshTokenExpirationDays"]!);
         }
 
-        public string GenerateAccessToken(User user, string role)
+        public string GenerateAccessToken(
+            User user,
+            string role,
+            string subscriptionTier,
+            int jobPostLimit,
+            int jobPostsUsed,
+            IReadOnlyList<string> featureCodes,
+            string? profileStatus = null,
+            decimal reputationScore = 0)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(ClaimTypes.Role, role),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new(JwtRegisteredClaimNames.Email, user.Email),
+                new(ClaimTypes.Role, role),
+                new(ClaimNames.SubscriptionTier, subscriptionTier),
+                new(ClaimNames.JobPostLimit, jobPostLimit.ToString()),
+                new(ClaimNames.JobPostsUsed, jobPostsUsed.ToString()),
+                new(ClaimNames.Features, string.Join(",", featureCodes)),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            if ((role == RoleNames.Student || role == RoleNames.Business) && !string.IsNullOrEmpty(profileStatus))
+            {
+                claims.Add(new Claim(ClaimNames.ProfileStatus, profileStatus));
+                if (role == RoleNames.Student)
+                    claims.Add(new Claim(ClaimNames.ProfileReadiness, profileStatus));
+                claims.Add(new Claim(ClaimNames.ReputationScore, reputationScore.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)));
+            }
 
             var token = new JwtSecurityToken(
                 issuer: _issuer,

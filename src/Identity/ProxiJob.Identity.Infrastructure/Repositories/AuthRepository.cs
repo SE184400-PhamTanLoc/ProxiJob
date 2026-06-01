@@ -24,6 +24,13 @@ namespace ProxiJob.Identity.Infrastructure.Repositories
         public async Task AddUserAsync(User user, CancellationToken cancellationToken = default)
             => await _context.Users.AddAsync(user, cancellationToken);
 
+        public Task UpdateUserAsync(User user, CancellationToken cancellationToken = default)
+        {
+            user.UpdatedAt = DateTime.UtcNow;
+            _context.Users.Update(user);
+            return Task.CompletedTask;
+        }
+
         public async Task<RefreshToken?> GetRefreshTokenAsync(string token, CancellationToken cancellationToken = default)
             => await _context.RefreshTokens
                 .FirstOrDefaultAsync(t => t.Token == token, cancellationToken);

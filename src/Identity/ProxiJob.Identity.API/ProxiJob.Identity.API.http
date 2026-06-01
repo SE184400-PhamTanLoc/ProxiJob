@@ -1,6 +1,49 @@
-@ProxiJob.Identity.API_HostAddress = http://localhost:5231
+@ProxiJob.Identity.API_HostAddress = https://localhost:7159
 
-GET {{ProxiJob.Identity.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Đăng ký Chủ quán
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
+Content-Type: application/json
 
-###
+{
+  "fullName": "Tran Thi B",
+  "email": "business@example.com",
+  "password": "Password1!",
+  "confirmPassword": "Password1!",
+  "userType": 1
+}
+
+### Đăng nhập
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "business@example.com",
+  "password": "Password1!"
+}
+
+### Danh sách gói
+GET {{ProxiJob.Identity.API_HostAddress}}/api/plans
+
+### Gói hiện tại
+GET {{ProxiJob.Identity.API_HostAddress}}/api/plans/current
+Authorization: Bearer {{accessToken}}
+
+### Tạo đơn chuyển khoản (QR + mã nội dung)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/purchase
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "planId": 3
+}
+
+### Xem QR tĩnh (trình duyệt)
+GET {{ProxiJob.Identity.API_HostAddress}}/images/payment-qr.jpg
+
+### Trạng thái đơn
+GET {{ProxiJob.Identity.API_HostAddress}}/api/payments/1
+Authorization: Bearer {{accessToken}}
+
+### JWT sau khi Paid
+POST {{ProxiJob.Identity.API_HostAddress}}/api/payments/1/session
+Authorization: Bearer {{accessToken}}

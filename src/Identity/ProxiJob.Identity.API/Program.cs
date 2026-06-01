@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ProxiJob.Identity.API.Filters;
 using ProxiJob.Identity.Application;
 using ProxiJob.Identity.Infrastructure;
 using ProxiJob.Identity.Infrastructure.Data;
@@ -17,7 +18,8 @@ builder.Services.AddApplication();
 // --- Infrastructure Layer (Repositories + JWT Auth) ---
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+    options.Filters.Add<ForbiddenAccessExceptionFilter>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -57,9 +59,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+await IdentityDatabaseInitializer.InitializeAsync(
+    app.Services,
+    app.Logger);
 
 app.MapControllers();
 
