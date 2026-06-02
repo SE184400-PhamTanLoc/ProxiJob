@@ -6,7 +6,7 @@ using ProxiJob.Job.Application.Features.Applications.Queries;
 namespace ProxiJob.Job.API.Controllers
 {
     [ApiController]
-    public class ApplicationsController : ControllerBase
+    public class ApplicationsController : ApiControllerBase
     {
         private readonly IMediator _mediator;
 

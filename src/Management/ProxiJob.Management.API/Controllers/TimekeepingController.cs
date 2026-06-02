@@ -9,7 +9,7 @@ using ProxiJob.Management.Application.Features.Timekeepings.Queries;
 namespace ProxiJob.Management.API.Controllers;
 
 [ApiController]
-public class TimekeepingController : ControllerBase
+public class TimekeepingController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -56,7 +56,7 @@ public class TimekeepingController : ControllerBase
         command.UserId = GetUserId();
         command.UpdatedBy = GetCurrentUser();
         await _mediator.Send(command);
-        return NoContent();
+        return Ok();
     }
 
     [HttpPost("api/timekeeping/manual")]
@@ -77,7 +77,7 @@ public class TimekeepingController : ControllerBase
         command.BusinessId = GetBusinessId();
         command.UpdatedBy = GetCurrentUser();
         await _mediator.Send(command);
-        return NoContent();
+        return Ok();
     }
 
     [HttpGet("api/timekeeping")]

@@ -22,19 +22,31 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Proxi
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "ProxiJob Job API", Version = "v1" });
+});
 builder.Services.AddGrpc();
 
+var useRabbitMq = builder.Configuration.GetValue<bool?>("RabbitMQ:Enabled")
+    ?? !builder.Environment.IsDevelopment();
 builder.Services.AddMassTransit(x =>
 {
-    x.UsingRabbitMq((context, cfg) =>
+    if (useRabbitMq)
     {
-        cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host") ?? "localhost", "/", h =>
+        x.UsingRabbitMq((context, cfg) =>
         {
-            h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username") ?? "guest");
-            h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
+            cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host") ?? "localhost", "/", h =>
+            {
+                h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username") ?? "guest");
+                h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
+            });
         });
-    });
+    }
+    else
+    {
+        x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+    }
 });
 
 var app = builder.Build();
@@ -44,9 +56,12 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 }
-
-app.UseHttpsRedirection();
+else
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseMiddleware<ProxiJob.Job.API.Middleware.IdentityUserContextMiddleware>();
 

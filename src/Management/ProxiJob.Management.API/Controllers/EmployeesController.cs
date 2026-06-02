@@ -8,7 +8,7 @@ namespace ProxiJob.Management.API.Controllers;
 
 [ApiController]
 [Route("api/employees")]
-public class EmployeesController : ControllerBase
+public class EmployeesController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 

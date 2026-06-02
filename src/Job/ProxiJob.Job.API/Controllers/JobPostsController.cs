@@ -7,7 +7,7 @@ namespace ProxiJob.Job.API.Controllers
 {
     [ApiController]
     [Route("api/job-posts")]
-    public class JobPostsController : ControllerBase
+    public class JobPostsController : ApiControllerBase
     {
         private readonly IMediator _mediator;
 

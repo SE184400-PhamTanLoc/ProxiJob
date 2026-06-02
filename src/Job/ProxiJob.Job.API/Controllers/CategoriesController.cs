@@ -7,7 +7,7 @@ namespace ProxiJob.Job.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class CategoriesController : ControllerBase
+    public class CategoriesController : ApiControllerBase
     {
         private readonly IMediator _mediator;
 
@@ -20,7 +20,7 @@ namespace ProxiJob.Job.API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var result = await _mediator.Send(new GetAllCategoriesQuery());
-            return Ok(new { success = true, data = result });
+            return Ok(result);
         }
 
         [HttpPost]
@@ -31,11 +31,11 @@ namespace ProxiJob.Job.API.Controllers
             try
             {
                 var id = await _mediator.Send(command);
-                return Created($"/api/categories/{id}", new { success = true, data = id });
+                return Created($"/api/categories/{id}", id);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
 
@@ -48,12 +48,12 @@ namespace ProxiJob.Job.API.Controllers
             try
             {
                 var success = await _mediator.Send(command);
-                if (!success) return NotFound(new { success = false, message = "Category not found" });
-                return Ok(new { success = true });
+                if (!success) return NotFound("Category not found");
+                return Ok(true);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
 
@@ -69,12 +69,12 @@ namespace ProxiJob.Job.API.Controllers
             try
             {
                 var success = await _mediator.Send(command);
-                if (!success) return NotFound(new { success = false, message = "Category not found" });
-                return Ok(new { success = true });
+                if (!success) return NotFound("Category not found");
+                return Ok(true);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
     }

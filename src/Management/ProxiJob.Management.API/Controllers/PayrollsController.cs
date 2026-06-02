@@ -11,7 +11,7 @@ namespace ProxiJob.Management.API.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Business")]
-public class PayrollsController : ControllerBase
+public class PayrollsController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -74,6 +74,6 @@ public class PayrollsController : ControllerBase
         command.BusinessId = GetBusinessId();
         command.UpdatedBy = GetCurrentUser();
         await _mediator.Send(command);
-        return NoContent();
+        return Ok();
     }
 }

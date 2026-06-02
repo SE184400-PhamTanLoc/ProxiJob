@@ -8,7 +8,7 @@ namespace ProxiJob.Management.API.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Business")]
-public class QrCodesController : ControllerBase
+public class QrCodesController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -62,6 +62,6 @@ public class QrCodesController : ControllerBase
         command.BusinessId = GetBusinessId();
         command.UpdatedBy = GetCurrentUser();
         await _mediator.Send(command);
-        return NoContent();
+        return Ok();
     }
 }

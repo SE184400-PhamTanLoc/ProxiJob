@@ -9,7 +9,7 @@ namespace ProxiJob.Management.API.Controllers;
 
 [ApiController]
 [Authorize(Roles = "Business")] // Assuming JWT setup
-public class WorkSchedulesController : ControllerBase
+public class WorkSchedulesController : ApiControllerBase
 {
     private readonly IMediator _mediator;
 
@@ -77,7 +77,7 @@ public class WorkSchedulesController : ControllerBase
         command.BusinessId = GetBusinessId();
         command.UpdatedBy = GetCurrentUser();
         await _mediator.Send(command);
-        return NoContent();
+        return Ok();
     }
 
     [HttpDelete("api/schedules/{id}")]
@@ -90,6 +90,6 @@ public class WorkSchedulesController : ControllerBase
             DeletedBy = GetCurrentUser()
         };
         await _mediator.Send(command);
-        return NoContent();
+        return Ok();
     }
 }
