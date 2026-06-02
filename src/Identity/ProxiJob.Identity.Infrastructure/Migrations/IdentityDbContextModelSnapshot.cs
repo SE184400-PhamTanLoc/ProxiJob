@@ -22,6 +22,96 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ProxiJob.Identity.Domain.Models.BusinessProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("address");
+
+                    b.Property<string>("BusinessName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("businessname");
+
+                    b.Property<string>("BusinessType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("businesstype");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("city");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdat");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("createdby");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("isdeleted");
+
+                    b.Property<DateTime?>("ProfileCompleteAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("profilecompleteat");
+
+                    b.Property<string>("ReadinessStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("readinessstatus");
+
+                    b.Property<decimal>("ReputationScore")
+                        .HasColumnType("decimal(5,2)")
+                        .HasColumnName("reputationscore");
+
+                    b.Property<int>("ReviewCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("reviewcount");
+
+                    b.Property<string>("TaxCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("taxcode");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedat");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updatedby");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("userid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("identity_businessprofiles");
+                });
+
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.PaymentOrder", b =>
                 {
                     b.Property<int>("Id")
@@ -31,9 +121,19 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("adminnote");
+
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("amount");
+
+                    b.Property<string>("ConfirmedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("confirmedby");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -772,6 +872,17 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("identity_wallets");
+                });
+
+            modelBuilder.Entity("ProxiJob.Identity.Domain.Models.BusinessProfile", b =>
+                {
+                    b.HasOne("ProxiJob.Identity.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ProxiJob.Identity.Domain.Models.PaymentOrder", b =>

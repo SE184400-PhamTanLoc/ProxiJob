@@ -57,6 +57,4 @@ Content-Type: application/json
 POST {{ProxiJob.Identity.API_HostAddress}}/api/student/profile/activate
 Authorization: Bearer {{accessToken}}
 
-### 7. Me — kiểm tra profileReadiness trên JWT
-GET {{ProxiJob.Identity.API_HostAddress}}/api/auth/me
-Authorization: Bearer {{accessToken}}
+### 7. Sau login/activate — decode JWT: claim profile_status (ReadyForWork), profile_readiness (tương thích)

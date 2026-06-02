@@ -1,4 +1,5 @@
 using MediatR;
+using ProxiJob.Identity.Application.Common.Exceptions;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Application.DTOs;
@@ -35,7 +36,7 @@ namespace ProxiJob.Identity.Application.Features.Students.Queries.GetMyStudentPr
             if (_currentUser.UserId is null)
                 throw new UnauthorizedAccessException(BusinessMessages.NotAuthenticated);
             if (_currentUser.Role != RoleNames.Student)
-                throw new UnauthorizedAccessException(BusinessMessages.StudentProfileOnly);
+                throw new ForbiddenAccessException(BusinessMessages.StudentProfileOnly);
         }
     }
 }

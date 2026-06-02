@@ -11,7 +11,7 @@ namespace ProxiJob.Identity.Application.Common.Interfaces
             int jobPostLimit,
             int jobPostsUsed,
             IReadOnlyList<string> featureCodes,
-            string? profileReadiness = null,
+            string? profileStatus = null,
             decimal reputationScore = 0);
         string GenerateRefreshToken();
         DateTime GetRefreshTokenExpiry();

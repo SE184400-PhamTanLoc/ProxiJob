@@ -19,6 +19,7 @@ namespace ProxiJob.Identity.Infrastructure.Data
         public DbSet<SubscriptionFeature> SubscriptionFeatures { get; set; }
         public DbSet<PaymentOrder> PaymentOrders { get; set; }
         public DbSet<StudentProfile> StudentProfiles { get; set; }
+        public DbSet<BusinessProfile> BusinessProfiles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -92,6 +93,8 @@ namespace ProxiJob.Identity.Infrastructure.Data
                 e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
                 e.Property(x => x.ExpiresAt).HasColumnType("timestamp with time zone");
                 e.Property(x => x.PaidAt).HasColumnType("timestamp with time zone");
+                e.Property(x => x.ConfirmedBy).HasMaxLength(256);
+                e.Property(x => x.AdminNote).HasMaxLength(500);
                 e.HasIndex(x => x.OrderCode).IsUnique();
                 e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne<Subscription>().WithMany().HasForeignKey(x => x.SubscriptionId).OnDelete(DeleteBehavior.Restrict);
@@ -114,6 +117,21 @@ namespace ProxiJob.Identity.Infrastructure.Data
                 e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<BusinessProfile>(e =>
+            {
+                e.Property(x => x.ReadinessStatus).HasMaxLength(30).IsRequired();
+                e.Property(x => x.ReputationScore).HasColumnType("decimal(5,2)");
+                e.Property(x => x.ProfileCompleteAt).HasColumnType("timestamp with time zone");
+                e.Property(x => x.BusinessName).HasMaxLength(200);
+                e.Property(x => x.BusinessType).HasMaxLength(50);
+                e.Property(x => x.City).HasMaxLength(100);
+                e.Property(x => x.Address).HasMaxLength(300);
+                e.Property(x => x.TaxCode).HasMaxLength(20);
+                e.Property(x => x.Description).HasMaxLength(2000);
+                e.HasIndex(x => x.UserId).IsUnique();
+                e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
             // 5. Global Query Filters (Soft Delete)
             modelBuilder.Entity<User>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<Role>().HasQueryFilter(x => !x.IsDeleted);
@@ -127,6 +145,7 @@ namespace ProxiJob.Identity.Infrastructure.Data
             modelBuilder.Entity<SubscriptionFeature>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<PaymentOrder>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<StudentProfile>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<BusinessProfile>().HasQueryFilter(x => !x.IsDeleted);
         }
     }
 }

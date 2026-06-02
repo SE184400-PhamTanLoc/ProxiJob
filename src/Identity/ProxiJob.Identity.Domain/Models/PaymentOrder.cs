@@ -16,5 +16,8 @@ namespace ProxiJob.Identity.Domain.Models
         public string? FailureReason { get; set; }
         public DateTime ExpiresAt { get; set; }
         public DateTime? PaidAt { get; set; }
+        public string? ConfirmedBy { get; set; }
+        public string? AdminNote { get; set; }
     }
 }
+

@@ -7,15 +7,13 @@ using ProxiJob.Identity.Application.Features.Students.Commands.RegisterStudentPr
 using ProxiJob.Identity.Application.Features.Students.Commands.UpdateMyStudentProfile;
 using ProxiJob.Identity.Application.Features.Students.Queries.GetMyStudentProfile;
 using ProxiJob.Identity.Application.Common.Messages;
-using ProxiJob.Identity.Domain.Constants;
 using ProxiJob.Shared.Contract;
-
 namespace ProxiJob.Identity.API.Controllers
 {
     /// <summary>Hồ sơ năng lực sinh viên (E-Portfolio)</summary>
     [ApiController]
     [Route("api/student/profile")]
-    [Authorize(Policy = PolicyNames.StudentOnly)]
+    [Authorize]
     public class StudentProfileController : ControllerBase
     {
         private readonly IMediator _mediator;

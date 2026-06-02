@@ -13,6 +13,7 @@ namespace ProxiJob.Identity.Application.Services
         private readonly ISubscriptionRepository _subscriptionRepository;
         private readonly IJobPostQuotaService _jobPostQuotaService;
         private readonly IStudentProfileRepository _studentProfileRepository;
+        private readonly IBusinessProfileRepository _businessProfileRepository;
         private readonly ITokenService _tokenService;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -22,6 +23,7 @@ namespace ProxiJob.Identity.Application.Services
             ISubscriptionRepository subscriptionRepository,
             IJobPostQuotaService jobPostQuotaService,
             IStudentProfileRepository studentProfileRepository,
+            IBusinessProfileRepository businessProfileRepository,
             ITokenService tokenService,
             IUnitOfWork unitOfWork)
         {
@@ -30,6 +32,7 @@ namespace ProxiJob.Identity.Application.Services
             _subscriptionRepository = subscriptionRepository;
             _jobPostQuotaService = jobPostQuotaService;
             _studentProfileRepository = studentProfileRepository;
+            _businessProfileRepository = businessProfileRepository;
             _tokenService = tokenService;
             _unitOfWork = unitOfWork;
         }
@@ -41,13 +44,19 @@ namespace ProxiJob.Identity.Application.Services
             var quota = await _jobPostQuotaService.GetQuotaAsync(user.Id, roleName, cancellationToken);
             var featureCodes = await _subscriptionRepository.GetUserFeatureCodesAsync(user.Id, cancellationToken);
 
-            string? profileReadiness = null;
+            string? profileStatus = null;
             decimal reputationScore = 0;
             if (roleName == RoleNames.Student)
             {
                 var studentProfile = await _studentProfileRepository.GetByUserIdAsync(user.Id, cancellationToken);
-                profileReadiness = studentProfile?.ReadinessStatus ?? ProfileReadinessStatus.Incomplete;
+                profileStatus = studentProfile?.ReadinessStatus ?? ProfileReadinessStatus.Incomplete;
                 reputationScore = studentProfile?.ReputationScore ?? 0;
+            }
+            else if (roleName == RoleNames.Business)
+            {
+                var businessProfile = await _businessProfileRepository.GetByUserIdAsync(user.Id, cancellationToken);
+                profileStatus = businessProfile?.ReadinessStatus ?? ProfileReadinessStatus.Incomplete;
+                reputationScore = businessProfile?.ReputationScore ?? 0;
             }
 
             var accessToken = _tokenService.GenerateAccessToken(
@@ -57,7 +66,7 @@ namespace ProxiJob.Identity.Application.Services
                 quota.JobPostLimit,
                 quota.JobPostsUsed,
                 featureCodes,
-                profileReadiness,
+                profileStatus,
                 reputationScore);
             var refreshTokenValue = _tokenService.GenerateRefreshToken();
 

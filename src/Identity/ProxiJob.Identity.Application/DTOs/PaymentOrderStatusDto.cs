@@ -12,5 +12,7 @@ namespace ProxiJob.Identity.Application.DTOs
         public DateTime ExpiresAt { get; set; }
         public DateTime? PaidAt { get; set; }
         public string? FailureReason { get; set; }
+        public BankTransferInstructionsDto? BankTransfer { get; set; }
     }
 }
+

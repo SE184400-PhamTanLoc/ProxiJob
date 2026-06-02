@@ -1,4 +1,5 @@
 using MediatR;
+using ProxiJob.Identity.Application.Common.Exceptions;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Application.Common.Messages;
 using ValidationMessages = ProxiJob.Identity.Application.Common.Messages.ValidationMessages;
@@ -35,7 +36,7 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.CompleteStude
             if (_currentUser.UserId is not int userId)
                 throw new UnauthorizedAccessException(BusinessMessages.NotAuthenticated);
             if (_currentUser.Role != RoleNames.Student)
-                throw new UnauthorizedAccessException(BusinessMessages.StudentProfileOnly);
+                throw new ForbiddenAccessException(BusinessMessages.StudentProfileOnly);
 
             var profile = await _profileRepository.GetByUserIdWithUserAsync(userId, cancellationToken)
                 ?? throw new InvalidOperationException(BusinessMessages.StudentProfileNotFound);
