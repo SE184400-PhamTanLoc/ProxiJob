@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Domain.Enums;
+using ProxiJob.Shared.Contract;
 using System.Text.Json;
 
 namespace ProxiJob.Identity.API.Controllers
@@ -34,20 +35,20 @@ namespace ProxiJob.Identity.API.Controllers
         public async Task<IActionResult> GetStatus(int orderId, CancellationToken cancellationToken)
         {
             if (_currentUser.UserId is not int userId)
-                return Unauthorized(new { message = BusinessMessages.NotAuthenticated });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, BusinessMessages.NotAuthenticated));
 
             try
             {
                 var status = await _paymentService.GetOrderStatusAsync(orderId, userId, cancellationToken);
-                return Ok(status);
+                return Ok(ApiResponse<object>.Success(status, StatusCodes.Status200OK));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return NotFound(new { message = ex.Message });
+                return NotFound(ApiResponse.Fail(StatusCodes.Status404NotFound, ex.Message));
             }
         }
 
@@ -57,23 +58,23 @@ namespace ProxiJob.Identity.API.Controllers
         public async Task<IActionResult> CreateSession(int orderId, CancellationToken cancellationToken)
         {
             if (_currentUser.UserId is not int userId)
-                return Unauthorized(new { message = BusinessMessages.NotAuthenticated });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, BusinessMessages.NotAuthenticated));
 
             try
             {
                 var tokens = await _paymentService.IssueTokensIfPaidAsync(orderId, userId, cancellationToken);
                 if (tokens == null)
-                    return BadRequest(new { message = BusinessMessages.PaymentNotCompleted });
+                    return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, BusinessMessages.PaymentNotCompleted));
 
-                return Ok(tokens);
+                return Ok(ApiResponse<object>.Success(tokens, StatusCodes.Status200OK));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return NotFound(new { message = ex.Message });
+                return NotFound(ApiResponse.Fail(StatusCodes.Status404NotFound, ex.Message));
             }
         }
 
@@ -125,7 +126,7 @@ namespace ProxiJob.Identity.API.Controllers
                 .ToDictionary(p => p.Name, p => p.Value.ToString());
 
             var ok = await _paymentService.ProcessCallbackAsync(PaymentGatewayType.MoMo, parameters, cancellationToken);
-            return Ok(new { message = ok ? "success" : "failed" });
+            return Ok(ApiResponse.Success(StatusCodes.Status200OK, ok ? "success" : "failed"));
         }
 
         /// <summary>Xác nhận thanh toán Mock (chỉ Development / EnableMockGateway)</summary>
@@ -141,11 +142,11 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 await _paymentService.ConfirmMockPaymentAsync(orderId, cancellationToken);
-                return Ok(new { message = "Thanh toán Mock thành công. Gọi POST /api/payments/{orderId}/session để lấy token." });
+                return Ok(ApiResponse.Success(StatusCodes.Status200OK, "Thanh toán Mock thành công. Gọi POST /api/payments/{orderId}/session để lấy token."));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
             }
         }
 

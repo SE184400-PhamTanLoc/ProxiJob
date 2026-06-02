@@ -10,6 +10,7 @@ using ProxiJob.Identity.Application.Features.Subscriptions.Queries.GetMyFeatures
 using ProxiJob.Identity.Application.Features.Subscriptions.Queries.GetPlanComparison;
 using ProxiJob.Identity.Application.Services;
 using ProxiJob.Identity.Domain.Constants;
+using ProxiJob.Shared.Contract;
 
 namespace ProxiJob.Identity.API.Controllers
 {
@@ -40,7 +41,7 @@ namespace ProxiJob.Identity.API.Controllers
         public async Task<IActionResult> GetPlans(CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(new GetPlanComparisonQuery(), cancellationToken);
-            return Ok(result);
+            return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
         }
 
         /// <summary>Gói đang sử dụng (cần đăng nhập)</summary>
@@ -51,11 +52,11 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 var result = await _mediator.Send(new GetMyFeaturesQuery(), cancellationToken);
-                return Ok(result);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
         }
 
@@ -67,23 +68,23 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 var result = await _mediator.Send(command, cancellationToken);
-                return Ok(result);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
             }
             catch (ValidationException ex)
             {
-                return BadRequest(new { errors = ex.Errors.Select(e => e.ErrorMessage) });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, errors: ex.Errors.Select(e => e.ErrorMessage)));
             }
             catch (ForbiddenAccessException ex)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse.Fail(StatusCodes.Status403Forbidden, ex.Message));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
             }
         }
 
@@ -95,15 +96,15 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 var result = await GetJobPostQuotaForCurrentUserAsync(cancellationToken);
-                return Ok(result);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
             }
         }
 
@@ -115,19 +116,19 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 if (_currentUser.UserId is not int userId)
-                    return Unauthorized(new { message = BusinessMessages.NotAuthenticated });
+                    return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, BusinessMessages.NotAuthenticated));
 
                 await EnsureBusinessAsync(userId, cancellationToken);
                 var result = await _jobPostQuotaService.ConsumeOnePostAsync(userId, cancellationToken);
-                return Ok(result);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
             }
         }
 

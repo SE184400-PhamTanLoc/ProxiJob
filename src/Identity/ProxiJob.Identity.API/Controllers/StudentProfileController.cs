@@ -8,6 +8,7 @@ using ProxiJob.Identity.Application.Features.Students.Commands.UpdateMyStudentPr
 using ProxiJob.Identity.Application.Features.Students.Queries.GetMyStudentProfile;
 using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Identity.Domain.Constants;
+using ProxiJob.Shared.Contract;
 
 namespace ProxiJob.Identity.API.Controllers
 {
@@ -30,19 +31,21 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 var result = await _mediator.Send(command, cancellationToken);
-                return Ok(new { message = BusinessMessages.ProfileRegistered, profile = result });
+                return Ok(ApiResponse<object>.Success(
+                    new { message = BusinessMessages.ProfileRegistered, profile = result },
+                    StatusCodes.Status200OK));
             }
             catch (ValidationException ex)
             {
-                return BadRequest(new { errors = ex.Errors.Select(e => e.ErrorMessage) });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, errors: ex.Errors.Select(e => e.ErrorMessage)));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return Conflict(new { message = ex.Message });
+                return Conflict(ApiResponse.Fail(StatusCodes.Status409Conflict, ex.Message));
             }
         }
 
@@ -53,15 +56,15 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 var result = await _mediator.Send(new GetMyStudentProfileQuery(), cancellationToken);
-                return Ok(result);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return NotFound(new { message = ex.Message });
+                return NotFound(ApiResponse.Fail(StatusCodes.Status404NotFound, ex.Message));
             }
         }
 
@@ -74,19 +77,19 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 var result = await _mediator.Send(command, cancellationToken);
-                return Ok(result);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
             }
             catch (ValidationException ex)
             {
-                return BadRequest(new { errors = ex.Errors.Select(e => e.ErrorMessage) });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, errors: ex.Errors.Select(e => e.ErrorMessage)));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
             }
         }
 
@@ -97,15 +100,15 @@ namespace ProxiJob.Identity.API.Controllers
             try
             {
                 var result = await _mediator.Send(new CompleteStudentProfileCommand(), cancellationToken);
-                return Ok(result);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new { message = ex.Message });
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
             }
         }
     }
