@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ProxiJob.Identity.Infrastructure\ProxiJob.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\common\ProxiJob.Shared.Contract\ProxiJob.Shared.Contract.csproj" />
   </ItemGroup>
 
 </Project>
