@@ -13,11 +13,19 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
 export default function EmployerHRM() {
-  const { staffList, addStaffMember, removeStaffMember } = useContext(AppContext);
+  const { staffList, addStaffMember, removeStaffMember, hrmSingleApplicants, loadStaffList } = useContext(AppContext);
+  const [activeTab, setActiveTab] = useState('internal'); // 'internal' | 'single'
   const [modalVisible, setModalVisible] = useState(false);
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
+
+  React.useEffect(() => {
+    loadStaffList();
+  }, []);
+
+  const internalStaff = (staffList || []).filter(s => !s.isExternal);
+  const externalStaff = (staffList || []).filter(s => s.isExternal);
 
   const handleAddStaff = () => {
     if (newStaffName.trim() && newStaffRole.trim() && newStaffPhone.trim()) {
@@ -32,64 +40,125 @@ export default function EmployerHRM() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.headerTitle}>Nhân sự nội bộ</Text>
-          <Text style={styles.headerSubtitle}>Quản lý danh sách nhân viên cố định của quán</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>HRM Lite</Text>
+          <Text style={styles.headerSubtitle}>Quản lý nhân viên cố định và hồ sơ sinh viên ứng tuyển lẻ</Text>
         </View>
+        {activeTab === 'internal' && (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text style={styles.addBtnText}>+ Thêm mới</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Tab Selector */}
+      <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => setModalVisible(true)}
+          style={[styles.tabBtn, activeTab === 'internal' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('internal')}
         >
-          <Text style={styles.addBtnText}>+ Thêm mới</Text>
+          <Text style={[styles.tabText, activeTab === 'internal' && styles.tabTextActive]}>
+            Nhân Sự Nội Bộ ({internalStaff.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'single' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('single')}
+        >
+          <Text style={[styles.tabText, activeTab === 'single' && styles.tabTextActive]}>
+            Ứng Tuyển Lẻ ({externalStaff.length})
+          </Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {staffList.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>👥</Text>
-            <Text style={styles.emptyText}>Danh sách nhân sự đang trống.</Text>
-            <Text style={styles.emptySub}>Hãy thêm nhân sự cố định để chia ca xếp lịch.</Text>
-          </View>
-        ) : (
-          staffList.map((staff) => (
-            <View key={staff.id} style={[styles.staffCard, theme.shadows.light]}>
-              <View style={styles.cardInfo}>
-                <View style={styles.staffAvatar}>
-                  <Text style={styles.avatarText}>
-                    {staff.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                  </Text>
-                </View>
-                
-                <View style={styles.staffDetails}>
-                  <Text style={styles.staffName}>{staff.name}</Text>
-                  <Text style={styles.staffRole}>{staff.role} • 📞 {staff.phone}</Text>
-                  <Text style={styles.staffShifts}>Đã hoàn thành: <Text style={{fontWeight: 'bold'}}>{staff.shiftsCount} ca</Text></Text>
-                </View>
-              </View>
-
-              <View style={styles.cardActions}>
-                <View style={[
-                  styles.statusBadge,
-                  staff.status === 'working' ? styles.statusWorking : styles.statusIdle
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    staff.status === 'working' ? styles.statusTextWorking : styles.statusTextIdle
-                  ]}>
-                    {staff.status === 'working' ? '🟢 Đang làm' : '⚪ Đang nghỉ'}
-                  </Text>
-                </View>
-                
-                <TouchableOpacity
-                  style={styles.deleteBtn}
-                  onPress={() => removeStaffMember(staff.id)}
-                >
-                  <Text style={styles.deleteBtnText}>Xóa</Text>
-                </TouchableOpacity>
-              </View>
+        {activeTab === 'internal' ? (
+          /* Internal Staff List */
+          internalStaff.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>👥</Text>
+              <Text style={styles.emptyText}>Danh sách nhân sự đang trống.</Text>
+              <Text style={styles.emptySub}>Hãy thêm nhân sự cố định để chia ca xếp lịch.</Text>
             </View>
-          ))
+          ) : (
+            internalStaff.map((staff) => (
+              <View key={staff.id} style={[styles.staffCard, theme.shadows.light]}>
+                <View style={styles.cardInfo}>
+                  <View style={styles.staffAvatar}>
+                    <Text style={styles.avatarText}>
+                      {staff.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.staffDetails}>
+                    <Text style={styles.staffName}>{staff.name}</Text>
+                    <Text style={styles.staffRole}>{staff.role} • 📞 {staff.phone}</Text>
+                    <Text style={styles.staffShifts}>Đã hoàn thành: <Text style={{fontWeight: 'bold'}}>{staff.shiftsCount} ca</Text></Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardActions}>
+                  <View style={[
+                    styles.statusBadge,
+                    staff.status === 'working' ? styles.statusWorking : styles.statusIdle
+                  ]}>
+                    <Text style={[
+                      styles.statusText,
+                      staff.status === 'working' ? styles.statusTextWorking : styles.statusTextIdle
+                    ]}>
+                      {staff.status === 'working' ? '🟢 Đang làm' : '⚪ Đang nghỉ'}
+                    </Text>
+                  </View>
+                  
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => removeStaffMember(staff.id)}
+                  >
+                    <Text style={styles.deleteBtnText}>Xóa</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          )
+        ) : (
+          /* Single Applicants list */
+          externalStaff.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>🎓</Text>
+              <Text style={styles.emptyText}>Chưa có sinh viên ứng tuyển lẻ nào được duyệt.</Text>
+              <Text style={styles.emptySub}>Sinh viên được duyệt nhận việc ở Màn hình 10 sẽ hiển thị ở đây.</Text>
+            </View>
+          ) : (
+            externalStaff.map((staff) => (
+              <View key={staff.id} style={[styles.staffCard, theme.shadows.light]}>
+                <View style={styles.cardInfo}>
+                  <View style={[styles.staffAvatar, { borderColor: theme.colors.student, backgroundColor: theme.colors.student + '1A' }]}>
+                    <Text style={[styles.avatarText, { color: theme.colors.student }]}>
+                      {staff.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.staffDetails}>
+                    <Text style={styles.staffName}>{staff.name} (Sinh viên)</Text>
+                    <Text style={styles.staffRole}>Vị trí: {staff.role} • 📞 {staff.phone}</Text>
+                    <Text style={styles.staffShifts}>Ca làm: <Text style={{fontWeight: 'bold'}}>{staff.shiftTitle}</Text> tại {staff.shopName}</Text>
+                    <Text style={styles.staffShifts}>Thời gian: {staff.date} • {staff.time}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardActions}>
+                  <View style={[styles.statusBadge, styles.statusWorking]}>
+                    <Text style={[styles.statusText, styles.statusTextWorking]}>
+                      🟢 Đã Duyệt Nhận Việc
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )
         )}
       </ScrollView>
 
@@ -358,5 +427,34 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.surfaceSecondary,
+    marginHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: theme.borderRadius.md,
+  },
+  tabBtnActive: {
+    backgroundColor: theme.colors.white,
+    borderWidth: 0.5,
+    borderColor: theme.colors.border,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: theme.colors.textMuted,
+  },
+  tabTextActive: {
+    color: theme.colors.employer,
   }
 });

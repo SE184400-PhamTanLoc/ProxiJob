@@ -12,7 +12,12 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
 export default function EmployerScheduling() {
-  const { staffList } = useContext(AppContext);
+  const { staffList, loadStaffList } = useContext(AppContext);
+
+  React.useEffect(() => {
+    loadStaffList();
+  }, []);
+
   const [selectedDayIndex, setSelectedDayIndex] = useState(4); // default to Friday (5th)
   const [assigningShift, setAssigningShift] = useState(null); // { dayIndex, shiftSlotId }
   const [modalVisible, setModalVisible] = useState(false);

@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
@@ -17,12 +18,17 @@ export default function StudentCheckIn() {
     checkInShift, 
     checkOutShift, 
     simulatedDistanceToActive, 
-    setSimulatedDistanceToActive 
+    setSimulatedDistanceToActive,
+    navigationParams,
+    showToast,
+    STUDENT_MOCK_GPS
   } = useContext(AppContext);
 
   const [selectedShiftForCheckIn, setSelectedShiftForCheckIn] = useState(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [cameraScanned, setCameraScanned] = useState(false);
+  const [scanningCamera, setScanningCamera] = useState(false);
 
   // Find if there is any active shift right now
   const activeShift = shifts.find(s => s.status === 'checkin_active');
@@ -35,16 +41,27 @@ export default function StudentCheckIn() {
     if (activeShift) {
       setSelectedShiftForCheckIn(activeShift);
       setIsTimerRunning(true);
+      setCameraScanned(true); // default to true if already checked-in
+    } else if (navigationParams?.shiftId) {
+      const targetShift = shifts.find(s => s.id === navigationParams.shiftId);
+      if (targetShift) {
+        setSelectedShiftForCheckIn(targetShift);
+        setIsTimerRunning(false);
+        setTimerSeconds(0);
+        setCameraScanned(false);
+      }
     } else if (approvedShifts.length > 0 && !selectedShiftForCheckIn) {
       setSelectedShiftForCheckIn(approvedShifts[0]);
       setIsTimerRunning(false);
       setTimerSeconds(0);
+      setCameraScanned(false);
     } else if (approvedShifts.length === 0 && !activeShift) {
       setSelectedShiftForCheckIn(null);
       setIsTimerRunning(false);
       setTimerSeconds(0);
+      setCameraScanned(false);
     }
-  }, [shifts, activeShift]);
+  }, [shifts, activeShift, navigationParams]);
 
   // Timer effect
   useEffect(() => {
@@ -74,18 +91,43 @@ export default function StudentCheckIn() {
     }
   };
 
+  const handleScanCamera = () => {
+    setScanningCamera(true);
+    setTimeout(() => {
+      setScanningCamera(false);
+      setCameraScanned(true);
+      showToast('Xác thực khuôn mặt thành công!', 'success');
+    }, 1200);
+  };
+
   const handleCheckIn = () => {
     if (selectedShiftForCheckIn) {
-      checkInShift(selectedShiftForCheckIn.id);
+      const lat = STUDENT_MOCK_GPS?.latitude || 10.7769;
+      const lng = STUDENT_MOCK_GPS?.longitude || 106.7009;
+      checkInShift(
+        selectedShiftForCheckIn.id,
+        'default-qr-token',
+        lat,
+        lng,
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+      );
       setIsTimerRunning(true);
     }
   };
 
   const handleCheckOut = () => {
     if (selectedShiftForCheckIn) {
-      checkOutShift(selectedShiftForCheckIn.id);
+      const lat = STUDENT_MOCK_GPS?.latitude || 10.7769;
+      const lng = STUDENT_MOCK_GPS?.longitude || 106.7009;
+      checkOutShift(
+        selectedShiftForCheckIn.id,
+        lat,
+        lng,
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+      );
       setIsTimerRunning(false);
       setTimerSeconds(0);
+      setCameraScanned(false);
       setSimulatedDistanceToActive(3200); // Reset distance
     }
   };
@@ -95,7 +137,7 @@ export default function StudentCheckIn() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.headerTitle}>Xác thực hiện diện GPS</Text>
+        <Text style={styles.headerTitle}>Xác thực hiện diện GPS & Camera</Text>
         
         {/* GPS Radius Simulator widget */}
         <View style={[styles.simulatorCard, theme.shadows.light]}>
@@ -171,17 +213,36 @@ export default function StudentCheckIn() {
               {!activeShift ? (
                 /* Check-In Flow */
                 <View style={{width: '100%'}}>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionBtn, 
-                      styles.checkInBtn,
-                      !isWithinRadius && styles.disabledBtn
-                    ]}
-                    disabled={!isWithinRadius}
-                    onPress={handleCheckIn}
-                  >
-                    <Text style={styles.actionBtnText}>⚡ BẮT ĐẦU CA LÀM (CHECK-IN)</Text>
-                  </TouchableOpacity>
+                  {!cameraScanned ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn,
+                        { backgroundColor: theme.colors.student },
+                        scanningCamera && { opacity: 0.6 }
+                      ]}
+                      disabled={scanningCamera}
+                      onPress={handleScanCamera}
+                    >
+                      {scanningCamera ? (
+                        <ActivityIndicator color={theme.colors.white} />
+                      ) : (
+                        <Text style={styles.actionBtnText}>📸 QUÉT KHUÔN MẶT (CAMERA VERIFICATION)</Text>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.actionBtn, 
+                        styles.checkInBtn,
+                        (!isWithinRadius) && styles.disabledBtn
+                      ]}
+                      disabled={!isWithinRadius}
+                      onPress={handleCheckIn}
+                    >
+                      <Text style={styles.actionBtnText}>⚡ BẮT ĐẦU CA LÀM (CHECK-IN)</Text>
+                    </TouchableOpacity>
+                  )}
+
                   {!isWithinRadius && (
                     <Text style={styles.warningText}>
                       ⚠️ Hãy sử dụng "Giả lập GPS" để di chuyển đến cửa hàng trước khi bấm điểm danh vào ca.

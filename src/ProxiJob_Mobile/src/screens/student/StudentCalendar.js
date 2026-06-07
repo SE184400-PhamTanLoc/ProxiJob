@@ -10,14 +10,20 @@ import {
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
-export default function StudentCalendar({ onNavigateToCheckIn }) {
-  const { shifts } = useContext(AppContext);
+export default function StudentCalendar() {
+  const { shifts, navigateTo, loadMyApplications, user } = useContext(AppContext);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'completed'
   const [selectedDay, setSelectedDay] = useState(5); // June 5th (default current day)
 
-  // Filter approved/active shifts
+  React.useEffect(() => {
+    if (user?.id) {
+      loadMyApplications(user.id);
+    }
+  }, []);
+
+  // Filter approved/active/applied shifts
   const upcomingShifts = shifts.filter(
-    (s) => s.status === 'approved' || s.status === 'checkin_active'
+    (s) => s.status === 'approved' || s.status === 'checkin_active' || s.status === 'applied'
   );
 
   // Filter completed shifts
@@ -25,20 +31,19 @@ export default function StudentCalendar({ onNavigateToCheckIn }) {
 
   // Calculate monthly earnings
   const completedEarnings = completedShifts.reduce((sum, s) => sum + s.hourlyRate * 4, 0); // assume 4hr shifts
-  const projectedEarnings = upcomingShifts.reduce((sum, s) => sum + s.hourlyRate * 4, 0);
+  const projectedEarnings = upcomingShifts.filter(s => s.status !== 'applied').reduce((sum, s) => sum + s.hourlyRate * 4, 0);
   const totalEarnings = completedEarnings + projectedEarnings + 3250000; // seed static baseline earnings
 
   // Mock Calendar days for June 2026 (June 1st is Monday)
-  // Calendar grid starting Monday
   const days = [
     { num: 1, hasShift: false },
     { num: 2, hasShift: false },
     { num: 3, hasShift: false },
     { num: 4, hasShift: false },
-    { num: 5, hasShift: true, isToday: true }, // Jun 5: Shift 101, 103
-    { num: 6, hasShift: true }, // Jun 6: Shift 102
-    { num: 7, hasShift: true }, // Jun 7: Shift 104
-    { num: 8, hasShift: true }, // Jun 8: Shift 105
+    { num: 5, hasShift: true, isToday: true },
+    { num: 6, hasShift: true },
+    { num: 7, hasShift: true },
+    { num: 8, hasShift: true },
     { num: 9, hasShift: false },
     { num: 10, hasShift: false },
     { num: 11, hasShift: false },
@@ -66,6 +71,8 @@ export default function StudentCalendar({ onNavigateToCheckIn }) {
   const renderShiftItem = (shift) => {
     const isWorking = shift.status === 'checkin_active';
     const isCompleted = shift.status === 'completed';
+    const isApplied = shift.status === 'applied';
+    const isApproved = shift.status === 'approved';
 
     return (
       <View key={shift.id} style={[styles.shiftCard, theme.shadows.light]}>
@@ -77,14 +84,16 @@ export default function StudentCalendar({ onNavigateToCheckIn }) {
           <View style={[
             styles.statusBadge,
             isWorking && styles.badgeWorking,
-            isCompleted && styles.badgeCompleted
+            isCompleted && styles.badgeCompleted,
+            isApplied && styles.badgeApplied
           ]}>
             <Text style={[
               styles.statusText,
               isWorking && styles.textWorking,
-              isCompleted && styles.textCompleted
+              isCompleted && styles.textCompleted,
+              isApplied && styles.textApplied
             ]}>
-              {isWorking ? '⚡ Đang làm' : isCompleted ? '✅ Đã hoàn thành' : '📅 Chờ nhận ca'}
+              {isWorking ? '⚡ Đang làm' : isCompleted ? '✅ Đã hoàn thành' : isApplied ? '⏳ Chờ duyệt' : '📅 Đã duyệt'}
             </Text>
           </View>
         </View>
@@ -101,11 +110,16 @@ export default function StudentCalendar({ onNavigateToCheckIn }) {
 
         {!isCompleted && (
           <TouchableOpacity
-            style={[styles.checkInActionBtn, isWorking && { backgroundColor: theme.colors.success }]}
-            onPress={() => onNavigateToCheckIn && onNavigateToCheckIn(shift)}
+            style={[
+              styles.checkInActionBtn, 
+              isWorking && { backgroundColor: theme.colors.success },
+              isApplied && { backgroundColor: theme.colors.textLight }
+            ]}
+            disabled={isApplied}
+            onPress={() => navigateTo('student_checkin', { shiftId: shift.id })}
           >
             <Text style={styles.checkInActionText}>
-              {isWorking ? 'Xem phiên điểm danh GPS' : '📍 Đến điểm check-in GPS'}
+              {isWorking ? 'Xem phiên điểm danh GPS' : isApplied ? 'Đang chờ chủ quán duyệt hồ sơ...' : '📍 Đến điểm check-in GPS'}
             </Text>
           </TouchableOpacity>
         )}
@@ -401,6 +415,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceSecondary,
     borderColor: theme.colors.border,
   },
+  badgeApplied: {
+    backgroundColor: theme.colors.warning + '1A',
+    borderColor: theme.colors.warning + '33',
+  },
   statusText: {
     fontSize: 10,
     color: theme.colors.primary,
@@ -411,6 +429,9 @@ const styles = StyleSheet.create({
   },
   textCompleted: {
     color: theme.colors.textMuted,
+  },
+  textApplied: {
+    color: theme.colors.warning,
   },
   shiftCardDetails: {
     marginBottom: theme.spacing.md,

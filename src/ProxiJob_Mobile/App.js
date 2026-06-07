@@ -19,7 +19,7 @@ import MainTabNavigator from './src/navigation/MainTabNavigator';
 import Toast from './src/components/Toast';
 
 function MainAppShell() {
-  const { user, logout, notifications, isRestoringSession, authScreen } = useContext(AppContext);
+  const { user, logout, notifications, isRestoringSession, currentScreen } = useContext(AppContext);
   const [notifModalVisible, setNotifModalVisible] = useState(false);
 
   if (isRestoringSession) {
@@ -31,7 +31,7 @@ function MainAppShell() {
   }
 
   if (!user) {
-    return authScreen === 'register' ? <RegisterScreen /> : <LoginScreen />;
+    return currentScreen === 'register' ? <RegisterScreen /> : <LoginScreen />;
   }
 
   // Count unread notifications

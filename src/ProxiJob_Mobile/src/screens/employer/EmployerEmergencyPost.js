@@ -11,8 +11,8 @@ import {
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
-export default function EmployerEmergencyPost({ onPostSuccess }) {
-  const { createEmergencyShift } = useContext(AppContext);
+export default function EmployerEmergencyPost() {
+  const { createEmergencyShift, navigateTo } = useContext(AppContext);
   const [title, setTitle] = useState('Nhân viên Phục vụ gấp tối nay');
   const [shopName, setShopName] = useState('Katinat Coffee - Đồng Khởi');
   const [hourlyRate, setHourlyRate] = useState('52000');
@@ -23,21 +23,20 @@ export default function EmployerEmergencyPost({ onPostSuccess }) {
 
   const handlePostEmergency = () => {
     if (title.trim() && shopName.trim() && hourlyRate.trim() && time.trim()) {
-      createEmergencyShift(title, shopName, hourlyRate, time);
-      setPostedShiftInfo({ title, shopName, hourlyRate, time });
-      setSuccessVisible(true);
-      
-      // Clear inputs
-      setTitle('Nhân viên Phục vụ gấp tối nay');
-      setHourlyRate('52000');
-      
-      // Hide success banner after 4 seconds
-      setTimeout(() => {
-        setSuccessVisible(false);
-        if (onPostSuccess) {
-          onPostSuccess();
-        }
-      }, 4000);
+      createEmergencyShift(title, shopName, hourlyRate, time).then(() => {
+        setPostedShiftInfo({ title, shopName, hourlyRate, time });
+        setSuccessVisible(true);
+        
+        // Clear inputs
+        setTitle('Nhân viên Phục vụ gấp tối nay');
+        setHourlyRate('52000');
+        
+        // Hide success banner and navigate back after 2 seconds
+        setTimeout(() => {
+          setSuccessVisible(false);
+          navigateTo('employer_approvals');
+        }, 2000);
+      });
     }
   };
 

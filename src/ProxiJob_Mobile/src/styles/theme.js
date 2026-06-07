@@ -1,9 +1,9 @@
 export const theme = {
   colors: {
-    primary: '#FF9800', // ProxiJob Bright Gold/Amber
-    secondary: '#FF5722', // Deep Orange
-    student: '#FF6B00', // Premium Orange (accent for student role)
-    employer: '#FF6B00', // Premium Orange (accent for employer role)
+    primary: '#FF6B00', // Premium Orange (accent for student role)
+    secondary: '#0A58CA', // Premium Blue (accent for employer/enterprise role)
+    student: '#FF6B00', // Premium Orange (student)
+    employer: '#0A58CA', // Xanh Dương (employer)
     success: '#10B981', // Emerald Green (Check-in / Complete)
     danger: '#EF4444', // Red (Emergency / Reject)
     warning: '#F59E0B', // Amber Warning

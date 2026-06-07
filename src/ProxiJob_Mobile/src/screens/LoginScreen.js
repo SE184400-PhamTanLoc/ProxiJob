@@ -15,7 +15,7 @@ import { theme } from '../styles/theme';
 import { AppContext } from '../context/AppContext';
 
 export default function LoginScreen() {
-  const { login, setAuthScreen, authLoading, selectedRole, setSelectedRole } = useContext(AppContext);
+  const { login, navigateTo, authLoading, selectedRole, setSelectedRole } = useContext(AppContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isEmailFocused, setIsEmailFocused] = useState(false);
@@ -24,7 +24,7 @@ export default function LoginScreen() {
 
   const handleRoleChange = (role) => {
     setSelectedRole(role);
-    setErrors({ email: '', password: '' }); // Clear errors when switching roles
+    setErrors({ email: '', password: '' });
   };
 
   const validateForm = () => {
@@ -49,10 +49,16 @@ export default function LoginScreen() {
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleLogin = () => {
-    if (validateForm()) {
-      login(email.trim(), password.trim(), selectedRole);
-    }
+  const handleStudentLogin = () => {
+    const defaultEmail = email.trim() || 'student@proxijob.vn';
+    const defaultPassword = password.trim() || 'password123';
+    login(defaultEmail, defaultPassword, 0);
+  };
+
+  const handleEmployerLogin = () => {
+    const defaultEmail = email.trim() || 'merchant@proxijob.vn';
+    const defaultPassword = password.trim() || 'password123';
+    login(defaultEmail, defaultPassword, 1);
   };
 
   return (
@@ -166,32 +172,49 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Login Button */}
-              <TouchableOpacity
-                style={[
-                  styles.loginButton,
-                  selectedRole === 0
-                    ? { backgroundColor: theme.colors.student }
-                    : { backgroundColor: theme.colors.employer },
-                  authLoading && { opacity: 0.6 }
-                ]}
-                activeOpacity={0.9}
-                onPress={handleLogin}
-                disabled={authLoading}
-              >
-                {authLoading ? (
-                  <ActivityIndicator size="small" color={theme.colors.white} />
-                ) : (
-                  <Text style={styles.loginButtonText}>Bắt đầu làm việc</Text>
-                )}
-              </TouchableOpacity>
+              {/* Double Login Role Buttons */}
+              <View style={{ gap: 10 }}>
+                <TouchableOpacity
+                  style={[
+                    styles.loginButton,
+                    { backgroundColor: theme.colors.student },
+                    authLoading && { opacity: 0.6 }
+                  ]}
+                  activeOpacity={0.9}
+                  onPress={handleStudentLogin}
+                  disabled={authLoading}
+                >
+                  {authLoading && selectedRole === 0 ? (
+                    <ActivityIndicator size="small" color={theme.colors.white} />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Đăng nhập Sinh viên</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.loginButton,
+                    { backgroundColor: theme.colors.employer },
+                    authLoading && { opacity: 0.6 }
+                  ]}
+                  activeOpacity={0.9}
+                  onPress={handleEmployerLogin}
+                  disabled={authLoading}
+                >
+                  {authLoading && selectedRole === 1 ? (
+                    <ActivityIndicator size="small" color={theme.colors.white} />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Chủ quán (Enterprise)</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
           {/* Register Footer */}
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Chưa có tài khoản?</Text>
-            <TouchableOpacity onPress={() => setAuthScreen('register')}>
+            <TouchableOpacity onPress={() => navigateTo('register')}>
               <Text
                 style={[
                   styles.registerText,

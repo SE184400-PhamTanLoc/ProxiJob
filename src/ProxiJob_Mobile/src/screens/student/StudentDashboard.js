@@ -15,15 +15,17 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
 export default function StudentDashboard() {
-  const { shifts, applyToShift, studentCoords, getDistanceInMeters } = useContext(AppContext);
+  const { shifts, studentCoords, getDistanceInMeters, navigateTo, loadShifts, user } = useContext(AppContext);
   
   const [radius, setRadius] = useState(5.0); // 5km radius default
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
-  const [selectedShift, setSelectedShift] = useState(null);
-  const [appliedAnimId, setAppliedAnimId] = useState(null);
+
+  React.useEffect(() => {
+    loadShifts();
+  }, []);
 
   // Calculate distances and filter shifts
-  const processedShifts = shifts.map(shift => {
+  const processedShifts = (shifts || []).map(shift => {
     const distMeters = getDistanceInMeters(
       studentCoords.latitude,
       studentCoords.longitude,
@@ -35,19 +37,6 @@ export default function StudentDashboard() {
   });
 
   const filteredShifts = processedShifts.filter(shift => shift.distanceKm <= radius);
-
-  const handleApply = (shiftId) => {
-    setAppliedAnimId(shiftId);
-    applyToShift(shiftId);
-    
-    // Simulate slight delay for beautiful success state
-    setTimeout(() => {
-      setAppliedAnimId(null);
-      if (selectedShift && selectedShift.id === shiftId) {
-        setSelectedShift(prev => ({ ...prev, status: 'applied' }));
-      }
-    }, 1200);
-  };
 
   const renderShiftCard = (shift) => {
     const isApplied = shift.status === 'applied';
@@ -63,7 +52,7 @@ export default function StudentDashboard() {
           isEmergency && styles.emergencyBorder
         ]}
         activeOpacity={0.9}
-        onPress={() => setSelectedShift(shift)}
+        onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
       >
         {isEmergency && (
           <View style={styles.emergencyBadge}>
@@ -99,11 +88,10 @@ export default function StudentDashboard() {
               isApplied && styles.appliedBtn,
               isApproved && styles.approvedBtn
             ]}
-            disabled={isApplied || isApproved}
-            onPress={() => handleApply(shift.id)}
+            onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
           >
             <Text style={styles.applyBtnText}>
-              {appliedAnimId === shift.id ? 'Đang gửi...' : isApproved ? 'Đã duyệt' : isApplied ? 'Đã ứng tuyển' : 'Ứng tuyển 1-Click'}
+              {isApproved ? 'Đã duyệt' : isApplied ? 'Đã ứng tuyển' : 'Chi tiết'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -116,7 +104,7 @@ export default function StudentDashboard() {
       <View style={styles.header}>
         <View>
           <Text style={styles.welcomeText}>Chào buổi chiều,</Text>
-          <Text style={styles.userNameText}>Nguyễn Văn A 👋</Text>
+          <Text style={styles.userNameText}>{user?.name || 'Nguyễn Văn A'} 👋</Text>
         </View>
         <View style={styles.gpsIndicator}>
           <Text style={styles.gpsSymbol}>📍</Text>
@@ -219,7 +207,7 @@ export default function StudentDashboard() {
                     shift.isEmergency && styles.emergencyPin
                   ]}
                   activeOpacity={0.8}
-                  onPress={() => setSelectedShift(shift)}
+                  onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
                 >
                   <Text style={styles.pinIcon}>{shift.isEmergency ? '🔥' : '☕'}</Text>
                   <View style={styles.pinLabel}>
@@ -230,116 +218,9 @@ export default function StudentDashboard() {
             })}
           </View>
           
-          <Text style={styles.radarTip}>Nhấn vào ghim trên bản đồ radar để xem nhanh chi tiết công việc.</Text>
+          <Text style={styles.radarTip}>Nhấn vào ghim trên bản đồ radar để xem chi tiết công việc.</Text>
         </View>
       )}
-
-      {/* Shift Details Modal (1-Click Apply Flow) */}
-      <Modal
-        visible={selectedShift !== null}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSelectedShift(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedShift && (
-              <>
-                <View style={styles.modalDragBar} />
-                
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalShopName}>{selectedShift.shopName}</Text>
-                  <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedShift(null)}>
-                    <Text style={styles.closeBtnText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView contentContainerStyle={styles.modalScroll}>
-                  {selectedShift.isEmergency && (
-                    <View style={styles.modalEmergencyHeader}>
-                      <Text style={styles.modalEmergencyText}>🔥 CA LÀM KHẨN CẤP (+30% LƯƠNG TRỰC TIẾP)</Text>
-                    </View>
-                  )}
-                  
-                  <Text style={styles.modalJobTitle}>{selectedShift.title}</Text>
-                  
-                  <View style={styles.modalPaySection}>
-                    <Text style={styles.modalPayLabel}>Lương cơ bản thực nhận:</Text>
-                    <Text style={styles.modalPayValue}>{(selectedShift.hourlyRate).toLocaleString('vi-VN')} đ / giờ</Text>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoIcon}>📅</Text>
-                    <View>
-                      <Text style={styles.infoLabel}>Ngày làm việc</Text>
-                      <Text style={styles.infoText}>{selectedShift.date}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoIcon}>⏰</Text>
-                    <View>
-                      <Text style={styles.infoLabel}>Thời gian ca làm</Text>
-                      <Text style={styles.infoText}>{selectedShift.time}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoIcon}>📍</Text>
-                    <View style={{flex: 1}}>
-                      <Text style={styles.infoLabel}>Địa điểm (Bán kính {selectedShift.distanceKm} km)</Text>
-                      <Text style={styles.infoText} numberOfLines={2}>Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoIcon}>⭐</Text>
-                    <View>
-                      <Text style={styles.infoLabel}>Độ uy tín của shop</Text>
-                      <Text style={styles.infoText}>{selectedShift.rating} / 5.0 ({selectedShift.reviewsCount} nhận xét)</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <Text style={styles.sectionHeader}>Mô tả công việc</Text>
-                  <Text style={styles.descriptionBody}>{selectedShift.description}</Text>
-
-                  <Text style={styles.sectionHeader}>Yêu cầu ứng viên</Text>
-                  <Text style={styles.descriptionBody}>• {selectedShift.requirements}</Text>
-                  <Text style={styles.descriptionBody}>• Có mặt trước giờ nhận ca 10 phút để điểm danh.</Text>
-                  <Text style={styles.descriptionBody}>• Trang phục lịch sự, gọn gàng.</Text>
-                </ScrollView>
-
-                <View style={styles.modalFooter}>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalApplyBtn,
-                      selectedShift.status === 'applied' && styles.modalAppliedBtn,
-                      (selectedShift.status === 'approved' || selectedShift.status === 'checkin_active' || selectedShift.status === 'completed') && styles.modalApprovedBtn
-                    ]}
-                    disabled={selectedShift.status !== 'available'}
-                    onPress={() => handleApply(selectedShift.id)}
-                  >
-                    <Text style={styles.modalApplyBtnText}>
-                      {appliedAnimId === selectedShift.id 
-                        ? 'Đang nộp hồ sơ...' 
-                        : selectedShift.status === 'approved' || selectedShift.status === 'checkin_active' || selectedShift.status === 'completed'
-                          ? 'Đã được duyệt ca này'
-                          : selectedShift.status === 'applied'
-                            ? 'Đã ứng tuyển - Chờ duyệt'
-                            : 'ỨNG TUYỂN TỨC THÌ (1-CLICK)'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={styles.applyTip}>Tuyển thẳng không phỏng vấn phức tạp. Duyệt nhanh trong 5 phút!</Text>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

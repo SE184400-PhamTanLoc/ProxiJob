@@ -10,13 +10,19 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
 export default function EmployerMonitor() {
-  const { shifts, staffList } = useContext(AppContext);
+  const { shifts, staffList, loadStaffList, loadEmployerJobs, loadAttendanceLogs } = useContext(AppContext);
+
+  React.useEffect(() => {
+    loadStaffList();
+    loadEmployerJobs();
+    loadAttendanceLogs();
+  }, []);
 
   // Find shifts that are active (checked-in)
-  const activeStudentShifts = shifts.filter(s => s.status === 'checkin_active');
+  const activeStudentShifts = (shifts || []).filter(s => s.status === 'checkin_active');
   
   // Find internal staff who are marked as working
-  const workingInternalStaff = staffList.filter(s => s.status === 'working' && s.name !== 'Nguyễn Văn A');
+  const workingInternalStaff = (staffList || []).filter(s => s.status === 'working' && s.name !== 'Nguyễn Văn A');
 
   // Combine into active working personnel list
   const activePersonnel = [

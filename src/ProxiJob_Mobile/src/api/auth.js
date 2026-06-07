@@ -115,11 +115,13 @@ export async function loginApi(email, password, role) {
     const decodedUser = decodeJwt(token);
     const rawRole = decodedUser['role'] || decodedUser['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || '';
     const mappedRole = rawRole.toLowerCase() === 'student' ? 'student' : 'employer';
+    const userId = parseInt(decodedUser.sub || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
 
     return {
       token: token,
       refreshToken: refreshToken,
       user: {
+        id: userId,
         email: decodedUser.email || email,
         name: rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán',
         role: mappedRole,
@@ -176,6 +178,7 @@ export async function checkAuthApi(token) {
       const storedUser = await getStoredUser();
       if (storedUser) return storedUser;
       return {
+        id: 1,
         email: 'sinhvien@proxijob.com',
         name: 'Nguyễn Văn A',
         role: 'student',
@@ -195,8 +198,10 @@ export async function checkAuthApi(token) {
 
     const rawRole = decoded['role'] || decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || '';
     const mappedRole = rawRole.toLowerCase() === 'student' ? 'student' : 'employer';
+    const userId = parseInt(decoded.sub || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
 
     return {
+      id: userId,
       email: decoded.email || '',
       name: rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán',
       role: mappedRole,

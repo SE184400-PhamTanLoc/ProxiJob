@@ -15,7 +15,7 @@ import { theme } from '../styles/theme';
 import { AppContext } from '../context/AppContext';
 
 export default function RegisterScreen() {
-  const { register, setAuthScreen, authLoading, selectedRole, setSelectedRole } = useContext(AppContext);
+  const { register, navigateTo, authLoading, selectedRole, setSelectedRole } = useContext(AppContext);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +29,7 @@ export default function RegisterScreen() {
 
   const handleRoleChange = (role) => {
     setSelectedRole(role);
-    setErrors({}); // Clear errors when switching roles
+    setErrors({});
   };
 
   const validateForm = () => {
@@ -74,7 +74,7 @@ export default function RegisterScreen() {
         selectedRole
       );
       if (success) {
-        setAuthScreen('login');
+        navigateTo('login');
       }
     }
   };
@@ -253,7 +253,7 @@ export default function RegisterScreen() {
           {/* Login Footer */}
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Đã có tài khoản?</Text>
-            <TouchableOpacity onPress={() => setAuthScreen('login')} disabled={authLoading}>
+            <TouchableOpacity onPress={() => navigateTo('login')} disabled={authLoading}>
               <Text
                 style={[
                   styles.registerText,
