@@ -7,11 +7,9 @@ const getHostIp = () => {
     if (NativeModules.SourceCode && NativeModules.SourceCode.scriptURL) {
       const scriptURL = NativeModules.SourceCode.scriptURL;
       const hostIp = scriptURL.split('://')[1]?.split('/')[0]?.split(':')[0];
-      if (hostIp) return hostIp;
+      if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') return hostIp;
     }
-    if (Platform.OS === 'android') {
-      return '10.0.2.2';
-    }
+    return '192.168.1.7';
   }
   return 'localhost';
 };
@@ -21,6 +19,11 @@ const hostIp = getHostIp();
 export const IDENTITY_API_BASE_URL = Platform.OS === 'web' ? 'http://localhost:5231/api' : `http://${hostIp}:5231/api`;
 export const JOB_API_BASE_URL = Platform.OS === 'web' ? 'http://localhost:5021/api' : `http://${hostIp}:5021/api`;
 export const MANAGEMENT_API_BASE_URL = Platform.OS === 'web' ? 'http://localhost:5057/api' : `http://${hostIp}:5057/api`;
+
+console.log('[ProxiJob API Config] Host IP resolved to:', hostIp);
+console.log('[ProxiJob API Config] Identity URL:', IDENTITY_API_BASE_URL);
+console.log('[ProxiJob API Config] Job URL:', JOB_API_BASE_URL);
+console.log('[ProxiJob API Config] Management URL:', MANAGEMENT_API_BASE_URL);
 
 const AUTH_TOKEN_KEY = '@proxijob_auth_token';
 

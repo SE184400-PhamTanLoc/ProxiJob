@@ -1,38 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, NativeModules } from 'react-native';
+import { IDENTITY_API_BASE_URL } from './apiConfig';
 
-// Configurable API base URL with dynamic IP resolution for mobile devices in development
 const getApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:7159/api';
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (!envUrl || envUrl.includes('localhost:5231') || envUrl.includes('127.0.0.1:5231')) {
+    return IDENTITY_API_BASE_URL;
+  }
 
   if (Platform.OS === 'web') {
     return envUrl;
   }
 
-  // If on mobile (iOS/Android emulator or real device) in DEV mode and URL points to localhost,
-  // dynamically replace 'localhost' with the IP of the host machine hosting the Metro bundler.
-  const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
-  if (isDev && envUrl.includes('localhost')) {
-    if (NativeModules.SourceCode && NativeModules.SourceCode.scriptURL) {
-      const scriptURL = NativeModules.SourceCode.scriptURL;
-      const hostIp = scriptURL.split('://')[1]?.split('/')[0]?.split(':')[0];
-      if (hostIp) {
-        console.log(`[ProxiJob API] Dynamically mapped localhost API to host: http://${hostIp}:7159/api`);
-        return envUrl.replace('localhost', hostIp);
-      }
-    }
-
-    // Fallback for Android emulator when dynamic scriptURL parsing is unavailable
-    if (Platform.OS === 'android') {
-      console.log('[ProxiJob API] Fallback: mapping localhost to 10.0.2.2 for Android Emulator.');
-      return envUrl.replace('localhost', '10.0.2.2');
-    }
+  if (envUrl.includes(':7159')) {
+    return envUrl.replace(':7159', ':5231');
   }
 
   return envUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
+console.log('[ProxiJob Auth API] Base URL initialized to:', API_BASE_URL);
 
 const AUTH_TOKEN_KEY = '@proxijob_auth_token';
 const AUTH_USER_KEY = '@proxijob_auth_user';
@@ -116,6 +104,7 @@ export async function loginApi(email, password, role) {
     const rawRole = decodedUser['role'] || decodedUser['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || '';
     const mappedRole = rawRole.toLowerCase() === 'student' ? 'student' : 'employer';
     const userId = parseInt(decodedUser.sub || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
+    const subTier = decodedUser['subscription_tier'] || 'Free';
 
     return {
       token: token,
@@ -125,6 +114,7 @@ export async function loginApi(email, password, role) {
         email: decodedUser.email || email,
         name: rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán',
         role: mappedRole,
+        subscriptionTier: subTier,
       }
     };
   } catch (error) {
@@ -199,12 +189,14 @@ export async function checkAuthApi(token) {
     const rawRole = decoded['role'] || decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || '';
     const mappedRole = rawRole.toLowerCase() === 'student' ? 'student' : 'employer';
     const userId = parseInt(decoded.sub || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
+    const subTier = decoded['subscription_tier'] || 'Free';
 
     return {
       id: userId,
       email: decoded.email || '',
       name: rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán',
       role: mappedRole,
+      subscriptionTier: subTier,
     };
   } catch (error) {
     console.log('[ProxiJob API] checkAuthApi failed. Falling back to local cache:', error.message);
@@ -314,6 +306,54 @@ export async function refreshTokensApi(refreshToken) {
     };
   } catch (error) {
     console.log('[ProxiJob API] refreshTokensApi failed:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Fetch subscription plans
+ * @returns {Promise<object>}
+ */
+export async function getPlansApi() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/plans`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch plans: ${response.status}`);
+    }
+    const resData = await response.json();
+    return resData.data || resData;
+  } catch (error) {
+    console.log('[ProxiJob Auth API] getPlansApi error:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Initiate a plan purchase
+ * @param {number} planId 
+ * @returns {Promise<object>}
+ */
+export async function purchasePlanApi(planId) {
+  try {
+    const token = await getStoredToken();
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/plans/purchase`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ planId })
+    });
+    const resData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(resData.message || `Failed to purchase plan: ${response.status}`);
+    }
+    return resData.data || resData;
+  } catch (error) {
+    console.log('[ProxiJob Auth API] purchasePlanApi error:', error.message);
     throw error;
   }
 }

@@ -205,6 +205,23 @@ export const AppProvider = ({ children }) => {
 
   // State-driven routing function
   const navigateTo = (screenName, params = {}) => {
+    // Avoid double routing to tab screens to prevent rendering loops and jitter
+    const tabScreens = [
+      'student_dashboard',
+      'student_calendar',
+      'student_checkin',
+      'student_portfolio',
+      'employer_approvals',
+      'employer_hrm',
+      'employer_scheduling',
+      'employer_monitor',
+      'payroll_settlement'
+    ];
+    if (currentScreen === screenName && tabScreens.includes(screenName)) {
+      setNavigationParams(params);
+      return;
+    }
+
     // Gatekeeping middleware
     const restrictedScreens = [
       'employer_hrm',
@@ -272,44 +289,68 @@ export const AppProvider = ({ children }) => {
           console.log(`Error loading shifts for job ${job.id}:`, sErr);
         }
       }
-      if (allShifts.length > 0) {
-        setShifts(allShifts);
-      } else {
-        setShifts(INITIAL_SHIFTS);
+
+      let baseShifts = allShifts.length > 0 ? allShifts : [...INITIAL_SHIFTS];
+
+      // If user is a student, fetch applications and merge directly to resolve race conditions
+      if (user && user.role === 'student') {
+        try {
+          const appsRes = await getMyApplications(user.id);
+          const apps = appsRes.items || [];
+          baseShifts = baseShifts.map(shift => {
+            const app = apps.find(a => a.jobShiftId === shift.id);
+            if (app) {
+              let status = 'applied';
+              if (app.status === 'Approved') status = 'approved';
+              else if (app.status === 'Rejected') status = 'available';
+              else if (app.status === 'Completed') status = 'completed';
+
+              if (shift.status === 'checkin_active' && status === 'approved') {
+                return shift;
+              }
+              return { ...shift, status, applicationId: app.id };
+            }
+            return shift;
+          });
+        } catch (appErr) {
+          console.log('Error merging applications inside loadShifts:', appErr);
+        }
       }
+
+      setShifts(baseShifts);
     } catch (err) {
       console.log('Error loading published shifts, using mock fallback:', err);
-      setShifts(INITIAL_SHIFTS);
+      let baseShifts = [...INITIAL_SHIFTS];
+      if (user && user.role === 'student') {
+        try {
+          const appsRes = await getMyApplications(user.id);
+          const apps = appsRes.items || [];
+          baseShifts = baseShifts.map(shift => {
+            const app = apps.find(a => a.jobShiftId === shift.id);
+            if (app) {
+              let status = 'applied';
+              if (app.status === 'Approved') status = 'approved';
+              else if (app.status === 'Rejected') status = 'available';
+              else if (app.status === 'Completed') status = 'completed';
+
+              if (shift.status === 'checkin_active' && status === 'approved') {
+                return shift;
+              }
+              return { ...shift, status, applicationId: app.id };
+            }
+            return shift;
+          });
+        } catch (appErr) {
+          console.log('Error merging applications in mock fallback:', appErr);
+        }
+      }
+      setShifts(baseShifts);
     }
   };
 
   const loadMyApplications = async (studentId) => {
-    const sId = studentId || user?.id;
-    if (!sId) return;
-    try {
-      const res = await getMyApplications(sId);
-      const apps = res.items || [];
-      
-      setShifts(prevShifts => {
-        return prevShifts.map(shift => {
-          const app = apps.find(a => a.jobShiftId === shift.id);
-          if (app) {
-            let status = 'applied';
-            if (app.status === 'Approved') status = 'approved';
-            else if (app.status === 'Rejected') status = 'available';
-            else if (app.status === 'Completed') status = 'completed';
-            
-            if (shift.status === 'checkin_active' && status === 'approved') {
-              return shift;
-            }
-            return { ...shift, status, applicationId: app.id };
-          }
-          return shift;
-        });
-      });
-    } catch (err) {
-      console.log('Error loading student applications:', err);
-    }
+    // Forward to loadShifts since loadShifts now automatically maps applications
+    await loadShifts();
   };
 
   const loadEmployerJobs = async () => {
@@ -388,8 +429,11 @@ export const AppProvider = ({ children }) => {
     if (user) {
       if (user.role === 'student') {
         loadShifts();
-        loadMyApplications(user.id);
       } else {
+        // Set isEnterprise state based on user's active subscription tier from DB
+        const premiumTiers = ['Enterprise', 'Premium', 'Standard'];
+        setIsEnterprise(premiumTiers.includes(user?.subscriptionTier));
+
         loadEmployerJobs();
         loadStaffList();
         loadAttendanceLogs();
@@ -538,6 +582,7 @@ export const AppProvider = ({ children }) => {
           name: role === 0 ? 'Nguyễn Văn A' : 'Highlands Coffee Hub',
           email: email || (role === 0 ? 'student@proxijob.vn' : 'merchant@proxijob.vn'),
           role: role === 0 ? 'student' : 'merchant',
+          subscriptionTier: 'Free',
         };
       }
       setUser(loggedInUser);
