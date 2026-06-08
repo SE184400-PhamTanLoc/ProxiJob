@@ -1,15 +1,26 @@
 import { Platform, NativeModules } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 const getHostIp = () => {
   const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
   if (isDev && Platform.OS !== 'web') {
+    // 1. Try Expo Constants (highly reliable in Expo Go)
+    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGoProjectConfig?.debuggerHost || Constants.manifest?.debuggerHost;
+    if (debuggerHost) {
+      const hostIp = debuggerHost.split(':')[0];
+      if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') return hostIp;
+    }
+
+    // 2. Try NativeModules scriptURL
     if (NativeModules.SourceCode && NativeModules.SourceCode.scriptURL) {
       const scriptURL = NativeModules.SourceCode.scriptURL;
       const hostIp = scriptURL.split('://')[1]?.split('/')[0]?.split(':')[0];
       if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') return hostIp;
     }
-    return '192.168.1.7';
+    
+    // 3. Fallback for Emulator (Android emulator uses 10.0.2.2 for host)
+    return '10.0.2.2';
   }
   return 'localhost';
 };

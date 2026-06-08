@@ -7,6 +7,13 @@ using ProxiJob.Identity.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var urls = builder.Configuration["urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+if (!string.IsNullOrEmpty(urls))
+{
+    var bindingUrls = urls.Replace("localhost", "0.0.0.0");
+    builder.WebHost.UseUrls(bindingUrls.Split(';'));
+}
+
 // --- DbContext ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<IdentityDbContext>(options =>
@@ -55,13 +62,11 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
-}
-else
+app.UseSwagger();
+app.UseSwaggerUI();
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+
+if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
@@ -76,5 +81,13 @@ await IdentityDatabaseInitializer.InitializeAsync(
 
 app.MapControllers();
 app.MapGrpcService<IdentityGrpcServiceImpl>();
+
+if (!string.IsNullOrEmpty(urls))
+{
+    foreach (var url in urls.Split(';'))
+    {
+        Console.WriteLine($"\n--> Click to open Swagger: {url.Replace("0.0.0.0", "localhost")}/swagger\n");
+    }
+}
 
 app.Run();

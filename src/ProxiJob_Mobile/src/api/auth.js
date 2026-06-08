@@ -112,7 +112,7 @@ export async function loginApi(email, password, role) {
       user: {
         id: userId,
         email: decodedUser.email || email,
-        name: rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán',
+        name: decodedUser.name || decodedUser.unique_name || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán'),
         role: mappedRole,
         subscriptionTier: subTier,
       }
@@ -194,7 +194,7 @@ export async function checkAuthApi(token) {
     return {
       id: userId,
       email: decoded.email || '',
-      name: rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán',
+      name: decoded.name || decoded.unique_name || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán'),
       role: mappedRole,
       subscriptionTier: subTier,
     };

@@ -49,131 +49,10 @@ const STUDENT_MOCK_GPS = {
   longitude: 106.7009
 };
 
-const INITIAL_SHIFTS = [
-  {
-    id: 101,
-    title: 'Nhân viên Pha chế (Cấp cao)',
-    shopName: 'Katinat Coffee - Đồng Khởi',
-    hourlyRate: 38000,
-    latitude: 10.7745,
-    longitude: 106.7065,
-    date: '05/06/2026',
-    time: '18:00 - 22:00',
-    description: 'Pha chế đồ uống nóng/lạnh theo công thức tiêu chuẩn của Katinat. Đảm bảo vệ sinh quầy bar và tương tác thân thiện với khách hàng.',
-    requirements: 'Có kinh nghiệm pha chế cơ bản từ 3 tháng, thái độ tích cực, tác phong nhanh nhẹn.',
-    rating: 4.8,
-    reviewsCount: 24,
-    status: 'available',
-    isEmergency: false,
-    auditFields: {
-      createdBy: 'System_Admin',
-      updatedBy: 'System_Admin',
-      deletedBy: ''
-    }
-  },
-  {
-    id: 102,
-    title: 'Phục vụ ca tối',
-    shopName: 'Highlands Coffee - Hồ Con Rùa',
-    hourlyRate: 32000,
-    latitude: 10.7812,
-    longitude: 106.6912,
-    date: '06/06/2026',
-    time: '17:30 - 22:30',
-    description: 'Chào đón khách, ghi nhận món ăn uống, bưng bê đồ uống và dọn dẹp vệ sinh khu vực sảnh quán.',
-    requirements: 'Trung thực, chịu khó, ưu tiên sinh viên có lịch làm việc linh hoạt.',
-    rating: 4.6,
-    reviewsCount: 15,
-    status: 'available',
-    isEmergency: false,
-    auditFields: {
-      createdBy: 'System_Admin',
-      updatedBy: 'System_Admin',
-      deletedBy: ''
-    }
-  },
-  {
-    id: 103,
-    title: 'Nhân viên kho soạn hàng ca đêm',
-    shopName: 'Shopee Express - Quận 4 Hub',
-    hourlyRate: 48000,
-    latitude: 10.7554,
-    longitude: 106.7054,
-    date: '05/06/2026',
-    time: '22:00 - 06:00',
-    description: 'Phân loại hàng hóa theo quận huyện, xếp dỡ thùng hàng và đóng gói bưu kiện phục vụ vận chuyển buổi sáng.',
-    requirements: 'Sức khỏe tốt, cẩn thận, chịu được áp lực công việc ban đêm.',
-    rating: 4.5,
-    reviewsCount: 38,
-    status: 'available',
-    isEmergency: false,
-    auditFields: {
-      createdBy: 'System_Admin',
-      updatedBy: 'System_Admin',
-      deletedBy: ''
-    }
-  },
-  {
-    id: 104,
-    title: 'Thu ngân kiêm sắp xếp hàng',
-    shopName: 'Circle K - Lê Lợi D1',
-    hourlyRate: 33000,
-    latitude: 10.7712,
-    longitude: 106.6989,
-    date: '07/06/2026',
-    time: '08:00 - 16:00',
-    description: 'Tính tiền cho khách tại quầy thu ngân bằng POS, xếp hàng hóa lên kệ, dọn vệ sinh trong và ngoài cửa hàng.',
-    requirements: 'Có kỹ năng tính toán cơ bản, nhanh nhẹn, trung thực.',
-    rating: 4.7,
-    reviewsCount: 9,
-    status: 'available',
-    isEmergency: false,
-    auditFields: {
-      createdBy: 'System_Admin',
-      updatedBy: 'System_Admin',
-      deletedBy: ''
-    }
-  },
-  {
-    id: 105,
-    title: 'Phục vụ bàn gấp trưa',
-    shopName: 'Phở 24 - Nguyễn Huệ',
-    hourlyRate: 35000,
-    latitude: 10.7750,
-    longitude: 106.7032,
-    date: '08/06/2026',
-    time: '11:00 - 14:00',
-    description: 'Phục vụ tô phở nóng và dọn bàn siêu tốc trong khung giờ cao điểm ăn trưa của giới văn phòng.',
-    requirements: 'Giao tiếp tốt, chịu áp lực bận rộn cao, nhanh tay nhanh chân.',
-    rating: 4.4,
-    reviewsCount: 22,
-    status: 'available',
-    isEmergency: false,
-    auditFields: {
-      createdBy: 'System_Admin',
-      updatedBy: 'System_Admin',
-      deletedBy: ''
-    }
-  }
-];
-
-const INITIAL_STAFF = [
-  { id: 1, name: 'Nguyễn Văn A', role: 'Pha chế Trưởng', phone: '0901 234 567', status: 'working', shiftsCount: 12, isExternal: false },
-  { id: 2, name: 'Trần Thị B', role: 'Phục vụ Cố định', phone: '0912 345 678', status: 'idle', shiftsCount: 8, isExternal: false },
-  { id: 3, name: 'Lê Hoàng C', role: 'Bảo vệ kiêm Giám sát', phone: '0988 777 666', status: 'idle', shiftsCount: 16, isExternal: false },
-  { id: 4, name: 'Phạm Tấn Lộc', role: 'Phục vụ Bán thời gian', phone: '0977 111 222', status: 'working', shiftsCount: 20, isExternal: true }
-];
-
-const INITIAL_LEAVE_REQUESTS = [
-  { id: 1, staffName: 'Lê Hoàng C', reason: 'Xin nghỉ phép khám bệnh', shiftDate: '07/06/2026', status: 'pending' },
-  { id: 2, staffName: 'Trần Thị B', reason: 'Đổi ca chiều sang sáng do đi học nhóm', shiftDate: '08/06/2026', status: 'pending' }
-];
-
-const INITIAL_REVIEWS = [
-  { id: 1, author: 'Katinat Coffee', rating: 5, comment: 'Nguyễn Văn A làm việc cực kì đúng giờ, pha chế nhanh nhẹn và thái độ phục vụ khách hàng rát tốt.', date: '28/05/2026' },
-  { id: 2, author: 'Highlands Coffee', rating: 4, comment: 'Làm việc chăm chỉ, nhiệt tình. Cần cải thiện một chút tốc độ dọn dẹp bàn ghế lúc đông khách.', date: '20/05/2026' },
-  { id: 3, author: 'Circle K', rating: 5, comment: 'Xuất sắc, trung thực, hỗ trợ cửa hàng nhiệt tình trong ca trực đêm.', date: '15/05/2026' }
-];
+const INITIAL_SHIFTS = [];
+const INITIAL_STAFF = [];
+const INITIAL_LEAVE_REQUESTS = [];
+const INITIAL_REVIEWS = [];
 
 export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(null); // null means logged out
@@ -290,7 +169,7 @@ export const AppProvider = ({ children }) => {
         }
       }
 
-      let baseShifts = allShifts.length > 0 ? allShifts : [...INITIAL_SHIFTS];
+      let baseShifts = allShifts;
 
       // If user is a student, fetch applications and merge directly to resolve race conditions
       if (user && user.role === 'student') {
@@ -319,32 +198,8 @@ export const AppProvider = ({ children }) => {
 
       setShifts(baseShifts);
     } catch (err) {
-      console.log('Error loading published shifts, using mock fallback:', err);
-      let baseShifts = [...INITIAL_SHIFTS];
-      if (user && user.role === 'student') {
-        try {
-          const appsRes = await getMyApplications(user.id);
-          const apps = appsRes.items || [];
-          baseShifts = baseShifts.map(shift => {
-            const app = apps.find(a => a.jobShiftId === shift.id);
-            if (app) {
-              let status = 'applied';
-              if (app.status === 'Approved') status = 'approved';
-              else if (app.status === 'Rejected') status = 'available';
-              else if (app.status === 'Completed') status = 'completed';
-
-              if (shift.status === 'checkin_active' && status === 'approved') {
-                return shift;
-              }
-              return { ...shift, status, applicationId: app.id };
-            }
-            return shift;
-          });
-        } catch (appErr) {
-          console.log('Error merging applications in mock fallback:', appErr);
-        }
-      }
-      setShifts(baseShifts);
+      console.log('Error loading published shifts:', err);
+      setShifts([]);
     }
   };
 
@@ -383,8 +238,9 @@ export const AppProvider = ({ children }) => {
       const externalList = formattedList.filter(emp => emp.isExternal);
       setHrmSingleApplicants(externalList);
     } catch (err) {
-      console.log('Error loading employees, using mock fallback:', err);
-      setStaffList(INITIAL_STAFF);
+      console.log('Error loading employees:', err);
+      setStaffList([]);
+      setHrmSingleApplicants([]);
     }
   };
 
@@ -569,23 +425,10 @@ export const AppProvider = ({ children }) => {
   const login = async (email, password, role) => {
     try {
       setAuthLoading(true);
-      let loggedInUser;
-      try {
-        const { token, refreshToken, user: resUser } = await loginApi(email, password, role);
-        await saveAuthSession(token, refreshToken, resUser);
-        loggedInUser = resUser;
-      } catch (apiError) {
-        // Fallback mockup user to run offline smoothly
-        console.log('[ProxiJob Login] API failed, using mock user for demo: ', apiError.message);
-        loggedInUser = {
-          id: 1,
-          name: role === 0 ? 'Nguyễn Văn A' : 'Highlands Coffee Hub',
-          email: email || (role === 0 ? 'student@proxijob.vn' : 'merchant@proxijob.vn'),
-          role: role === 0 ? 'student' : 'merchant',
-          subscriptionTier: 'Free',
-        };
-      }
-      setUser(loggedInUser);
+      const { token, refreshToken, user: resUser } = await loginApi(email, password, role);
+      await saveAuthSession(token, refreshToken, resUser);
+      
+      setUser(resUser);
       setSelectedRole(role);
       
       // Global navigation switch based on Role
@@ -611,11 +454,7 @@ export const AppProvider = ({ children }) => {
   const register = async (fullName, email, password, confirmPassword, role) => {
     try {
       setAuthLoading(true);
-      try {
-        await registerApi(fullName, email, password, confirmPassword, role);
-      } catch (e) {
-        console.log('[ProxiJob Register] API failed, using mock registration');
-      }
+      await registerApi(fullName, email, password, confirmPassword, role);
       showToast('Đăng ký tài khoản thành công! Vui lòng đăng nhập.', 'success');
       return true;
     } catch (error) {
@@ -682,19 +521,9 @@ export const AppProvider = ({ children }) => {
       await loadMyApplications(user.id);
       return true;
     } catch (err) {
-      console.log('Error applying to shift, falling back to mock UI update:', err.message);
-      // Fallback
-      setShifts((prevShifts) =>
-        prevShifts.map((shift) => {
-          if (shift.id === shiftId) {
-            addNotification('Ứng tuyển', `Bạn đã ứng tuyển thành công vào ca làm tại ${shift.shopName}. Đang chờ duyệt!`);
-            showToast(`Ứng tuyển thành công tại ${shift.shopName}!`, 'success');
-            return { ...shift, status: 'applied', auditFields: { ...shift.auditFields, updatedBy: user?.name || 'Student' } };
-          }
-          return shift;
-        })
-      );
-      return true;
+      console.log('Error applying to shift:', err.message);
+      showToast('Ứng tuyển thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 
@@ -735,49 +564,9 @@ export const AppProvider = ({ children }) => {
       );
       return true;
     } catch (err) {
-      console.log('Check-in API failed, falling back to mock check-in:', err.message);
-      // Fallback
-      setShifts((prevShifts) =>
-        prevShifts.map((shift) => {
-          if (shift.id === shiftId) {
-            const now = new Date();
-            const checkInTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-            const updatedShift = {
-              ...shift,
-              status: 'checkin_active',
-              checkInTime,
-              timekeepingId: Date.now(),
-              auditFields: { ...shift.auditFields, updatedBy: user?.name || 'Student' }
-            };
-            setActiveShift(updatedShift);
-            
-            const newAttendanceLog = {
-              id: Date.now(),
-              shiftId,
-              studentName: user?.name || 'Nguyễn Văn A',
-              shopName: shift.shopName,
-              jobTitle: shift.title,
-              checkInTime,
-              checkOutTime: null,
-              status: 'working',
-              date: shift.date,
-              photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
-              gpsStatus: 'Hợp lệ (45m)'
-            };
-            setAttendanceLogs(prev => [newAttendanceLog, ...prev]);
-
-            addNotification('Check-in', `Đã điểm danh vào ca làm tại ${shift.shopName} lúc ${checkInTime}. Chúc ca làm vui vẻ!`);
-            showToast('Check-in ca làm thành công!', 'success');
-
-            setStaffList(prev => prev.map(s => s.name === 'Nguyễn Văn A' ? { ...s, status: 'working' } : s));
-
-            return updatedShift;
-          }
-          return shift;
-        })
-      );
-      return true;
+      console.log('Check-in API failed:', err.message);
+      showToast('Check-in thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 
@@ -822,52 +611,9 @@ export const AppProvider = ({ children }) => {
       );
       return true;
     } catch (err) {
-      console.log('Check-out API failed, falling back to mock checkout:', err.message);
-      // Fallback
-      setShifts((prevShifts) =>
-        prevShifts.map((shift) => {
-          if (shift.id === shiftId) {
-            const now = new Date();
-            const checkOutTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-            const updatedShift = {
-              ...shift,
-              status: 'completed',
-              checkOutTime,
-              auditFields: { ...shift.auditFields, updatedBy: user?.name || 'Student' }
-            };
-            setActiveShift(null);
-            
-            setAttendanceLogs(prev => prev.map(log => 
-              log.shiftId === shiftId 
-                ? { ...log, checkOutTime, status: 'completed' } 
-                : log
-            ));
-
-            addNotification('Check-out', `Đã điểm danh kết thúc ca làm tại ${shift.shopName} lúc ${checkOutTime}. Hệ thống đang kết toán lương!`);
-            showToast('Check-out thành công!', 'success');
-
-            setTimeout(() => {
-              const mockReview = {
-                id: Date.now(),
-                author: shift.shopName.split(' - ')[0],
-                rating: 5,
-                comment: 'Cảm ơn sự đóng góp nhiệt tình của bạn trong ca làm! Rất nhanh nhẹn và chuyên nghiệp.',
-                date: 'Hôm nay'
-              };
-              setReviews(prev => [mockReview, ...prev]);
-              addNotification('Đánh giá mới', `${mockReview.author} đã đánh giá 5⭐ và để lại nhận xét tích cực cho bạn!`);
-              showToast(`Bạn nhận được đánh giá 5⭐ từ ${mockReview.author}!`, 'info');
-            }, 3000);
-
-            setStaffList(prev => prev.map(s => s.name === 'Nguyễn Văn A' ? { ...s, status: 'idle', shiftsCount: s.shiftsCount + 1 } : s));
-
-            return updatedShift;
-          }
-          return shift;
-        })
-      );
-      return true;
+      console.log('Check-out API failed:', err.message);
+      showToast('Check-out thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 
@@ -932,35 +678,9 @@ export const AppProvider = ({ children }) => {
       await loadEmployerJobs();
       return true;
     } catch (err) {
-      console.log('Error creating emergency shift, falling back to mock:', err.message);
-      // Fallback
-      const newShiftId = Date.now();
-      const emergencyShift = {
-        id: newShiftId,
-        title: `${title} (KHẨN CẤP)`,
-        shopName,
-        hourlyRate: parseInt(hourlyRate, 10),
-        latitude: STUDENT_MOCK_GPS.latitude + (Math.random() - 0.5) * 0.015, // close radius
-        longitude: STUDENT_MOCK_GPS.longitude + (Math.random() - 0.5) * 0.015,
-        date: 'Hôm nay',
-        time,
-        description: `Ca làm việc tuyển gấp khẩn cấp. Mức lương cao hơn 30% so với ngày thường. Nhận việc ngay không cần phỏng vấn. Yêu cầu có mặt sau 30 phút.`,
-        requirements: 'Đã có kinh nghiệm, chủ động công việc, có trách nhiệm.',
-        rating: 5.0,
-        reviewsCount: 1,
-        status: 'available',
-        isEmergency: true,
-        auditFields: {
-          createdBy: user?.name || 'Employer_Host',
-          updatedBy: user?.name || 'Employer_Host',
-          deletedBy: ''
-        }
-      };
-
-      setShifts(prev => [emergencyShift, ...prev]);
-      addNotification('TIN TUYỂN GẤP', `Ca khẩn cấp "${title}" tại ${shopName} vừa được đăng với lương hấp dẫn!`, 'Vừa xong');
-      showToast('Đăng ca khẩn cấp thành công! (Giả lập)', 'warning');
-      return true;
+      console.log('Error creating emergency shift:', err.message);
+      showToast('Đăng ca khẩn cấp thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 
@@ -973,32 +693,9 @@ export const AppProvider = ({ children }) => {
       await loadStaffList();
       return true;
     } catch (err) {
-      console.log('Approve application API failed, using mock update:', err.message);
-      // Fallback mock logic
-      setShifts((prevShifts) =>
-        prevShifts.map((shift) => {
-          if (shift.id === applicationId || shift.jobPostId === applicationId) {
-            const newHrmStaff = {
-              id: Date.now(),
-              name: 'Nguyễn Văn A',
-              role: shift.title,
-              phone: '0977 111 222',
-              shiftTitle: shift.title,
-              shopName: shift.shopName,
-              hourlyRate: shift.hourlyRate,
-              date: shift.date,
-              time: shift.time
-            };
-            setHrmSingleApplicants(prev => [newHrmStaff, ...prev]);
-
-            addNotification('Duyệt tuyển', `Hồ sơ của bạn ứng tuyển ca làm ${shift.title} tại ${shift.shopName} đã được CHỦ QUÁN DUYỆT!`);
-            showToast(`Đã duyệt ứng tuyển tại ${shift.shopName}!`, 'success');
-            return { ...shift, status: 'approved', auditFields: { ...shift.auditFields, updatedBy: user?.name || 'Host_Approve' } };
-          }
-          return shift;
-        })
-      );
-      return true;
+      console.log('Approve application API failed:', err.message);
+      showToast('Duyệt đơn thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 
@@ -1010,19 +707,9 @@ export const AppProvider = ({ children }) => {
       await loadEmployerJobs();
       return true;
     } catch (err) {
-      console.log('Reject application API failed, using mock update:', err.message);
-      // Fallback
-      setShifts((prevShifts) =>
-        prevShifts.map((shift) => {
-          if (shift.id === applicationId) {
-            addNotification('Ứng tuyển', `Đơn ứng tuyển ca làm ${shift.title} tại ${shift.shopName} đã bị từ chối.`);
-            showToast(`Đã từ chối ứng tuyển tại ${shift.shopName}.`, 'info');
-            return { ...shift, status: 'available', auditFields: { ...shift.auditFields, updatedBy: user?.name || 'Host_Reject' } };
-          }
-          return shift;
-        })
-      );
-      return true;
+      console.log('Reject application API failed:', err.message);
+      showToast('Từ chối đơn thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 
@@ -1044,21 +731,9 @@ export const AppProvider = ({ children }) => {
       await loadStaffList();
       return true;
     } catch (err) {
-      console.log('Add staff API failed, using mock fallback:', err.message);
-      // Fallback
-      const newStaff = {
-        id: Date.now(),
-        name,
-        role,
-        phone,
-        status: 'idle',
-        shiftsCount: 0,
-        isExternal: false
-      };
-      setStaffList(prev => [...prev, newStaff]);
-      addNotification('Quản trị nhân sự', `Đã thêm nhân viên ${name} (${role}) vào danh sách nhân sự nội bộ.`);
-      showToast(`Đã thêm nhân viên ${name} vào hệ thống!`, 'success');
-      return true;
+      console.log('Add staff API failed:', err.message);
+      showToast('Thêm nhân viên thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 
@@ -1069,15 +744,9 @@ export const AppProvider = ({ children }) => {
       await loadStaffList();
       return true;
     } catch (err) {
-      console.log('Delete staff API failed, using mock fallback:', err.message);
-      // Fallback
-      const staff = staffList.find(s => s.id === id);
-      if (staff) {
-        setStaffList(prev => prev.filter(s => s.id !== id));
-        addNotification('Quản trị nhân sự', `Đã xóa nhân viên ${staff.name} khỏi danh sách nhân sự nội bộ.`);
-        showToast(`Đã xóa nhân viên ${staff.name}!`, 'info');
-      }
-      return true;
+      console.log('Delete staff API failed:', err.message);
+      showToast('Xóa nhân viên thất bại: ' + translateError(err), 'error');
+      return false;
     }
   };
 

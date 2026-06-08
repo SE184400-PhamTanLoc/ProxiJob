@@ -10,12 +10,26 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
 export default function StudentPortfolio() {
-  const { reviews, shifts } = useContext(AppContext);
+  const { reviews, shifts, user } = useContext(AppContext);
 
   // Compute stats based on completed shifts
   const completedShifts = shifts.filter(s => s.status === 'completed');
-  const totalCompletedShifts = completedShifts.length + 12; // seed static baseline
-  const averageRating = 4.9;
+  const totalCompletedShifts = completedShifts.length; // remove mock baseline
+  const averageRating = reviews.length > 0 
+    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
+    : '5.0';
+
+  const getInitials = (name) => {
+    if (!name) return 'SV';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 0) return 'SV';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const displayName = user?.name || 'Sinh viên';
+  const displayEmail = user?.email || '';
+  const initials = getInitials(displayName);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -25,16 +39,16 @@ export default function StudentPortfolio() {
         <View style={[styles.profileHeaderCard, theme.shadows.light]}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>VA</Text>
+              <Text style={styles.avatarText}>{initials}</Text>
             </View>
             <View style={styles.verifiedBadge}>
               <Text style={styles.verifiedText}>✓</Text>
             </View>
           </View>
           
-          <Text style={styles.userName}>Nguyễn Văn A</Text>
-          <Text style={styles.userRole}>Sinh viên Đại học Quốc Gia TP.HCM</Text>
-          <Text style={styles.userBio}>Đam mê học hỏi ngành pha chế và F&B. Có 6 tháng kinh nghiệm làm barista bán thời gian. Cam kết đi làm đúng giờ, uy tín.</Text>
+          <Text style={styles.userName}>{displayName}</Text>
+          <Text style={styles.userRole}>{displayEmail || 'Đại học Quốc Gia TP.HCM'}</Text>
+          <Text style={styles.userBio}>Đam mê học hỏi ngành pha chế và F&B. Cam kết đi làm đúng giờ, uy tín.</Text>
         </View>
 
         {/* Reputation Stats Summary */}

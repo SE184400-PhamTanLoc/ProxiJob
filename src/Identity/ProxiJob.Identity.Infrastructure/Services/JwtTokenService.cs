@@ -43,6 +43,8 @@ namespace ProxiJob.Identity.Infrastructure.Services
             {
                 new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new(JwtRegisteredClaimNames.Email, user.Email),
+                new(ClaimTypes.Name, user.FullName),
+                new("name", user.FullName),
                 new(ClaimTypes.Role, role),
                 new(ClaimNames.SubscriptionTier, subscriptionTier),
                 new(ClaimNames.JobPostLimit, jobPostLimit.ToString()),
