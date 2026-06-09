@@ -8,11 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { AppContext } from '../context/AppContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen() {
   const { register, navigateTo, authLoading, selectedRole, setSelectedRole } = useContext(AppContext);
@@ -26,6 +28,8 @@ export default function RegisterScreen() {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleRoleChange = (role) => {
     setSelectedRole(role);
@@ -89,9 +93,11 @@ export default function RegisterScreen() {
 
           {/* Logo / Header Area */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoSymbol}>⚡</Text>
-            </View>
+            <Image
+              source={require('../img/proxijob logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.logoText}>ProxiJob</Text>
             <Text style={styles.logoSubText}>Tạo tài khoản và tham gia cùng cộng đồng tuyển dụng hyperlocal</Text>
           </View>
@@ -187,45 +193,65 @@ export default function RegisterScreen() {
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
               <Text style={styles.inputLabel}>Mật khẩu (tối thiểu 8 ký tự)</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  isPasswordFocused && { borderColor: selectedRole === 0 ? theme.colors.student : theme.colors.employer, borderWidth: 1.5 },
-                  errors.password && { borderColor: theme.colors.danger, borderWidth: 1.5 }
-                ]}
-                placeholder="Nhập mật khẩu..."
-                placeholderTextColor={theme.colors.textLight}
-                value={password}
-                onChangeText={(e) => {
-                  setPassword(e);
-                  if (errors.password) setErrors(prev => ({ ...prev, password: null }));
-                }}
-                onFocus={() => setIsPasswordFocused(true)}
-                onBlur={() => setIsPasswordFocused(false)}
-                secureTextEntry
-                editable={!authLoading}
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { paddingRight: 48, marginBottom: 0 },
+                    isPasswordFocused && { borderColor: selectedRole === 0 ? theme.colors.student : theme.colors.employer, borderWidth: 1.5 },
+                    errors.password && { borderColor: theme.colors.danger, borderWidth: 1.5 }
+                  ]}
+                  placeholder="Nhập mật khẩu..."
+                  placeholderTextColor={theme.colors.textLight}
+                  value={password}
+                  onChangeText={(e) => {
+                    setPassword(e);
+                    if (errors.password) setErrors(prev => ({ ...prev, password: null }));
+                  }}
+                  onFocus={() => setIsPasswordFocused(true)}
+                  onBlur={() => setIsPasswordFocused(false)}
+                  secureTextEntry={!showPassword}
+                  editable={!authLoading}
+                />
+                <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons
+                    name={showPassword ? "eye" : "eye-off"}
+                    size={20}
+                    color={theme.colors.textMuted || "#6B7280"}
+                  />
+                </TouchableOpacity>
+              </View>
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
               <Text style={styles.inputLabel}>Xác nhận mật khẩu</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  isConfirmPasswordFocused && { borderColor: selectedRole === 0 ? theme.colors.student : theme.colors.employer, borderWidth: 1.5 },
-                  errors.confirmPassword && { borderColor: theme.colors.danger, borderWidth: 1.5 }
-                ]}
-                placeholder="Nhập lại mật khẩu..."
-                placeholderTextColor={theme.colors.textLight}
-                value={confirmPassword}
-                onChangeText={(e) => {
-                  setConfirmPassword(e);
-                  if (errors.confirmPassword) setErrors(prev => ({ ...prev, confirmPassword: null }));
-                }}
-                onFocus={() => setIsConfirmPasswordFocused(true)}
-                onBlur={() => setIsConfirmPasswordFocused(false)}
-                secureTextEntry
-                editable={!authLoading}
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { paddingRight: 48, marginBottom: 0 },
+                    isConfirmPasswordFocused && { borderColor: selectedRole === 0 ? theme.colors.student : theme.colors.employer, borderWidth: 1.5 },
+                    errors.confirmPassword && { borderColor: theme.colors.danger, borderWidth: 1.5 }
+                  ]}
+                  placeholder="Nhập lại mật khẩu..."
+                  placeholderTextColor={theme.colors.textLight}
+                  value={confirmPassword}
+                  onChangeText={(e) => {
+                    setConfirmPassword(e);
+                    if (errors.confirmPassword) setErrors(prev => ({ ...prev, confirmPassword: null }));
+                  }}
+                  onFocus={() => setIsConfirmPasswordFocused(true)}
+                  onBlur={() => setIsConfirmPasswordFocused(false)}
+                  secureTextEntry={!showConfirmPassword}
+                  editable={!authLoading}
+                />
+                <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  <Ionicons
+                    name={showConfirmPassword ? "eye" : "eye-off"}
+                    size={20}
+                    color={theme.colors.textMuted || "#6B7280"}
+                  />
+                </TouchableOpacity>
+              </View>
               {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
 
               {/* Register Button */}
@@ -280,26 +306,17 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '100%',
+    flexGrow: 1,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: theme.spacing.xl,
     marginTop: Platform.OS === 'web' ? theme.spacing.xl : 0,
   },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.primary + '1A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-  },
-  logoSymbol: {
-    fontSize: 32,
+  logoImage: {
+    width: 90,
+    height: 110,
+    marginBottom: -20,
   },
   logoText: {
     fontSize: 28,
@@ -423,5 +440,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
     marginLeft: 4,
+  },
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: theme.spacing.md,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 48,
   }
 });

@@ -10,11 +10,12 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider, AppContext } from './src/context/AppContext';
 import { theme } from './src/styles/theme';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import Toast from './src/components/Toast';
 
@@ -31,7 +32,13 @@ function MainAppShell() {
   }
 
   if (!user) {
-    return currentScreen === 'register' ? <RegisterScreen /> : <LoginScreen />;
+    if (currentScreen === 'register') {
+      return <RegisterScreen />;
+    } else if (currentScreen === 'forgot_password') {
+      return <ForgotPasswordScreen />;
+    } else {
+      return <LoginScreen />;
+    }
   }
 
   // Count unread notifications
@@ -41,7 +48,7 @@ function MainAppShell() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style="dark" />
-      <SafeAreaView >
+      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.colors.white }}>
         {/* Universal Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -131,12 +138,14 @@ function MainAppShell() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <View style={{ flex: 1 }}>
-        <MainAppShell />
-        <Toast />
-      </View>
-    </AppProvider>
+    <SafeAreaProvider>
+      <AppProvider>
+        <View style={{ flex: 1 }}>
+          <MainAppShell />
+          <Toast />
+        </View>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }
 

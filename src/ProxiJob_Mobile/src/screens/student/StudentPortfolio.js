@@ -14,41 +14,27 @@ export default function StudentPortfolio() {
 
   // Compute stats based on completed shifts
   const completedShifts = shifts.filter(s => s.status === 'completed');
-  const totalCompletedShifts = completedShifts.length; // remove mock baseline
-  const averageRating = reviews.length > 0 
-    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
-    : '5.0';
-
-  const getInitials = (name) => {
-    if (!name) return 'SV';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 0) return 'SV';
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
-
-  const displayName = user?.name || 'Sinh viên';
-  const displayEmail = user?.email || '';
-  const initials = getInitials(displayName);
+  const totalCompletedShifts = completedShifts.length + 12; // seed static baseline
+  const averageRating = 4.9;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+
         {/* Profile Card Header */}
         <View style={[styles.profileHeaderCard, theme.shadows.light]}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{initials}</Text>
+              <Text style={styles.avatarText}>VA</Text>
             </View>
             <View style={styles.verifiedBadge}>
               <Text style={styles.verifiedText}>✓</Text>
             </View>
           </View>
-          
-          <Text style={styles.userName}>{displayName}</Text>
-          <Text style={styles.userRole}>{displayEmail || 'Đại học Quốc Gia TP.HCM'}</Text>
-          <Text style={styles.userBio}>Đam mê học hỏi ngành pha chế và F&B. Cam kết đi làm đúng giờ, uy tín.</Text>
+
+          <Text style={styles.userName}>Nguyễn Văn A</Text>
+          <Text style={styles.userRole}>Sinh viên Đại học Quốc Gia TP.HCM</Text>
+          <Text style={styles.userBio}>Đam mê học hỏi ngành pha chế và F&B. Có 6 tháng kinh nghiệm làm barista bán thời gian. Cam kết đi làm đúng giờ, uy tín.</Text>
         </View>
 
         {/* Reputation Stats Summary */}
@@ -57,7 +43,7 @@ export default function StudentPortfolio() {
             <Text style={styles.statValue}>⭐ {averageRating}</Text>
             <Text style={styles.statLabel}>Đánh giá trung bình</Text>
           </View>
-          
+
           <View style={[styles.statBox, theme.shadows.light]}>
             <Text style={styles.statValue}>{totalCompletedShifts}</Text>
             <Text style={styles.statLabel}>Ca đã làm</Text>
@@ -90,7 +76,7 @@ export default function StudentPortfolio() {
                 <Text style={styles.reviewAuthor}>{review.author}</Text>
                 <Text style={styles.reviewDate}>{review.date}</Text>
               </View>
-              
+
               <View style={styles.starRow}>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Text key={i} style={[
@@ -101,7 +87,7 @@ export default function StudentPortfolio() {
                   </Text>
                 ))}
               </View>
-              
+
               <Text style={styles.reviewComment}>"{review.comment}"</Text>
             </View>
           ))}

@@ -91,7 +91,7 @@ export default function MainTabNavigator({ isStudent }) {
           >
             <Text style={styles.tabIcon}>🔍</Text>
             <Text style={[
-              styles.tabLabel, 
+              styles.tabLabel,
               (currentScreen === 'student_dashboard' || currentScreen === 'job_detail') && styles.activeTabLabelStudent
             ]}>Tìm Việc</Text>
           </TouchableOpacity>
@@ -165,14 +165,14 @@ export default function MainTabNavigator({ isStudent }) {
 
           <TouchableOpacity
             style={[
-              styles.tabItem, 
+              styles.tabItem,
               (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package') && styles.activeTabItemEmployer
             ]}
             onPress={() => navigateTo('payroll_settlement')}
           >
             <Text style={styles.tabIcon}>💵</Text>
             <Text style={[
-              styles.tabLabel, 
+              styles.tabLabel,
               (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package') && styles.activeTabLabelEmployer
             ]}>Quyết Toán</Text>
           </TouchableOpacity>

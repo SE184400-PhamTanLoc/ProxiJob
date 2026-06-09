@@ -102,7 +102,8 @@ export async function loginApi(email, password, role) {
 
     const decodedUser = decodeJwt(token);
     const rawRole = decodedUser['role'] || decodedUser['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || '';
-    const mappedRole = rawRole.toLowerCase() === 'student' ? 'student' : 'employer';
+    const roleStr = (Array.isArray(rawRole) ? rawRole[0] : rawRole).toString();
+    const mappedRole = roleStr.toLowerCase() === 'student' ? 'student' : 'employer';
     const userId = parseInt(decodedUser.sub || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
     const subTier = decodedUser['subscription_tier'] || 'Free';
 
@@ -112,7 +113,7 @@ export async function loginApi(email, password, role) {
       user: {
         id: userId,
         email: decodedUser.email || email,
-        name: decodedUser.name || decodedUser.unique_name || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán'),
+        name: decodedUser.name || decodedUser.unique_name || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (roleStr.toLowerCase() === 'student' ? 'Sinh viên' : 'Chủ quán'),
         role: mappedRole,
         subscriptionTier: subTier,
       }
@@ -187,14 +188,15 @@ export async function checkAuthApi(token) {
     }
 
     const rawRole = decoded['role'] || decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || '';
-    const mappedRole = rawRole.toLowerCase() === 'student' ? 'student' : 'employer';
+    const roleStr = (Array.isArray(rawRole) ? rawRole[0] : rawRole).toString();
+    const mappedRole = roleStr.toLowerCase() === 'student' ? 'student' : 'employer';
     const userId = parseInt(decoded.sub || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
     const subTier = decoded['subscription_tier'] || 'Free';
 
     return {
       id: userId,
       email: decoded.email || '',
-      name: decoded.name || decoded.unique_name || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (rawRole === 'Student' ? 'Sinh viên' : 'Chủ quán'),
+      name: decoded.name || decoded.unique_name || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (roleStr.toLowerCase() === 'student' ? 'Sinh viên' : 'Chủ quán'),
       role: mappedRole,
       subscriptionTier: subTier,
     };

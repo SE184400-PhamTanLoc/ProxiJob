@@ -8,24 +8,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { AppContext } from '../context/AppContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
-  const { login, navigateTo, authLoading, selectedRole, setSelectedRole } = useContext(AppContext);
+  const { login, navigateTo, authLoading, showToast } = useContext(AppContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '' });
-
-  const handleRoleChange = (role) => {
-    setSelectedRole(role);
-    setErrors({ email: '', password: '' });
-  };
+  const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = () => {
     let tempErrors = {};
@@ -49,16 +47,12 @@ export default function LoginScreen() {
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleStudentLogin = () => {
-    const defaultEmail = email.trim() || 'student@proxijob.vn';
-    const defaultPassword = password.trim() || 'password123';
-    login(defaultEmail, defaultPassword, 0);
-  };
-
-  const handleEmployerLogin = () => {
-    const defaultEmail = email.trim() || 'merchant@proxijob.vn';
-    const defaultPassword = password.trim() || 'password123';
-    login(defaultEmail, defaultPassword, 1);
+  const handleSubmit = () => {
+    if (!validateForm()) {
+      showToast("Vui lòng kiểm tra lại thông tin", "error");
+      return;
+    }
+    login(email.trim(), password);
   };
 
   return (
@@ -71,9 +65,11 @@ export default function LoginScreen() {
 
           {/* Logo / Header Area */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoSymbol}>⚡</Text>
-            </View>
+            <Image
+              source={require('../img/proxijob logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
             <Text style={styles.logoText}>ProxiJob</Text>
             <Text style={styles.logoSubText}>Kết nối việc làm tức thì quanh bạn trong bán kính 3-5km</Text>
           </View>
@@ -82,44 +78,7 @@ export default function LoginScreen() {
           <View style={[styles.loginCard, theme.shadows.medium]}>
             <Text style={styles.cardTitle}>Đăng nhập Hệ thống</Text>
 
-            {/* Role Switcher Tabs */}
-            <View style={styles.roleTabsContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.roleTab,
-                  selectedRole === 0 && styles.activeStudentTab
-                ]}
-                activeOpacity={0.8}
-                onPress={() => handleRoleChange(0)}
-              >
-                <Text
-                  style={[
-                    styles.roleTabText,
-                    selectedRole === 0 && styles.activeStudentTabText
-                  ]}
-                >
-                  🎓 Sinh Viên
-                </Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.roleTab,
-                  selectedRole === 1 && styles.activeEmployerTab
-                ]}
-                activeOpacity={0.8}
-                onPress={() => handleRoleChange(1)}
-              >
-                <Text
-                  style={[
-                    styles.roleTabText,
-                    selectedRole === 1 && styles.activeEmployerTabText
-                  ]}
-                >
-                  💼 Chủ Quán
-                </Text>
-              </TouchableOpacity>
-            </View>
 
             {/* Form Inputs */}
             <View style={styles.formContainer}>
@@ -127,7 +86,7 @@ export default function LoginScreen() {
               <TextInput
                 style={[
                   styles.input,
-                  isEmailFocused && { borderColor: selectedRole === 0 ? theme.colors.student : theme.colors.employer, borderWidth: 1.5 },
+                  isEmailFocused && { borderColor: theme.colors.primary, borderWidth: 1.5 },
                   errors.email && { borderColor: theme.colors.danger, borderWidth: 1.5 }
                 ]}
                 placeholder="Nhập địa chỉ email..."
@@ -146,65 +105,61 @@ export default function LoginScreen() {
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
               <Text style={styles.inputLabel}>Mật khẩu</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  isPasswordFocused && { borderColor: selectedRole === 0 ? theme.colors.student : theme.colors.employer, borderWidth: 1.5 },
-                  errors.password && { borderColor: theme.colors.danger, borderWidth: 1.5 }
-                ]}
-                placeholder="Nhập mật khẩu..."
-                placeholderTextColor={theme.colors.textLight}
-                value={password}
-                onChangeText={(e) => {
-                  setPassword(e);
-                  if (errors.password) setErrors(prev => ({ ...prev, password: null }));
-                }}
-                onFocus={() => setIsPasswordFocused(true)}
-                onBlur={() => setIsPasswordFocused(false)}
-                secureTextEntry
-                editable={!authLoading}
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { paddingRight: 48, marginBottom: 0 },
+                    isPasswordFocused && { borderColor: theme.colors.primary, borderWidth: 1.5 },
+                    errors.password && { borderColor: theme.colors.danger, borderWidth: 1.5 }
+                  ]}
+                  placeholder="Nhập mật khẩu..."
+                  placeholderTextColor={theme.colors.textLight}
+                  value={password}
+                  onChangeText={(e) => {
+                    setPassword(e);
+                    if (errors.password) setErrors(prev => ({ ...prev, password: null }));
+                  }}
+                  onFocus={() => setIsPasswordFocused(true)}
+                  onBlur={() => setIsPasswordFocused(false)}
+                  secureTextEntry={!showPassword}
+                  editable={!authLoading}
+                />
+                <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons
+                    name={showPassword ? "eye" : "eye-off"}
+                    size={20}
+                    color={theme.colors.textMuted || "#6B7280"}
+                  />
+                </TouchableOpacity>
+              </View>
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
               <View style={styles.forgotPasswordRow}>
-                <TouchableOpacity disabled={authLoading}>
+                <TouchableOpacity
+                  disabled={authLoading}
+                  onPress={() => navigateTo('forgot_password')}
+                >
                   <Text style={styles.forgotText}>Quên mật khẩu?</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Double Login Role Buttons */}
+              {/* Dynamic Login Button */}
               <View style={{ gap: 10 }}>
                 <TouchableOpacity
                   style={[
                     styles.loginButton,
-                    { backgroundColor: theme.colors.student },
+                    { backgroundColor: theme.colors.primary },
                     authLoading && { opacity: 0.6 }
                   ]}
                   activeOpacity={0.9}
-                  onPress={handleStudentLogin}
+                  onPress={handleSubmit}
                   disabled={authLoading}
                 >
-                  {authLoading && selectedRole === 0 ? (
+                  {authLoading ? (
                     <ActivityIndicator size="small" color={theme.colors.white} />
                   ) : (
-                    <Text style={styles.loginButtonText}>Đăng nhập Sinh viên</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.loginButton,
-                    { backgroundColor: theme.colors.employer },
-                    authLoading && { opacity: 0.6 }
-                  ]}
-                  activeOpacity={0.9}
-                  onPress={handleEmployerLogin}
-                  disabled={authLoading}
-                >
-                  {authLoading && selectedRole === 1 ? (
-                    <ActivityIndicator size="small" color={theme.colors.white} />
-                  ) : (
-                    <Text style={styles.loginButtonText}>Chủ quán (Enterprise)</Text>
+                    <Text style={styles.loginButtonText}>Đăng nhập</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -218,7 +173,7 @@ export default function LoginScreen() {
               <Text
                 style={[
                   styles.registerText,
-                  selectedRole === 0 ? { color: theme.colors.student } : { color: theme.colors.employer }
+                  { color: theme.colors.primary }
                 ]}
               >
                 Đăng ký ngay
@@ -242,26 +197,18 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '100%',
+    flexGrow: 1,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: theme.spacing.xl,
     marginTop: Platform.OS === 'web' ? theme.spacing.xl : 0,
   },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.primary + '1A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-  },
-  logoSymbol: {
-    fontSize: 32,
+  logoImage: {
+    width: 90,
+    height: 110,
+    marginBottom: -20,
+
   },
   logoText: {
     fontSize: 28,
@@ -414,5 +361,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textMuted,
     lineHeight: 16,
+  },
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: theme.spacing.md,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 48,
   }
 });

@@ -422,17 +422,20 @@ export const AppProvider = ({ children }) => {
   };
 
   // Auth Operations
-  const login = async (email, password, role) => {
+  const login = async (email, password) => {
     try {
       setAuthLoading(true);
-      const { token, refreshToken, user: resUser } = await loginApi(email, password, role);
+      const { token, refreshToken, user: resUser } = await loginApi(email, password);
       await saveAuthSession(token, refreshToken, resUser);
       
       setUser(resUser);
-      setSelectedRole(role);
       
-      // Global navigation switch based on Role
-      if (role === 0) {
+      const userRole = resUser?.role || 'student';
+      const mappedRoleValue = userRole === 'student' ? 0 : 1;
+      setSelectedRole(mappedRoleValue);
+      
+      // Global navigation switch based on Role decoded from token
+      if (userRole === 'student') {
         setCurrentScreen('student_dashboard');
         setNavigationStack(['student_dashboard']);
       } else {
@@ -440,7 +443,7 @@ export const AppProvider = ({ children }) => {
         setNavigationStack(['employer_approvals']);
       }
 
-      addNotification('Bảo mật', `Đăng nhập thành công với vai trò ${role === 0 ? 'Sinh viên' : 'Chủ quán'}`, 'Vừa xong');
+      addNotification('Bảo mật', `Đăng nhập thành công với vai trò ${userRole === 'student' ? 'Sinh viên' : 'Chủ quán'}`, 'Vừa xong');
       showToast(`Đăng nhập thành công!`, 'success');
     } catch (error) {
       console.log('[ProxiJob Login] Auth execution error:', error.message);
