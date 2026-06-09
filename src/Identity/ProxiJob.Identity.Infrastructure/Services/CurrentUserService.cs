@@ -19,13 +19,14 @@ namespace ProxiJob.Identity.Infrastructure.Services
         {
             get
             {
-                var sub = User?.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                var sub = User?.FindFirstValue("sub")
+                    ?? User?.FindFirstValue(JwtRegisteredClaimNames.Sub)
                     ?? User?.FindFirstValue(ClaimTypes.NameIdentifier);
                 return int.TryParse(sub, out var id) ? id : null;
             }
         }
 
-        public string? Role => User?.FindFirstValue(ClaimTypes.Role);
+        public string? Role => User?.FindFirstValue("role") ?? User?.FindFirstValue(ClaimTypes.Role);
 
         public string? SubscriptionTier => User?.FindFirstValue(ClaimNames.SubscriptionTier);
     }
