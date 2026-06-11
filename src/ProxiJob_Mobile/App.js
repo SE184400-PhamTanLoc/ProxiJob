@@ -8,7 +8,8 @@ import {
   Modal,
   ScrollView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider, AppContext } from './src/context/AppContext';
@@ -45,48 +46,71 @@ function MainAppShell() {
   const unreadNotifsCount = notifications.filter(n => !n.read).length;
   const isStudent = user.role === 'student';
 
+  const hideHeaderScreens = [
+    'candidate_list',
+    'upgrade_package',
+    'job_detail'
+  ];
+  const showHeader = !hideHeaderScreens.includes(currentScreen);
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style="dark" />
-      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.colors.white }}>
-        {/* Universal Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.logoText}>ProxiJob</Text>
-            <View style={[
-              styles.roleBadge,
-              isStudent ? { backgroundColor: theme.colors.student + '1A' } : { backgroundColor: theme.colors.employer + '1A' }
-            ]}>
-              <Text style={[
-                styles.roleBadgeText,
-                isStudent ? { color: theme.colors.student } : { color: theme.colors.employer }
-              ]}>
-                {isStudent ? 'STUDENT' : 'EMPLOYER • ENTERPRISE'}
-              </Text>
+      {showHeader && (
+        <SafeAreaView edges={['top']} style={{ backgroundColor: theme.colors.white }}>
+          {/* Universal Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              {isStudent ? (
+                <>
+                  <Text style={styles.logoText}>ProxiJob</Text>
+                  <View style={[
+                    styles.roleBadge,
+                    { backgroundColor: theme.colors.student + '1A' }
+                  ]}>
+                    <Text style={[styles.roleBadgeText, { color: theme.colors.student }]}>
+                      STUDENT
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.avatarWrapper}>
+                    <Image 
+                      source={{ uri: user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' }} 
+                      style={styles.avatarImage}
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.brandTitle}>ProxiJob</Text>
+                    <Text style={styles.brandSubtitle}>Store Management</Text>
+                  </View>
+                </>
+              )}
+            </View>
+
+            <View style={styles.headerRight}>
+              {/* Notification Button */}
+              <TouchableOpacity
+                style={styles.headerBtn}
+                onPress={() => setNotifModalVisible(true)}
+              >
+                <Text style={styles.btnIcon}>🔔</Text>
+                {unreadNotifsCount > 0 && (
+                  <View style={styles.notifBadge}>
+                    <Text style={styles.notifBadgeText}>{unreadNotifsCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Logout Button */}
+              <TouchableOpacity style={[styles.headerBtn, styles.logoutBtn]} onPress={logout}>
+                <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+              </TouchableOpacity>
             </View>
           </View>
-
-          <View style={styles.headerRight}>
-            {/* Notification Button */}
-            <TouchableOpacity
-              style={styles.headerBtn}
-              onPress={() => setNotifModalVisible(true)}
-            >
-              <Text style={styles.btnIcon}>🔔</Text>
-              {unreadNotifsCount > 0 && (
-                <View style={styles.notifBadge}>
-                  <Text style={styles.notifBadgeText}>{unreadNotifsCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Logout Button */}
-            <TouchableOpacity style={[styles.headerBtn, styles.logoutBtn]} onPress={logout}>
-              <Text style={styles.logoutBtnText}>Đăng xuất</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      )}
       {/* Main Content Area using MainTabNavigator */}
       <MainTabNavigator isStudent={isStudent} />
 
@@ -230,6 +254,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     color: theme.colors.textMuted,
+  },
+  avatarWrapper: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2BFB0',
+    marginRight: 8,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  brandTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FF6B00',
+    lineHeight: 18,
+  },
+  brandSubtitle: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#5A4136',
+    opacity: 0.7,
   },
 
   modalOverlay: {

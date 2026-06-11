@@ -16,7 +16,8 @@ export async function getEmployees(status = '') {
     if (!response.ok) {
       throw new Error(`Failed to fetch employees: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] getEmployees error:', error);
     throw error;
@@ -39,7 +40,8 @@ export async function createEmployee(payload) {
     if (!response.ok) {
       throw new Error(`Failed to add employee: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] createEmployee error:', error);
     throw error;
@@ -61,7 +63,8 @@ export async function deleteEmployee(id) {
     if (!response.ok) {
       throw new Error(`Failed to delete employee: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] deleteEmployee error:', error);
     throw error;
@@ -87,7 +90,7 @@ export async function checkInShiftApi(payload) {
       const errorMsg = resData.message || 'Check-in thất bại. Vui lòng quét mã và thử lại.';
       throw new Error(errorMsg);
     }
-    return resData;
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] checkInShift API error:', error);
     throw error;
@@ -113,7 +116,7 @@ export async function checkOutShiftApi(payload) {
       const errorMsg = resData.message || 'Check-out thất bại. Vui lòng thử lại.';
       throw new Error(errorMsg);
     }
-    return resData;
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] checkOutShift API error:', error);
     throw error;
@@ -132,7 +135,8 @@ export async function getQrCode() {
       if (response.status === 404) return null;
       throw new Error(`Failed to fetch QR Code: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] getQrCode error:', error);
     throw error;
@@ -153,7 +157,8 @@ export async function generateQrCode() {
     if (!response.ok) {
       throw new Error(`Failed to generate QR Code: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] generateQrCode error:', error);
     throw error;
@@ -176,7 +181,8 @@ export async function updateQrRadius(allowedRadiusMeters) {
     if (!response.ok) {
       throw new Error(`Failed to update QR radius: ${response.status}`);
     }
-    return await response.json().catch(() => ({}));
+    const resData = await response.json().catch(() => ({}));
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] updateQrRadius error:', error);
     throw error;
@@ -195,7 +201,8 @@ export async function getSchedules(date) {
     if (!response.ok) {
       throw new Error(`Failed to fetch schedules: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] getSchedules error:', error);
     throw error;
@@ -219,7 +226,8 @@ export async function createSchedule(employeeId, payload) {
     if (!response.ok) {
       throw new Error(`Failed to create schedule: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] createSchedule error:', error);
     throw error;
@@ -242,7 +250,8 @@ export async function getPayrolls(status = '') {
     if (!response.ok) {
       throw new Error(`Failed to fetch payrolls: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] getPayrolls error:', error);
     throw error;
@@ -265,7 +274,8 @@ export async function calculatePayroll(command) {
     if (!response.ok) {
       throw new Error(`Failed to calculate payroll: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] calculatePayroll error:', error);
     throw error;
@@ -289,7 +299,8 @@ export async function approvePayroll(id, command = {}) {
     if (!response.ok) {
       throw new Error(`Failed to approve payroll: ${response.status}`);
     }
-    return await response.json().catch(() => ({}));
+    const resData = await response.json().catch(() => ({}));
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] approvePayroll error:', error);
     throw error;
@@ -308,9 +319,33 @@ export async function getTimekeepingLogs(date) {
     if (!response.ok) {
       throw new Error(`Failed to fetch timekeeping logs: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] getTimekeepingLogs error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a work schedule
+ * @param {number} id 
+ * @returns {Promise<object>}
+ */
+export async function deleteSchedule(id) {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${MANAGEMENT_API_BASE_URL}/schedules/${id}`, {
+      method: 'DELETE',
+      headers
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete schedule: ${response.status}`);
+    }
+    const resData = await response.json().catch(() => ({}));
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Management API] deleteSchedule error:', error);
     throw error;
   }
 }

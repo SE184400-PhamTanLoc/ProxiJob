@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using ProxiJob.Identity.API.Filters;
 using ProxiJob.Identity.Application;
@@ -7,12 +8,20 @@ using ProxiJob.Identity.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var urls = builder.Configuration["urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
-if (!string.IsNullOrEmpty(urls))
+// Configure Kestrel with two ports:
+// - Port 5231: HTTP/1.1 for REST API & Swagger
+// - Port 5232: HTTP/2 only for gRPC (Windows requires separate Http2-only port for plain HTTP gRPC)
+builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    var bindingUrls = urls.Replace("localhost", "0.0.0.0");
-    builder.WebHost.UseUrls(bindingUrls.Split(';'));
-}
+    serverOptions.ListenAnyIP(5231, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http1;
+    });
+    serverOptions.ListenAnyIP(5232, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http2;
+    });
+});
 
 // --- DbContext ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -82,12 +91,6 @@ await IdentityDatabaseInitializer.InitializeAsync(
 app.MapControllers();
 app.MapGrpcService<IdentityGrpcServiceImpl>();
 
-if (!string.IsNullOrEmpty(urls))
-{
-    foreach (var url in urls.Split(';'))
-    {
-        Console.WriteLine($"\n--> Click to open Swagger: {url.Replace("0.0.0.0", "localhost")}/swagger\n");
-    }
-}
+Console.WriteLine("\n--> Click to open Swagger: http://localhost:5231/swagger\n");
 
 app.Run();

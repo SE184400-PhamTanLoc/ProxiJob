@@ -60,8 +60,12 @@ public class CreateWorkScheduleCommandHandler : IRequestHandler<CreateWorkSchedu
         {
             EmployeeId = request.EmployeeId,
             Date = request.Date,
-            StartTime = request.StartTime,
-            EndTime = request.EndTime,
+            StartTime = request.StartTime.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(request.StartTime, DateTimeKind.Utc)
+                : request.StartTime.ToUniversalTime(),
+            EndTime = request.EndTime.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(request.EndTime, DateTimeKind.Utc)
+                : request.EndTime.ToUniversalTime(),
             Note = request.Note,
             JobShiftId = request.JobShiftId,
             CreatedBy = request.CreatedBy,

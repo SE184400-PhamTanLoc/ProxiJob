@@ -10,7 +10,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
     {
         public int Id { get; set; }
         public int BusinessId { get; set; }
-        public string UpdatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
     }
 
     public class PublishJobPostCommandHandler : IRequestHandler<PublishJobPostCommand, bool>

@@ -19,7 +19,8 @@ export async function getPublishedJobs(categoryId, pageNumber = 1, pageSize = 20
     if (!response.ok) {
       throw new Error(`Failed to fetch published jobs: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] getPublishedJobs error:', error);
     throw error;
@@ -38,7 +39,8 @@ export async function getJobPostById(id) {
     if (!response.ok) {
       throw new Error(`Failed to fetch job details: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] getJobPostById error:', error);
     throw error;
@@ -62,7 +64,8 @@ export async function createJobPost(payload) {
       const errText = await response.text();
       throw new Error(`Failed to create job post: ${response.status} - ${errText}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] createJobPost error:', error);
     throw error;
@@ -91,7 +94,7 @@ export async function applyToShiftApi(shiftId, studentId, introduction, createdB
       const errorMsg = resData.message || 'Không thể ứng tuyển vào ca làm. Vui lòng thử lại.';
       throw new Error(errorMsg);
     }
-    return resData;
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] applyToShift error:', error);
     throw error;
@@ -117,7 +120,8 @@ export async function getMyApplications(studentId, status = '', pageNumber = 1, 
     if (!response.ok) {
       throw new Error(`Failed to fetch my applications: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] getMyApplications error:', error);
     throw error;
@@ -142,7 +146,8 @@ export async function getApplicationsByShift(shiftId, businessId, status = '') {
     if (!response.ok) {
       throw new Error(`Failed to fetch applications by shift: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] getApplicationsByShift error:', error);
     throw error;
@@ -170,7 +175,7 @@ export async function approveApplication(id, businessId, updatedBy = 'Employer')
       const errorMsg = resData.message || 'Không thể duyệt đơn ứng tuyển này.';
       throw new Error(errorMsg);
     }
-    return resData;
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] approveApplication error:', error);
     throw error;
@@ -198,7 +203,7 @@ export async function rejectApplication(id, businessId, updatedBy = 'Employer') 
       const errorMsg = resData.message || 'Không thể từ chối đơn ứng tuyển này.';
       throw new Error(errorMsg);
     }
-    return resData;
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] rejectApplication error:', error);
     throw error;
@@ -220,7 +225,8 @@ export async function getJobPostsByBusiness(businessId, pageNumber = 1, pageSize
     if (!response.ok) {
       throw new Error(`Failed to fetch business jobs: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] getJobPostsByBusiness error:', error);
     throw error;
@@ -240,7 +246,8 @@ export async function getJobPostShifts(jobPostId) {
     if (!response.ok) {
       throw new Error(`Failed to fetch job shifts: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] getJobPostShifts error:', error);
     throw error;
@@ -264,7 +271,8 @@ export async function createJobShift(jobPostId, payload) {
     if (!response.ok) {
       throw new Error(`Failed to create job shift: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] createJobShift error:', error);
     throw error;
@@ -277,22 +285,62 @@ export async function createJobShift(jobPostId, payload) {
  * @param {number} businessId 
  * @returns {Promise<object>}
  */
-export async function publishJobPost(id, businessId) {
+export async function publishJobPost(id, businessId, updatedBy = 'System') {
   try {
     const headers = await getAuthHeader();
     const response = await fetch(`${JOB_API_BASE_URL}/job-posts/${id}/publish`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ id, businessId })
+      body: JSON.stringify({ id, businessId, updatedBy })
     });
     if (!response.ok) {
       throw new Error(`Failed to publish job post: ${response.status}`);
     }
-    return await response.json();
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Jobs API] publishJobPost error:', error);
     throw error;
   }
 }
+
+/**
+ * Fetch all job categories
+ * @returns {Promise<array>}
+ */
+export async function getCategoriesApi() {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${JOB_API_BASE_URL}/categories`, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch categories: ${response.status}`);
+    }
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Jobs API] getCategoriesApi error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch all skills
+ * @returns {Promise<array>}
+ */
+export async function getSkillsApi() {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${JOB_API_BASE_URL}/skills`, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch skills: ${response.status}`);
+    }
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Jobs API] getSkillsApi error:', error);
+    throw error;
+  }
+}
+
 
 

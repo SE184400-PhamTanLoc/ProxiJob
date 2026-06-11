@@ -32,14 +32,14 @@ namespace ProxiJob.Job.API.Controllers
         }
 
         [HttpGet("api/applications/my")]
-        public async Task<IActionResult> GetMyApplications([FromQuery] int studentId, [FromQuery] string status, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetMyApplications([FromQuery] int studentId, [FromQuery] string? status, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var result = await _mediator.Send(new GetMyApplicationsQuery { StudentId = studentId, Status = status, PageNumber = pageNumber, PageSize = pageSize });
             return Ok(result);
         }
 
         [HttpGet("api/shifts/{shiftId}/applications")]
-        public async Task<IActionResult> GetByShift(int shiftId, [FromQuery] int businessId, [FromQuery] string status, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetByShift(int shiftId, [FromQuery] int businessId, [FromQuery] string? status, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var result = await _mediator.Send(new GetApplicationsByShiftQuery { ShiftId = shiftId, BusinessId = businessId, Status = status, PageNumber = pageNumber, PageSize = pageSize });
             return Ok(result);

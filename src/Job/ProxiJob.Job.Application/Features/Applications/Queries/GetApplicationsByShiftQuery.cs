@@ -10,7 +10,7 @@ namespace ProxiJob.Job.Application.Features.Applications.Queries
     {
         public int ShiftId { get; set; }
         public int BusinessId { get; set; }
-        public string Status { get; set; }
+        public string? Status { get; set; }
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
     }
@@ -30,8 +30,12 @@ namespace ProxiJob.Job.Application.Features.Applications.Queries
                 .Include(s => s.JobPost)
                 .FirstOrDefaultAsync(s => s.Id == request.ShiftId, cancellationToken);
             
-            if (shift == null || shift.JobPost.BusinessId != request.BusinessId)
-                throw new Exception("Shift not found or you don't have permission.");
+            if (shift == null)
+                throw new Exception($"Shift not found. ID={request.ShiftId}");
+            if (shift.JobPost == null)
+                throw new Exception($"JobPost is null for Shift ID={request.ShiftId}");
+            if (shift.JobPost.BusinessId != request.BusinessId)
+                throw new Exception($"Permission denied. JobPost.BusinessId={shift.JobPost.BusinessId}, request.BusinessId={request.BusinessId}");
 
             var query = _context.Applications
                 .Include(a => a.JobShift)

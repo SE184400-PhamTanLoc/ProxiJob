@@ -18,7 +18,7 @@ public class IdentityGrpcClient : IIdentityGrpcClient, IDisposable
         _logger = logger;
         var address = configuration["GrpcServices:Identity"]
             ?? configuration["IdentityGrpc:Address"]
-            ?? "http://localhost:5231";
+            ?? "http://localhost:5232";
 
         _channel = GrpcChannel.ForAddress(address);
         _client = new IdentityGrpcService.IdentityGrpcServiceClient(_channel);

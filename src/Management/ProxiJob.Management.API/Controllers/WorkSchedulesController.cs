@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using ProxiJob.Management.Application.Common.Interfaces;
 using ProxiJob.Management.Application.Features.WorkSchedules.Commands;
 using ProxiJob.Management.Application.Features.WorkSchedules.DTOs;
 using ProxiJob.Management.Application.Features.WorkSchedules.Queries;
@@ -20,7 +22,12 @@ public class WorkSchedulesController : ApiControllerBase
 
     private int GetBusinessId()
     {
-        // Mocking business id extraction from JWT token for now
+        var currentUserService = HttpContext.RequestServices.GetRequiredService<ICurrentUserService>();
+        if (currentUserService.BusinessId.HasValue)
+        {
+            return currentUserService.BusinessId.Value;
+        }
+
         var claim = User.Claims.FirstOrDefault(c => c.Type == "BusinessId");
         if (claim != null && int.TryParse(claim.Value, out var businessId))
         {

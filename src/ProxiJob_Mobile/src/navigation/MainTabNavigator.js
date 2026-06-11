@@ -30,6 +30,14 @@ import PayrollSettlementScreen from '../screens/employer/PayrollSettlementScreen
 export default function MainTabNavigator({ isStudent }) {
   const { currentScreen, navigateTo } = useContext(AppContext);
 
+  const hideTabBarScreens = [
+    'employer_emergency_post',
+    'candidate_list',
+    'upgrade_package',
+    'job_detail'
+  ];
+  const showTabBar = !hideTabBarScreens.includes(currentScreen);
+
   // Render Student Screens based on global currentScreen state
   const renderStudentContent = () => {
     switch (currentScreen) {
@@ -75,12 +83,12 @@ export default function MainTabNavigator({ isStudent }) {
   return (
     <View style={styles.container}>
       {/* Main Content Area */}
-      <View style={styles.content}>
+      <View style={[styles.content, !showTabBar && { paddingBottom: 0 }]}>
         {isStudent ? renderStudentContent() : renderEmployerContent()}
       </View>
 
       {/* Student Bottom Navigation Bar */}
-      {isStudent && (
+      {isStudent && showTabBar && (
         <BlurView intensity={75} tint="light" style={styles.tabBar}>
           <TouchableOpacity
             style={[
@@ -123,7 +131,7 @@ export default function MainTabNavigator({ isStudent }) {
       )}
 
       {/* Employer Bottom Navigation Bar */}
-      {!isStudent && (
+      {!isStudent && showTabBar && (
         <BlurView intensity={75} tint="light" style={styles.tabBar}>
           <TouchableOpacity
             style={[

@@ -48,11 +48,13 @@ public class GetEmployeesByBusinessQueryHandler : IRequestHandler<GetEmployeesBy
             .Select(e => new EmployeeSummaryDto
             {
                 Id = e.Id,
+                UserId = e.UserId,
                 FullName = e.FullName,
                 Position = e.Position,
                 Status = e.Status,
                 IsExternal = e.IsExternal,
                 PaymentType = e.PaymentType,
+                HourlyRate = e.HourlyRate,
                 CreatedAt = e.CreatedAt
             })
             .ToListAsync(cancellationToken);

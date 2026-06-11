@@ -34,8 +34,24 @@ namespace ProxiJob.Job.Application.Features.Applications.Commands
             if (application == null || application.JobShift.JobPost.BusinessId != request.BusinessId)
                 throw new Exception("Application not found or you don't have permission.");
 
-            if (application.Status != "Pending")
-                throw new Exception("Only Pending applications can be approved.");
+            if (application.Status != "Pending" && application.Status != "Cancelled")
+                throw new Exception("Only Pending or Cancelled applications can be approved.");
+
+            if (application.Status == "Cancelled")
+            {
+                application.Status = "CancelledApproved";
+                application.UpdatedAt = DateTime.UtcNow;
+                application.UpdatedBy = request.UpdatedBy;
+                application.Histories.Add(new Domain.Models.ApplicationHistory
+                {
+                    Status = "CancelledApproved",
+                    Note = "Đã chấp thuận yêu cầu hủy ca/xin nghỉ",
+                    ChangedAt = DateTime.UtcNow,
+                    CreatedBy = request.UpdatedBy
+                });
+                await _context.SaveChangesAsync(cancellationToken);
+                return true;
+            }
 
             if (application.JobShift.RemainingSlots <= 0)
                 throw new Exception("No remaining slots.");

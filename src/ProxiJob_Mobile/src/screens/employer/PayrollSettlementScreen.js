@@ -6,7 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
-  ActivityIndicator
+  ActivityIndicator,
+  Image,
+  Platform
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
@@ -15,10 +17,17 @@ export default function PayrollSettlementScreen() {
   const { attendanceLogs, shifts, goBack, showToast, payrolls, runCalculatePayroll, runApprovePayroll, loadPayrolls } = useContext(AppContext);
   const [settledIds, setSettledIds] = useState([]);
   const [settlingId, setSettlingId] = useState(null);
+  const [expandedCardIds, setExpandedCardIds] = useState([]);
 
   React.useEffect(() => {
     loadPayrolls();
   }, []);
+
+  const toggleCardDetails = (id) => {
+    setExpandedCardIds((prev) => 
+      prev.includes(id) ? prev.filter(cardId => cardId !== id) : [...prev, id]
+    );
+  };
 
   // Filter completed logs
   const completedLogs = attendanceLogs.filter((log) => log.status === 'completed');
@@ -36,6 +45,7 @@ export default function PayrollSettlementScreen() {
       date: '04/06/2026',
       hours: 5,
       wages: 160000,
+      photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80'
     },
     {
       id: 202,
@@ -48,6 +58,7 @@ export default function PayrollSettlementScreen() {
       date: '04/06/2026',
       hours: 8,
       wages: 384000,
+      photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80'
     }
   ];
 
@@ -67,7 +78,8 @@ export default function PayrollSettlementScreen() {
       checkOutTime: log.checkOutTime,
       date: log.date,
       hours,
-      wages: rate * hours
+      wages: rate * hours,
+      photo: log.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
     };
   });
 
@@ -94,24 +106,34 @@ export default function PayrollSettlementScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBackBtn} onPress={goBack}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Quyết Toán Lương Tự Động</Text>
-        <View style={{ width: 40 }} />
+      {/* Top Header Section (No Back Button, Large Sora Font Matching Previous Screens) */}
+      <View style={styles.topHeader}>
+        <Text style={styles.headerTitle}>QUYẾT TOÁN LƯƠNG</Text>
+        <Text style={styles.headerSubtitle}>Theo dõi, tổng hợp và chuyển khoản thanh toán cho nhân sự ca trực.</Text>
       </View>
 
-      {/* Summary Card */}
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryLabel}>Tổng quỹ lương cần quyết toán hôm nay</Text>
+      {/* Bento-style Summary Card (White Background, Coordinated Style) */}
+      <View style={styles.summaryBentoCard}>
+        {/* Viewfinder Brackets - Adjusted closer to edges */}
+        <View style={[styles.viewfinderBracket, styles.bracketTL]} />
+        <View style={[styles.viewfinderBracket, styles.bracketTR]} />
+        <View style={[styles.viewfinderBracket, styles.bracketBL]} />
+        <View style={[styles.viewfinderBracket, styles.bracketBR]} />
+
+        <Text style={styles.summaryLabel}>TỔNG QUỸ LƯƠNG CẦN QUYẾT TOÁN</Text>
         <Text style={styles.summaryValue}>{totalWagesToSettle.toLocaleString('vi-VN')} đ</Text>
-        <Text style={styles.summarySub}>Dựa trên {unpaidLogs.length} ca làm đã check-out và xác thực GPS</Text>
+        <View style={styles.summaryBadgeRow}>
+          <View style={styles.summaryBadge}>
+            <Text style={styles.summaryBadgeText}>⏱ {unpaidLogs.length} ca chờ thanh toán</Text>
+          </View>
+          <View style={[styles.summaryBadge, { backgroundColor: '#DCFCE7' }]}>
+            <Text style={[styles.summaryBadgeText, { color: '#15803D' }]}>✓ Xác thực GPS</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionTitle}>Danh sách ca làm cần thanh toán</Text>
+        <Text style={styles.sectionTitle}>DANH SÁCH CA LÀM VIỆC CẦN THANH TOÁN</Text>
 
         {allLogs.length === 0 ? (
           <View style={styles.emptyState}>
@@ -121,44 +143,77 @@ export default function PayrollSettlementScreen() {
         ) : (
           allLogs.map((log) => {
             const isSettled = settledIds.includes(log.id);
+            const isExpanded = expandedCardIds.includes(log.id);
             return (
-              <View key={log.id} style={[styles.logCard, theme.shadows.light, isSettled && styles.settledCard]}>
-                <View style={styles.logHeader}>
-                  <View>
+              <View key={log.id} style={[styles.payrollBentoCard, isSettled && styles.settledBentoCard]}>
+                {/* Card Top: Avatar & Info */}
+                <View style={styles.cardHeader}>
+                  <Image source={{ uri: log.photo }} style={styles.staffAvatar} />
+                  <View style={styles.staffMeta}>
                     <Text style={styles.studentName}>{log.studentName}</Text>
-                    <Text style={styles.jobTitle}>{log.jobTitle}</Text>
-                    <Text style={styles.shopName}>{log.shopName}</Text>
+                    <Text style={styles.jobTitle}>{log.jobTitle} • {log.shopName.split(' - ')[0]}</Text>
                   </View>
                   <View style={[styles.statusBadge, isSettled ? styles.statusPaid : styles.statusUnpaid]}>
-                    <Text style={[styles.statusText, isSettled ? styles.statusTextPaid : styles.statusTextUnpaid]}>
-                      {isSettled ? '✓ Đã Thanh Toán' : '⏱ Chờ Quyết Toán'}
+                    <Text style={[styles.statusBadgeText, isSettled ? styles.statusPaidText : styles.statusUnpaidText]}>
+                      {isSettled ? 'ĐÃ PHÁT' : 'CHỜ DUYỆT'}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.logDetails}>
-                  <Text style={styles.detailText}>📅 Ngày: {log.date}</Text>
-                  <Text style={styles.detailText}>⏱ Thời gian: {log.checkInTime} - {log.checkOutTime} ({log.hours} giờ công)</Text>
-                  <Text style={styles.detailText}>💰 Đơn giá: {(log.hourlyRate).toLocaleString('vi-VN')} đ/h</Text>
-                </View>
+                {/* Collapsible Details Trigger Button */}
+                <TouchableOpacity 
+                  style={styles.expandToggleButton} 
+                  onPress={() => toggleCardDetails(log.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.expandToggleText}>
+                    {isExpanded ? 'Thu gọn chi tiết ▲' : 'Xem chi tiết ca làm ▼'}
+                  </Text>
+                </TouchableOpacity>
 
-                <View style={styles.divider} />
+                {/* Collapsible Details Block */}
+                {isExpanded && (
+                  <View style={styles.detailsBlock}>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>📅 Ngày làm:</Text>
+                      <Text style={styles.detailValue}>{log.date}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>⏱ Ca trực:</Text>
+                      <Text style={styles.detailValue}>{log.checkInTime} - {log.checkOutTime} ({log.hours} giờ công)</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>💰 Lương giờ:</Text>
+                      <Text style={styles.detailValue}>{(log.hourlyRate).toLocaleString('vi-VN')} đ/h</Text>
+                    </View>
+                  </View>
+                )}
 
-                <View style={styles.actionRow}>
-                  <Text style={styles.wageText}>Thành tiền: <Text style={styles.wageValueText}>{(log.wages).toLocaleString('vi-VN')} đ</Text></Text>
+                <View style={styles.cardDivider} />
+
+                {/* Footer and Settle button */}
+                <View style={styles.cardFooter}>
+                  <View>
+                    <Text style={styles.wageLabel}>THÀNH TIỀN</Text>
+                    <Text style={styles.wageValue}>{log.wages.toLocaleString('vi-VN')} đ</Text>
+                  </View>
                   
-                  {!isSettled && (
+                  {!isSettled ? (
                     <TouchableOpacity
-                      style={styles.settleBtn}
+                      style={styles.settlePillBtn}
                       disabled={settlingId !== null}
                       onPress={() => handleSettle(log.id)}
                     >
                       {settlingId === log.id ? (
-                        <ActivityIndicator size="small" color={theme.colors.white} />
+                        <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
-                        <Text style={styles.settleBtnText}>Thanh toán ngay ⚡</Text>
+                        <Text style={styles.settlePillBtnText}>Quyết toán ⚡</Text>
                       )}
                     </TouchableOpacity>
+                  ) : (
+                    <View style={styles.settledCheckRow}>
+                      <Text style={styles.settledCheckText}>✓ Hoàn thành</Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -173,180 +228,263 @@ export default function PayrollSettlementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
-  header: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-  },
-  headerBackBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backArrow: {
-    fontSize: 22,
-    color: theme.colors.text,
-    fontWeight: 'bold',
+  topHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    backgroundColor: '#F8FAFC',
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#1E293B',
+    lineHeight: 38,
+    letterSpacing: -1,
   },
-  scrollContent: {
-    padding: theme.spacing.md,
-    paddingBottom: 40,
+  headerSubtitle: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 8,
+    lineHeight: 20,
   },
-  summaryCard: {
-    backgroundColor: theme.colors.secondary,
-    padding: theme.spacing.lg,
-    marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    shadowColor: theme.colors.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+  summaryBentoCard: {
+    position: 'relative',
+    backgroundColor: '#FFFFFF', // Pure White to match other screens
+    padding: 24,
+    marginHorizontal: 20,
+    marginTop: 8,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 30,
+    elevation: 3,
+    overflow: 'hidden',
   },
+  viewfinderBracket: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderColor: '#FF6B00', // primary container neon orange
+  },
+  bracketTL: { top: 8, left: 8, borderTopWidth: 2.5, borderLeftWidth: 2.5 },
+  bracketTR: { top: 8, right: 8, borderTopWidth: 2.5, borderRightWidth: 2.5 },
+  bracketBL: { bottom: 8, left: 8, borderBottomWidth: 2.5, borderLeftWidth: 2.5 },
+  bracketBR: { bottom: 8, right: 8, borderBottomWidth: 2.5, borderRightWidth: 2.5 },
   summaryLabel: {
-    color: theme.colors.white + 'B3',
-    fontSize: 11,
-    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   summaryValue: {
-    color: theme.colors.white,
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginVertical: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    color: '#1E293B',
+    fontSize: 32,
+    fontWeight: '800',
+    marginVertical: 8,
   },
-  summarySub: {
-    color: theme.colors.white,
-    fontSize: 11,
+  summaryBadgeRow: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 4,
   },
+  summaryBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+  },
+  summaryBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 64,
+  },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginHorizontal: theme.spacing.xs,
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 1,
+    marginTop: 16,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  logCard: {
-    backgroundColor: theme.colors.white,
-    borderColor: theme.colors.border,
+  payrollBentoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 32,
+    padding: 20,
     borderWidth: 1,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.03,
+    shadowRadius: 15,
+    elevation: 2,
+    marginBottom: 16,
   },
-  settledCard: {
-    borderColor: theme.colors.border,
-    opacity: 0.8,
+  settledBentoCard: {
+    opacity: 0.75,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
-  logHeader: {
+  cardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  },
+  staffAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  staffMeta: {
+    flex: 1,
+    marginLeft: 12,
   },
   studentName: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontWeight: '800',
+    color: '#1E293B',
   },
   jobTitle: {
     fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
+    color: '#64748B',
     marginTop: 2,
-  },
-  shopName: {
-    fontSize: 11,
-    color: theme.colors.textLight,
-    marginTop: 1,
   },
   statusBadge: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: theme.borderRadius.sm,
+    paddingHorizontal: 10,
+    borderRadius: 99,
   },
   statusPaid: {
-    backgroundColor: theme.colors.success + '1A',
+    backgroundColor: '#DCFCE7',
   },
   statusUnpaid: {
-    backgroundColor: theme.colors.warning + '1A',
+    backgroundColor: '#FEF3C7',
   },
-  statusText: {
+  statusBadgeText: {
     fontSize: 9,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  statusTextPaid: {
-    color: theme.colors.success,
+  statusPaidText: {
+    color: '#15803D',
   },
-  statusTextUnpaid: {
-    color: theme.colors.warning,
+  statusUnpaidText: {
+    color: '#B45309',
   },
-  logDetails: {
-    marginTop: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-    padding: 8,
-    borderRadius: theme.borderRadius.sm,
+  expandToggleButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 99,
+    marginTop: 12,
   },
-  detailText: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginVertical: 1,
+  expandToggleText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
   },
-  divider: {
+  detailsBlock: {
+    marginTop: 12,
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 3,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  detailValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  cardDivider: {
     height: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.md,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 16,
+    borderStyle: 'dashed',
   },
-  actionRow: {
+  cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  wageText: {
+  wageLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  wageValue: {
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#10B981',
+    marginTop: 2,
+  },
+  settlePillBtn: {
+    backgroundColor: '#FF6B00', // Neon Orange primary action button
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 99,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  settlePillBtnText: {
+    color: '#FFFFFF',
     fontSize: 12,
-    color: theme.colors.textMuted,
+    fontWeight: '800',
   },
-  wageValueText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.success,
-  },
-  settleBtn: {
-    backgroundColor: theme.colors.secondary,
+  settledCheckRow: {
+    backgroundColor: '#DCFCE7',
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: theme.borderRadius.sm,
+    paddingHorizontal: 14,
+    borderRadius: 99,
   },
-  settleBtnText: {
-    color: theme.colors.white,
-    fontSize: 11,
-    fontWeight: 'bold',
+  settledCheckText: {
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '800',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
   },
   emptyEmoji: {
     fontSize: 48,
+    marginBottom: 8,
   },
   emptyText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.sm,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '700',
   }
 });

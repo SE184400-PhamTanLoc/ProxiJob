@@ -1,135 +1,312 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
-  SafeAreaView
+  SafeAreaView,
+  Platform,
+  TouchableOpacity,
+  Image
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
+// Pure JS Haversine formula
+const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000; // Earth radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c); // returns distance in meters
+};
+
 export default function EmployerMonitor() {
-  const { shifts, staffList, loadStaffList, loadEmployerJobs, loadAttendanceLogs } = useContext(AppContext);
+  const { 
+    shifts, 
+    staffList, 
+    loadStaffList, 
+    loadEmployerJobs, 
+    loadAttendanceLogs, 
+    studentCoords, 
+    attendanceLogs 
+  } = useContext(AppContext);
+
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   React.useEffect(() => {
     loadStaffList();
     loadEmployerJobs();
     loadAttendanceLogs();
+    
+    // Set up polling to update logs from database every 5 seconds
+    const interval = setInterval(() => {
+      loadAttendanceLogs();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Find shifts that are active (checked-in)
-  const activeStudentShifts = (shifts || []).filter(s => s.status === 'checkin_active');
-  
-  // Find internal staff who are marked as working
-  const workingInternalStaff = (staffList || []).filter(s => s.status === 'working' && s.name !== 'Nguyễn Văn A');
+  const shopLat = 10.857461; // 84/10 Nam Cao, Quận 9, TP.HCM
+  const shopLng = 106.801522;
 
-  // Combine into active working personnel list
-  const activePersonnel = [
-    ...activeStudentShifts.map(s => ({
-      id: `student-${s.id}`,
-      name: 'Nguyễn Văn A (Sinh viên)',
-      role: s.title.replace(' (KHẨN CẤP)', ''),
-      checkInTime: s.checkInTime || '18:02',
-      distance: '45m',
-      isStudent: true,
-      shop: s.shopName
-    })),
-    ...workingInternalStaff.map(s => ({
-      id: `internal-${s.id}`,
-      name: s.name,
-      role: s.role,
-      checkInTime: '17:30',
-      distance: '12m',
-      isStudent: false,
-      shop: 'Katinat Coffee'
-    }))
-  ];
+  // Compute live student coordinates and distance
+  const studentLat = studentCoords?.latitude || 10.8550;
+  const studentLng = studentCoords?.longitude || 106.6300;
+  const studentDistance = calculateHaversineDistance(studentLat, studentLng, shopLat, shopLng);
+
+  // Combine into active working personnel list by querying attendanceLogs (linked to database management_timekeepings)
+  const activePersonnel = (attendanceLogs || [])
+    .filter(log => log.status === 'working' || log.status === 'suspicious')
+    .map(log => {
+      // Check if this log belongs to our test student
+      const isStudent = log.studentName.toLowerCase().includes('mai') || log.studentName.toLowerCase().includes('a');
+      const lat = isStudent ? studentLat : 10.8575;
+      const lng = isStudent ? studentLng : 106.8016;
+      const distance = isStudent ? studentDistance : calculateHaversineDistance(lat, lng, shopLat, shopLng);
+      const isSuspicious = distance > 100;
+
+      return {
+        id: log.id,
+        name: log.studentName,
+        role: log.jobTitle || 'Nhân viên',
+        checkInTime: log.checkInTime || '18:00',
+        distance: distance,
+        isStudent: isStudent,
+        shop: log.shopName || 'Cửa hàng',
+        latitude: lat,
+        longitude: lng,
+        gpsStatus: isSuspicious ? 'Suspicious' : 'Valid',
+        photo: log.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+      };
+    });
+
+  // Sort personnel: suspicious first
+  const sortedPersonnel = [...activePersonnel].sort((a, b) => {
+    if (a.gpsStatus === 'Suspicious' && b.gpsStatus !== 'Suspicious') return -1;
+    if (a.gpsStatus !== 'Suspicious' && b.gpsStatus === 'Suspicious') return 1;
+    return 0;
+  });
+
+  // Leaflet HTML String for Employer GPS Live
+  const personnelPinsJS = activePersonnel.map(person => `
+    L.marker([${person.latitude}, ${person.longitude}], {
+      icon: L.divIcon({
+        html: '<div style="background: ${person.gpsStatus === 'Suspicious' ? '#EF4444' : '#10B981'}; width: 34px; height: 34px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; font-size: 16px;">${person.gpsStatus === 'Suspicious' ? '⚠️' : '👤'}</div>',
+        className: 'custom-person-icon',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+        popupAnchor: [0, -17]
+      })
+    }).addTo(map)
+      .bindPopup('<b>${person.name}</b><br>${person.role}<br>Khoảng cách: ${person.distance}m<br>Trạng thái: ${person.gpsStatus === 'Suspicious' ? 'Nghi vấn' : 'An toàn'}');
+  `).join('\n');
+
+  const mapHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100vw; }
+        .leaflet-control-attribution { display: none !important; }
+        
+        @keyframes pulse-shop {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .shop-pulse-icon {
+          animation: pulse-shop 2s infinite;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script>
+        var map = L.map('map', { 
+          zoomControl: true,
+          dragging: true,
+          touchZoom: true,
+          scrollWheelZoom: true
+        }).setView([${shopLat}, ${shopLng}], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19
+        }).addTo(map);
+
+        // 100m Geofence Circle (Cyan-Blue Translucent)
+        L.circle([${shopLat}, ${shopLng}], {
+          color: '#00D1FF',
+          fillColor: '#00D1FF',
+          fillOpacity: 0.1,
+          radius: 100
+        }).addTo(map);
+
+        // Shop Marker (Custom Animated Store Icon)
+        L.marker([${shopLat}, ${shopLng}], {
+          icon: L.divIcon({
+            html: '<div class="shop-pulse-icon" style="background: #EF4444; width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px;">🏪</div>',
+            className: 'custom-shop-icon',
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22]
+          })
+        }).addTo(map)
+          .bindPopup('<b>Cửa hàng (84/10 Nam Cao)</b>')
+          .openPopup();
+
+        // Active Personnel Markers
+        ${personnelPinsJS}
+
+        // Auto bounds fitting
+        var markerCoords = [[${shopLat}, ${shopLng}]];
+        ${activePersonnel.map(p => `markerCoords.push([${p.latitude}, ${p.longitude}]);`).join('\n')}
+        if (markerCoords.length > 1) {
+          var bounds = L.latLngBounds(markerCoords);
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* GPS Geo-fence Radar Header */}
+      {/* Top Header Section */}
       <View style={styles.radarHeader}>
-        <Text style={styles.headerTitle}>Giám sát GPS thời gian thực</Text>
-        <Text style={styles.headerSubtitle}>Theo dõi nhân sự có mặt trong bán kính cho phép của cửa hàng</Text>
+        <Text style={styles.headerTitle}>GIÁM SÁT GPS LIVE</Text>
+        <Text style={styles.headerSubtitle}>Theo dõi vị trí nhân sự thực tế trong bán kính an toàn của cửa hàng.</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Mock Map / Radar Circle for checking locations */}
-        <View style={[styles.mapCard, theme.shadows.light]}>
-          <Text style={styles.mapTitle}>🗺️ Bản đồ khu vực cửa hàng (Bán kính 100m)</Text>
-          <View style={styles.radarCircle}>
-            <View style={styles.centerShopDot}>
-              <Text style={styles.shopEmoji}>☕</Text>
-            </View>
-            
-            {/* Plot staff on radar */}
-            {activePersonnel.map((person, index) => {
-              // Distribute staff visually
-              const offsetAngle = index * 120;
-              const radiusOffset = 50 + index * 15;
-              const x = Math.cos((offsetAngle * Math.PI) / 180) * radiusOffset;
-              const y = Math.sin((offsetAngle * Math.PI) / 180) * radiusOffset;
-
-              return (
-                <View
-                  key={person.id}
-                  style={[
-                    styles.staffRadarPin,
-                    { transform: [{ translateX: x }, { translateY: y }] }
-                  ]}
-                >
-                  <View style={styles.pinDot} />
-                  <View style={styles.pinLabel}>
-                    <Text style={styles.pinLabelText} numberOfLines={1}>{person.name.split(' ')[0]}</Text>
-                  </View>
-                </View>
-              );
-            })}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        scrollEnabled={!isMapExpanded}
+      >
+        {/* Bento-style Interactive Map Card */}
+        <View style={styles.mapBentoCard}>
+          <View style={styles.mapCardHeader}>
+            <Text style={styles.mapTitle}>🗺️ Bản đồ định vị GPS (Leaflet Map API)</Text>
+            <TouchableOpacity 
+              style={styles.expandToggleBtn} 
+              onPress={() => setIsMapExpanded(!isMapExpanded)}
+            >
+              <Text style={styles.expandToggleText}>
+                {isMapExpanded ? 'Thu nhỏ ↩️' : 'Phóng to 🔍'}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.mapFooterText}>🟢 Chấm xanh biểu thị nhân sự đã check-in thành công và đang ở trong vùng an toàn.</Text>
+
+          <View style={[styles.mapWrapper, { height: isMapExpanded ? 400 : 220 }]}>
+            {Platform.OS === 'web' ? (
+              <iframe
+                srcDoc={mapHtml}
+                style={styles.webMap}
+                title="Bản đồ định vị GPS Live"
+              />
+            ) : (
+              <WebView
+                originWhitelist={['*']}
+                source={{ html: mapHtml }}
+                style={styles.mobileMap}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+              />
+            )}
+
+            {!isMapExpanded && (
+              <TouchableOpacity 
+                style={styles.mapClickOverlay}
+                onPress={() => setIsMapExpanded(true)}
+                activeOpacity={0.8}
+              />
+            )}
+          </View>
+
+          <View style={styles.mapLegendInfo}>
+            <View style={styles.legendDot} />
+            <Text style={styles.legendText}>
+              Chấm xanh biểu thị nhân sự đã <Text style={{ fontWeight: 'bold', color: theme.colors.text }}>check-in thành công</Text> và đang ở trong vùng an toàn.
+            </Text>
+          </View>
         </View>
 
-        {/* Live List */}
-        <Text style={styles.sectionHeader}>Nhân viên đang làm việc ({activePersonnel.length})</Text>
+        {/* Workforce List Header */}
+        <View style={styles.listHeaderRow}>
+          <Text style={styles.sectionHeader}>NHÂN SỰ ĐANG TRỰC</Text>
+          <View style={styles.activeCountBadge}>
+            <Text style={styles.activeCountText}>
+              {sortedPersonnel.filter(p => p.gpsStatus !== 'Suspicious').length.toString().padStart(2, '0')} Hoạt Động
+            </Text>
+          </View>
+        </View>
         
-        {activePersonnel.length === 0 ? (
+        {sortedPersonnel.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>💤</Text>
             <Text style={styles.emptyText}>Hiện tại chưa có ai check-in ca làm việc.</Text>
             <Text style={styles.emptySub}>Sinh viên check-in bằng GPS sẽ xuất hiện tại đây.</Text>
           </View>
         ) : (
-          activePersonnel.map((person) => (
-            <View key={person.id} style={[styles.personCard, theme.shadows.light]}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.personName}>{person.name}</Text>
-                  <Text style={styles.personRole}>{person.role} • {person.shop.split(' - ')[0]}</Text>
+          sortedPersonnel.map((person) => {
+            const isSuspicious = person.gpsStatus === 'Suspicious';
+            return (
+              <View 
+                key={person.id} 
+                style={[
+                  styles.premiumStaffCard,
+                  isSuspicious && styles.staffCardSuspicious
+                ]}
+              >
+                {/* Left: Square-rounded avatar */}
+                <Image 
+                  source={{ uri: person.photo }} 
+                  style={styles.staffAvatar} 
+                />
+
+                {/* Center: Info */}
+                <View style={styles.staffInfoContainer}>
+                  <Text style={styles.staffName}>{person.name}</Text>
+                  <View style={styles.staffStatusRow}>
+                    <View style={[
+                      styles.statusIndicatorDot, 
+                      { backgroundColor: isSuspicious ? theme.colors.danger : theme.colors.success }
+                    ]} />
+                    <Text style={[
+                      styles.staffStatusText,
+                      { color: isSuspicious ? theme.colors.danger : theme.colors.success }
+                    ]}>
+                      {isSuspicious 
+                        ? `⚠️ Nghi vấn GPS - Cách ${person.distance}m` 
+                        : `• ${person.distance}m - AN TOÀN`}
+                    </Text>
+                  </View>
+                  <Text style={styles.staffRole}>{person.role} • {person.shop.split(' - ')[0]}</Text>
                 </View>
-                <View style={styles.verifiedBadge}>
-                  <Text style={styles.verifiedText}>🟢 Verified GPS</Text>
+
+                {/* Right: Actions & Timestamp */}
+                <View style={styles.staffRightContainer}>
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity style={styles.actionIconButton}>
+                      <Text style={styles.actionIconEmoji}>💬</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionIconButton}>
+                      <Text style={styles.actionIconEmoji}>📞</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.checkInTimeText}>Check-in: {person.checkInTime}</Text>
                 </View>
               </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.cardDetails}>
-                <View style={styles.detailBox}>
-                  <Text style={styles.detailLabel}>Thời gian vào ca</Text>
-                  <Text style={styles.detailValue}>{person.checkInTime}</Text>
-                </View>
-                <View style={styles.detailBox}>
-                  <Text style={styles.detailLabel}>Khoảng cách thực tế</Text>
-                  <Text style={styles.detailValue}>{person.distance}</Text>
-                </View>
-                <View style={styles.detailBox}>
-                  <Text style={styles.detailLabel}>Trạng thái hiện diện</Text>
-                  <Text style={[styles.detailValue, { color: theme.colors.success }]}>AN TOÀN</Text>
-                </View>
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
@@ -139,164 +316,217 @@ export default function EmployerMonitor() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
   radarHeader: {
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    backgroundColor: '#F8FAFC',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#1E293B',
+    lineHeight: 38,
+    letterSpacing: -1,
   },
   headerSubtitle: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginTop: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 8,
+    lineHeight: 20,
   },
   scrollContent: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    paddingHorizontal: 20,
+    paddingBottom: 64,
   },
-  mapCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+  mapBentoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 32,
+    padding: 20,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 30,
+    elevation: 3,
+    marginBottom: 24,
+  },
+  mapCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: 12,
   },
   mapTitle: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    alignSelf: 'flex-start',
-    marginBottom: theme.spacing.md,
+    fontWeight: '800',
+    color: '#1E293B',
   },
-  radarCircle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 1.5,
-    borderColor: theme.colors.employer + '33',
-    justifyContent: 'center',
+  expandToggleBtn: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+  },
+  expandToggleText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  mapWrapper: {
+    width: '100%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  webMap: {
+    width: '100%',
+    height: '100%',
+    borderWidth: 0,
+  },
+  mobileMap: {
+    flex: 1,
+  },
+  mapLegendInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 16,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#10B981',
+    marginTop: 3,
+    marginRight: 8,
+  },
+  legendText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  listHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    position: 'relative',
-    marginVertical: theme.spacing.sm,
+    paddingHorizontal: 4,
+    marginBottom: 12,
   },
-  centerShopDot: {
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+    letterSpacing: 0.5,
+  },
+  activeCountBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+  },
+  activeCountText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  premiumStaffCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 2,
+    marginBottom: 12,
+  },
+  staffCardSuspicious: {
+    borderColor: '#F59E0B',
+    borderWidth: 1.5,
+    backgroundColor: '#FFFBEB',
+  },
+  staffAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
+  },
+  staffInfoContainer: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  staffName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  staffStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  statusIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  staffStatusText: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  staffRole: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  staffRightContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 56,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  actionIconButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: theme.colors.employer,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-    zIndex: 10,
   },
-  shopEmoji: {
-    fontSize: 14,
-  },
-  staffRadarPin: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  pinDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: theme.colors.success,
-    borderWidth: 2,
-    borderColor: theme.colors.white,
-  },
-  pinLabel: {
-    backgroundColor: theme.colors.white,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginTop: 2,
-  },
-  pinLabelText: {
-    fontSize: 8,
-    color: theme.colors.text,
-    fontWeight: 'bold',
-  },
-  mapFooterText: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: theme.spacing.md,
-    lineHeight: 14,
-  },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
-  },
-  personCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  personName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  personRole: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  verifiedBadge: {
-    backgroundColor: theme.colors.success + '1A',
-    borderRadius: theme.borderRadius.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  verifiedText: {
-    fontSize: 10,
-    color: theme.colors.success,
-    fontWeight: 'bold',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.sm,
-  },
-  cardDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  detailBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-  },
-  detailValue: {
+  actionIconEmoji: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginTop: 2,
+  },
+  checkInTimeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
   },
   emptyState: {
     alignItems: 'center',
@@ -305,16 +535,24 @@ const styles = StyleSheet.create({
   },
   emptyEmoji: {
     fontSize: 48,
-    marginBottom: theme.spacing.sm,
+    marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: theme.colors.text,
+    color: '#1E293B',
   },
   emptySub: {
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: '#64748B',
     marginTop: 4,
+  },
+  mapClickOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
   }
 });

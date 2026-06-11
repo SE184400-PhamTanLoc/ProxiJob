@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using ProxiJob.Management.Application.Common.Interfaces;
 using ProxiJob.Management.Application.Features.Timekeepings.Commands;
 using ProxiJob.Management.Application.Features.Timekeepings.Queries;
 
@@ -20,6 +22,12 @@ public class TimekeepingController : ApiControllerBase
 
     private int GetBusinessId()
     {
+        var currentUserService = HttpContext.RequestServices.GetRequiredService<ICurrentUserService>();
+        if (currentUserService.BusinessId.HasValue)
+        {
+            return currentUserService.BusinessId.Value;
+        }
+
         var claim = User.Claims.FirstOrDefault(c => c.Type == "BusinessId");
         if (claim != null && int.TryParse(claim.Value, out var businessId))
             return businessId;
@@ -28,6 +36,12 @@ public class TimekeepingController : ApiControllerBase
 
     private int GetUserId()
     {
+        var currentUserService = HttpContext.RequestServices.GetRequiredService<ICurrentUserService>();
+        if (currentUserService.UserId.HasValue)
+        {
+            return currentUserService.UserId.Value;
+        }
+
         var claim = User.Claims.FirstOrDefault(c => c.Type == "UserId");
         if (claim != null && int.TryParse(claim.Value, out var userId))
             return userId;

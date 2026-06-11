@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,290 +6,827 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  SafeAreaView
+  SafeAreaView,
+  Image,
+  Switch,
+  ActivityIndicator
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { getCategoriesApi, getSkillsApi } from '../../api/jobs';
 
 export default function EmployerEmergencyPost() {
-  const { createEmergencyShift, navigateTo } = useContext(AppContext);
-  const [title, setTitle] = useState('Nhân viên Phục vụ gấp tối nay');
-  const [shopName, setShopName] = useState('Katinat Coffee - Đồng Khởi');
-  const [hourlyRate, setHourlyRate] = useState('52000');
-  const [time, setTime] = useState('18:00 - 22:00');
-  
-  const [successVisible, setSuccessVisible] = useState(false);
-  const [postedShiftInfo, setPostedShiftInfo] = useState(null);
+  const { createJobPostWizard, showToast, navigateTo, user } = useContext(AppContext);
 
-  const handlePostEmergency = () => {
-    if (title.trim() && shopName.trim() && hourlyRate.trim() && time.trim()) {
-      createEmergencyShift(title, shopName, hourlyRate, time).then(() => {
-        setPostedShiftInfo({ title, shopName, hourlyRate, time });
-        setSuccessVisible(true);
-        
-        // Clear inputs
-        setTitle('Nhân viên Phục vụ gấp tối nay');
-        setHourlyRate('52000');
-        
-        // Hide success banner and navigate back after 2 seconds
-        setTimeout(() => {
-          setSuccessVisible(false);
-          navigateTo('employer_approvals');
-        }, 2000);
-      });
+  // Categories & Skills local states
+  const [categories, setCategories] = useState([
+    { id: 1, name: 'Giao hàng' },
+    { id: 2, name: 'Dịch vụ thú cưng' },
+    { id: 3, name: 'Gia sư' },
+    { id: 4, name: 'Sửa chữa' },
+    { id: 5, name: 'Phục vụ' },
+    { id: 6, name: 'Khác' }
+  ]);
+  const [skillsList, setSkillsList] = useState([
+    { id: 1, name: 'Giao tiếp' },
+    { id: 2, name: 'Pha chế' },
+    { id: 3, name: 'Xử lý tình huống' },
+    { id: 4, name: 'Tiếng Anh' },
+    { id: 5, name: 'Sử dụng máy POS' },
+    { id: 6, name: 'Làm việc nhóm' }
+  ]);
+
+  const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // Form states
+  const [step, setStep] = useState(1);
+  const [title, setTitle] = useState('Tuyển nhân viên phục vụ ca tối');
+  const [categoryId, setCategoryId] = useState('5'); // Default 'Phục vụ'
+  const [description, setDescription] = useState('Thực hiện order nước, bưng bê đồ uống cho khách hàng và dọn dẹp bàn ghế sạch sẽ.');
+  const [requirements, setRequirements] = useState('Nhanh nhẹn, chăm chỉ, có thái độ làm việc tốt. Ưu tiên có kinh nghiệm.');
+  
+  const [salary, setSalary] = useState('35000');
+  const [selectedSkills, setSelectedSkills] = useState([1]); // Default 'Giao tiếp'
+
+  const [address, setAddress] = useState('123 Đường Nguyễn Văn Cừ, Quận 5, TP.HCM');
+  const [latitude, setLatitude] = useState('10.762622');
+  const [longitude, setLongitude] = useState('106.660172');
+  
+  // Date and Time states
+  const getTodayDateString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const [date, setDate] = useState(getTodayDateString());
+  const [startTime, setStartTime] = useState('18:00');
+  const [endTime, setEndTime] = useState('22:00');
+  const [isEmergency, setIsEmergency] = useState(false);
+
+  // Fetch categories & skills from backend on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setDataLoading(true);
+        const catRes = await getCategoriesApi();
+        const catList = Array.isArray(catRes) ? catRes : (Array.isArray(catRes?.data) ? catRes.data : (catRes?.items || catRes?.data?.items || []));
+        if (catList && catList.length > 0) {
+          setCategories(catList);
+          // Set default category to first item if current is invalid
+          const exists = catList.find(c => c.id.toString() === categoryId);
+          if (!exists) {
+            setCategoryId(catList[0].id.toString());
+          }
+        }
+      } catch (err) {
+        console.log('Error loading categories from API:', err);
+      }
+
+      try {
+        const skillRes = await getSkillsApi();
+        const skillList = Array.isArray(skillRes) ? skillRes : (Array.isArray(skillRes?.data) ? skillRes.data : (skillRes?.items || skillRes?.data?.items || []));
+        if (skillList && skillList.length > 0) {
+          setSkillsList(skillList);
+        }
+      } catch (err) {
+        console.log('Error loading skills from API:', err);
+      } finally {
+        setDataLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Handle emergency toggle rate adjustments
+  const toggleEmergency = (value) => {
+    setIsEmergency(value);
+    if (value) {
+      // Emergency gets +30% pay bonus automatically
+      const currentRate = parseFloat(salary) || 0;
+      const bonusRate = Math.round(currentRate * 1.3);
+      setSalary(bonusRate.toString());
+      showToast('Đã kích hoạt chế độ TUYỂN GẤP: Tự động cộng thêm 30% lương đề xuất!', 'info');
+    } else {
+      // Revert rate
+      const currentRate = parseFloat(salary) || 0;
+      const baseRate = Math.round(currentRate / 1.3);
+      setSalary(baseRate.toString());
     }
   };
 
+  const handleNextStep = () => {
+    if (step === 1) {
+      if (!title.trim()) {
+        showToast('Vui lòng nhập tiêu đề công việc!', 'warning');
+        return;
+      }
+      if (!description.trim()) {
+        showToast('Vui lòng nhập mô tả công việc!', 'warning');
+        return;
+      }
+      setStep(2);
+    } else if (step === 2) {
+      const parsedSalary = parseFloat(salary);
+      if (isNaN(parsedSalary) || parsedSalary <= 0) {
+        showToast('Mức lương phải lớn hơn 0!', 'warning');
+        return;
+      }
+      setStep(3);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const handleSkillToggle = (skillId) => {
+    if (selectedSkills.includes(skillId)) {
+      setSelectedSkills(selectedSkills.filter(id => id !== skillId));
+    } else {
+      setSelectedSkills([...selectedSkills, skillId]);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!address.trim()) {
+      showToast('Vui lòng nhập địa chỉ làm việc!', 'warning');
+      return;
+    }
+    if (!date.trim() || !startTime.trim() || !endTime.trim()) {
+      showToast('Vui lòng nhập thời gian ca làm việc!', 'warning');
+      return;
+    }
+
+    setLoading(true);
+    const success = await createJobPostWizard({
+      title,
+      description,
+      requirements,
+      categoryId,
+      salary,
+      skillIds: selectedSkills,
+      address,
+      latitude,
+      longitude,
+      date,
+      startTime,
+      endTime,
+      isEmergency
+    });
+    setLoading(false);
+
+    if (success) {
+      navigateTo('employer_approvals');
+    }
+  };
+
+  const currentCategoryName = categories.find(c => c.id.toString() === categoryId)?.name || 'Khác';
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Đăng ca gấp (Emergency Post)</Text>
-        <Text style={styles.headerSubtitle}>Shortcut đẩy tin tuyển dụng tức thì lên hệ thống khi quán thiếu người đột xuất</Text>
-      </View>
+    <View style={styles.container}>
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {successVisible && postedShiftInfo && (
-          <View style={styles.successBanner}>
-            <Text style={styles.successIcon}>🚀</Text>
-            <View style={{flex: 1}}>
-              <Text style={styles.successTitle}>ĐÃ PHÁT TÍN TUYỂN DỤNG KHẨN CẤP!</Text>
-              <Text style={styles.successText}>
-                Đơn hàng "{postedShiftInfo.title}" tại {postedShiftInfo.shopName} đã được đẩy lên bản đồ hyperlocal.
-              </Text>
-              <Text style={styles.successTextSub}>
-                Hệ thống Matching đã gửi thông báo đẩy qua RabbitMQ tới 18 sinh viên F&B trong bán kính 3km.
-              </Text>
-            </View>
+        {/* Title & Page Header */}
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageTitle}>Đăng tin{'\n'}tuyển dụng mới</Text>
+          <Text style={styles.pageSubtitle}>Kết nối với những ứng viên tiềm năng xung quanh bạn ngay lập tức.</Text>
+        </View>
+
+        {/* Progress Indicator */}
+        <View style={styles.progressSection}>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressBar, step >= 1 ? styles.progressActive : null]} />
+            <View style={[styles.progressBar, step >= 2 ? styles.progressActive : null]} />
+            <View style={[styles.progressBar, step >= 3 ? styles.progressActive : null]} />
+          </View>
+          <View style={styles.stepLabels}>
+            <Text style={[styles.stepLabel, step >= 1 && styles.stepLabelActive]}>Bước 1</Text>
+            <Text style={[styles.stepLabel, step >= 2 && styles.stepLabelActive]}>Bước 2</Text>
+            <Text style={[styles.stepLabel, step >= 3 && styles.stepLabelActive]}>Bước 3</Text>
+          </View>
+        </View>
+
+        {dataLoading ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={styles.loaderText}>Đang tải danh mục dữ liệu...</Text>
+          </View>
+        ) : (
+          <View>
+            {/* Step 1: NỘI DUNG CA LÀM */}
+            {step === 1 && (
+              <View style={[styles.bentoCard, theme.shadows.light]}>
+                <Text style={styles.sectionHeader}>NỘI DUNG CA LÀM</Text>
+                
+                <Text style={styles.inputLabel}>Tiêu đề công việc</Text>
+                <TextInput
+                  style={styles.premiumInput}
+                  placeholder="Ví dụ: Cần nhân viên phục vụ khẩn cấp..."
+                  placeholderTextColor={theme.colors.textLight}
+                  value={title}
+                  onChangeText={setTitle}
+                />
+
+                <Text style={styles.inputLabel}>Danh mục công việc</Text>
+                <View style={styles.categoryGrid}>
+                  {categories.map((cat) => {
+                    const isSelected = categoryId === cat.id.toString();
+                    return (
+                      <TouchableOpacity
+                        key={cat.id}
+                        style={[
+                          styles.categoryPill,
+                          isSelected && styles.categoryPillActive
+                        ]}
+                        onPress={() => setCategoryId(cat.id.toString())}
+                      >
+                        <Text style={[
+                          styles.categoryPillText,
+                          isSelected && styles.categoryPillTextActive
+                        ]}>
+                          {cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text style={styles.inputLabel}>Mô tả công việc</Text>
+                <TextInput
+                  style={[styles.premiumInput, styles.textArea]}
+                  placeholder="Mô tả chi tiết các yêu cầu và quyền lợi..."
+                  placeholderTextColor={theme.colors.textLight}
+                  multiline
+                  numberOfLines={4}
+                  value={description}
+                  onChangeText={setDescription}
+                />
+
+                <Text style={styles.inputLabel}>Yêu cầu đối với ứng viên</Text>
+                <TextInput
+                  style={[styles.premiumInput, styles.textArea, { height: 80 }]}
+                  placeholder="Ví dụ: Chăm chỉ, trung thực, có kinh nghiệm pha chế..."
+                  placeholderTextColor={theme.colors.textLight}
+                  multiline
+                  numberOfLines={3}
+                  value={requirements}
+                  onChangeText={setRequirements}
+                />
+              </View>
+            )}
+
+            {/* Step 2: QUYỀN LỢI & KỸ NĂNG */}
+            {step === 2 && (
+              <View style={[styles.bentoCard, theme.shadows.light]}>
+                <Text style={styles.sectionHeader}>QUYỀN LỢI & KỸ NĂNG</Text>
+
+                <Text style={styles.inputLabel}>Mức lương đề xuất (VND/giờ)</Text>
+                <View style={styles.salaryInputContainer}>
+                  <TextInput
+                    style={[styles.premiumInput, styles.salaryInput]}
+                    placeholder="50,000"
+                    placeholderTextColor={theme.colors.textLight}
+                    keyboardType="numeric"
+                    value={salary}
+                    onChangeText={setSalary}
+                  />
+                  <Text style={styles.salaryCurrency}>VND</Text>
+                </View>
+
+                <Text style={styles.inputLabel}>Kỹ năng cần thiết</Text>
+                <View style={styles.skillsContainer}>
+                  {skillsList.map((skill) => {
+                    const isSelected = selectedSkills.includes(skill.id);
+                    return (
+                      <TouchableOpacity
+                        key={skill.id}
+                        style={[
+                          styles.skillPill,
+                          isSelected && styles.skillPillActive
+                        ]}
+                        onPress={() => handleSkillToggle(skill.id)}
+                      >
+                        <Text style={[
+                          styles.skillPillText,
+                          isSelected && styles.skillPillTextActive
+                        ]}>
+                          {isSelected ? '✓ ' : ''}{skill.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.infoBox}>
+                  <Text style={styles.infoBoxText}>
+                    💡 Gợi ý: Hãy chọn những kỹ năng thực tế nhất để hệ thống Matching gợi ý đúng ứng viên F&B tiềm năng.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Step 3: ĐỊA ĐIỂM & THỜI GIAN */}
+            {step === 3 && (
+              <View style={[styles.bentoCard, theme.shadows.light]}>
+                <Text style={styles.sectionHeader}>ĐỊA ĐIỂM & THỜI GIAN</Text>
+
+                {/* Emergency Toggle Switch */}
+                <View style={styles.emergencyCard}>
+                  <View style={styles.emergencyTextSection}>
+                    <Text style={styles.emergencyCardTitle}>🔥 CHẾ ĐỘ ĐĂNG CA GẤP (EMERGENCY)</Text>
+                    <Text style={styles.emergencyCardDesc}>
+                      Tự động nhân hệ số cấp bách (+30% lương cơ bản), đẩy tin tức thì qua thông báo tới các ứng viên trong bán kính 3km.
+                    </Text>
+                  </View>
+                  <Switch
+                    trackColor={{ false: '#767577', true: theme.colors.danger }}
+                    thumbColor={isEmergency ? '#FFFFFF' : '#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                    onValueChange={toggleEmergency}
+                    value={isEmergency}
+                  />
+                </View>
+
+                <Text style={styles.inputLabel}>Địa điểm làm việc</Text>
+                <TextInput
+                  style={styles.premiumInput}
+                  placeholder="Nhập địa chỉ..."
+                  placeholderTextColor={theme.colors.textLight}
+                  value={address}
+                  onChangeText={setAddress}
+                />
+
+                {/* Map Display */}
+                <View style={styles.mapContainer}>
+                  <Image
+                    source={{
+                      uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB4_nuXKPT5Z2wNKvK4p5SUwrrNOk4BGXUgi9dgtkYGUQwv4EmyQ7KAFfw60PD2FJDtzxCpq5tr-DF-AjD5Qbvl6_9IbC69c2TRn9sulSQt3xY8kRVDsELLfzESQEOqToXt_tdP09nj97ByJsDF4c2PVR3ojmUk5SB7qRgCAYwXZkI-FwPz62xZKj3_-dJm8d10hQQSdPUSBETrzM_HfMm_FDRoFeJXZvuGEwGA7DsNyK24ogpUfD-oNWx78zJBezJ8P2ChgA--_6Q'
+                    }}
+                    style={styles.mapImage}
+                  />
+                  <View style={styles.mapOverlayPill}>
+                    <Text style={styles.mapOverlayText}>Hyperlocal Location Matched 📍</Text>
+                  </View>
+                </View>
+
+                {/* Coordinates */}
+                <View style={styles.coordsRow}>
+                  <View style={styles.coordBox}>
+                    <Text style={styles.coordLabel}>Lat: {parseFloat(latitude).toFixed(6)}</Text>
+                  </View>
+                  <View style={styles.coordBox}>
+                    <Text style={styles.coordLabel}>Long: {parseFloat(longitude).toFixed(6)}</Text>
+                  </View>
+                </View>
+
+                {/* DateTime Inputs */}
+                <Text style={[styles.inputLabel, { marginTop: 12 }]}>Ngày làm việc (YYYY-MM-DD)</Text>
+                <TextInput
+                  style={styles.premiumInput}
+                  placeholder="2026-06-09"
+                  placeholderTextColor={theme.colors.textLight}
+                  value={date}
+                  onChangeText={setDate}
+                />
+
+                <View style={styles.timeRow}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={styles.inputLabel}>Giờ bắt đầu (HH:MM)</Text>
+                    <TextInput
+                      style={styles.premiumInput}
+                      placeholder="08:00"
+                      placeholderTextColor={theme.colors.textLight}
+                      value={startTime}
+                      onChangeText={setStartTime}
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.inputLabel}>Giờ kết thúc (HH:MM)</Text>
+                    <TextInput
+                      style={styles.premiumInput}
+                      placeholder="17:00"
+                      placeholderTextColor={theme.colors.textLight}
+                      value={endTime}
+                      onChangeText={setEndTime}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         )}
 
-        <View style={[styles.formCard, theme.shadows.light]}>
-          <Text style={styles.formTitle}>Chi tiết ca tuyển gấp</Text>
-          
-          <Text style={styles.inputLabel}>Tên công việc cần tuyển</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ví dụ: Nhân viên phục vụ bàn gấp trưa..."
-            placeholderTextColor={theme.colors.textLight}
-            value={title}
-            onChangeText={setTitle}
-          />
+        {/* Wizard Actions */}
+        <View style={styles.actionsContainer}>
+          {step > 1 ? (
+            <TouchableOpacity style={styles.backButton} onPress={handlePrevStep} disabled={loading}>
+              <Text style={styles.backButtonText}>⬅ Quay lại</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.backButton} onPress={() => navigateTo('employer_approvals')} disabled={loading}>
+              <Text style={styles.backButtonText}>✕ Hủy</Text>
+            </TouchableOpacity>
+          )}
 
-          <Text style={styles.inputLabel}>Cửa hàng / Chi nhánh đăng bài</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ví dụ: Katinat Coffee - Đồng Khởi..."
-            placeholderTextColor={theme.colors.textLight}
-            value={shopName}
-            onChangeText={setShopName}
-          />
-
-          <View style={styles.inputRow}>
-            <View style={{flex: 1, marginRight: 8}}>
-              <Text style={styles.inputLabel}>Mức lương đề xuất (đ/h)</Text>
-              <TextInput
-                style={[styles.input, styles.highlightInput]}
-                placeholder="Ví dụ: 45000..."
-                placeholderTextColor={theme.colors.textLight}
-                keyboardType="numeric"
-                value={hourlyRate}
-                onChangeText={setHourlyRate}
-              />
-            </View>
-            <View style={{flex: 1, marginLeft: 8}}>
-              <Text style={styles.inputLabel}>Khung giờ làm việc</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ví dụ: 18:00 - 22:00..."
-                placeholderTextColor={theme.colors.textLight}
-                value={time}
-                onChangeText={setTime}
-              />
-            </View>
-          </View>
-
-          <View style={styles.warningBox}>
-            <Text style={styles.warningTitle}>⚠️ RÀNG BUỘC KỸ THUẬT & NGHIỆP VỤ</Text>
-            <Text style={styles.warningText}>
-              • Lương ca gấp được tự động nhân hệ số cấp bách (+30% lương cơ bản).
-            </Text>
-            <Text style={styles.warningText}>
-              • Định danh ID ca làm việc được tự động chuẩn hóa sang định dạng Integer khóa chính.
-            </Text>
-            <Text style={styles.warningText}>
-              • Các trường Audit (CreatedBy, UpdatedBy) sẽ tự động được ghi nhận để kiểm tra hệ thống.
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.postBtn}
-            activeOpacity={0.9}
-            onPress={handlePostEmergency}
-          >
-            <Text style={styles.postBtnText}>🔥 KÍCH HOẠT ĐĂNG CA GẤP NGAY</Text>
-          </TouchableOpacity>
+          {step < 3 ? (
+            <TouchableOpacity style={styles.nextButton} onPress={handleNextStep}>
+              <Text style={styles.nextButtonText}>Tiếp theo ➔</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  Đăng bài tuyển dụng {isEmergency ? '⚡' : '🚀'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View style={styles.matchingOverviewCard}>
-          <Text style={styles.matchingTitle}>📍 Hoạt động của PostGIS & Location Service</Text>
-          <Text style={styles.matchingText}>
-            Khi nhấn đăng ca gấp, tọa độ GPS của cửa hàng sẽ được PostGIS quét đối chiếu với tọa độ vị trí hiện tại của các sinh viên đang online trong bán kính 3km để hiển thị lên bản đồ hyperlocal của họ tức thì.
-          </Text>
-        </View>
+        <Text style={styles.termsText}>
+          Bằng cách nhấn đăng tin, bạn đồng ý với các điều khoản dịch vụ của ProxiJob.
+        </Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    padding: theme.spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: '#E2E8F0',
   },
-  headerTitle: {
-    fontSize: 20,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: '#FF6B00',
+    marginRight: 10,
+  },
+  headerBrand: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  headerUser: {
+    fontSize: 10,
     fontWeight: 'bold',
-    color: theme.colors.text,
+    color: '#64748B',
   },
-  headerSubtitle: {
+  navBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 99,
+    backgroundColor: '#F1F5F9',
+  },
+  navBtnText: {
     fontSize: 11,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-    lineHeight: 15,
+    fontWeight: 'bold',
+    color: '#64748B',
   },
   scrollContent: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    padding: 16,
+    paddingBottom: 40,
   },
-  successBanner: {
+  pageHeader: {
+    marginVertical: 12,
+  },
+  pageTitle: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 40,
+    letterSpacing: -1,
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  progressSection: {
+    marginVertical: 16,
+  },
+  progressTrack: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.success + '1A',
-    borderColor: theme.colors.success + '33',
-    borderWidth: 1,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    alignItems: 'flex-start',
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
   },
-  successIcon: {
-    fontSize: 24,
-    marginRight: theme.spacing.sm,
+  progressBar: {
+    flex: 1,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 1,
   },
-  successTitle: {
-    fontSize: 12,
+  progressActive: {
+    backgroundColor: '#FF6B00',
+  },
+  stepLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingHorizontal: 2,
+  },
+  stepLabel: {
+    fontSize: 10,
     fontWeight: 'bold',
-    color: theme.colors.success,
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  successText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    lineHeight: 16,
-    marginTop: 2,
+  stepLabelActive: {
+    color: '#FF6B00',
   },
-  successTextSub: {
+  bentoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sectionHeader: {
     fontSize: 11,
-    color: theme.colors.textLight,
-    fontStyle: 'italic',
-    lineHeight: 14,
-    marginTop: 4,
-  },
-  formCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
-  },
-  formTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 1.5,
+    marginBottom: 16,
+    textTransform: 'uppercase',
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.text,
+    fontWeight: '700',
+    color: '#334155',
     marginBottom: 6,
+    marginLeft: 2,
   },
-  input: {
-    height: 46,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+  premiumInput: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+    marginBottom: 16,
     borderWidth: 1,
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md,
-    fontSize: 13,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
+    borderColor: '#E2E8F0',
   },
-  highlightInput: {
-    borderColor: theme.colors.primary + '66',
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  categoryPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 99,
+    backgroundColor: '#F1F5F9',
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  categoryPillActive: {
+    backgroundColor: '#FF6B001F',
+    borderColor: '#FF6B00',
+  },
+  categoryPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  categoryPillTextActive: {
+    color: '#FF6B00',
+  },
+  salaryInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 16,
+  },
+  salaryInput: {
+    flex: 1,
     fontWeight: 'bold',
-    color: theme.colors.primary,
+    fontSize: 16,
+    paddingRight: 50,
+    marginBottom: 0,
   },
-  inputRow: {
+  salaryCurrency: {
+    position: 'absolute',
+    right: 16,
+    fontWeight: '800',
+    color: '#94A3B8',
+    fontSize: 14,
+  },
+  skillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+  },
+  skillPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 99,
+    backgroundColor: '#F1F5F9',
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  skillPillActive: {
+    backgroundColor: '#FF6B001F',
+    borderColor: '#FF6B00',
+  },
+  skillPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  skillPillTextActive: {
+    color: '#FF6B00',
+  },
+  infoBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  infoBoxText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  emergencyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EF44440C',
+    borderWidth: 1,
+    borderColor: '#EF444422',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  emergencyTextSection: {
+    flex: 1,
+    marginRight: 10,
+  },
+  emergencyCardTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#EF4444',
+  },
+  emergencyCardDesc: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#7F1D1D',
+    lineHeight: 14,
+    marginTop: 4,
+  },
+  mapContainer: {
+    height: 140,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  mapImage: {
+    width: 'full',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  mapOverlayPill: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(255, 107, 0, 0.9)',
+    borderRadius: 99,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  mapOverlayText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  coordsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  coordBox: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+  },
+  coordLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#64748B',
+  },
+  timeRow: {
+    flexDirection: 'row',
+  },
+  actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  warningBox: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  warningTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: theme.colors.textMuted,
-    marginBottom: 6,
-  },
-  warningText: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    lineHeight: 16,
-  },
-  postBtn: {
-    backgroundColor: theme.colors.danger,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: theme.colors.danger,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
+    marginVertical: 10,
+  },
+  backButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  nextButton: {
+    backgroundColor: '#FF6B00',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 99,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 3,
   },
-  postBtnText: {
-    color: theme.colors.white,
+  nextButtonText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  matchingOverviewCard: {
-    backgroundColor: theme.colors.employer + '0A',
-    borderColor: theme.colors.employer + '1A',
-    borderWidth: 1,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+  submitButton: {
+    backgroundColor: '#FF6B00',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 99,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 3,
+    minWidth: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  matchingTitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: theme.colors.employer,
-    marginBottom: 4,
+  submitButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  matchingText: {
+  termsText: {
+    textAlign: 'center',
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginTop: 16,
+    lineHeight: 14,
+  },
+  loaderContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  loaderText: {
     fontSize: 12,
-    color: theme.colors.textMuted,
-    lineHeight: 16,
+    color: '#64748B',
+    marginTop: 10,
+    fontWeight: '600',
   }
 });

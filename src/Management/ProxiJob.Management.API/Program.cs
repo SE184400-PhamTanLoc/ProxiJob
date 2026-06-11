@@ -54,6 +54,8 @@ builder.Services.AddMassTransit(x =>
 builder.Services.AddHostedService<AutoAbsentJob>();
 
 builder.Services.AddControllers();
+builder.Services.AddAuthentication("GrpcAuthentication")
+    .AddScheme<ProxiJob.Management.API.Middleware.GrpcAuthenticationOptions, ProxiJob.Management.API.Middleware.GrpcAuthenticationHandler>("GrpcAuthentication", null);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -69,7 +71,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.UseMiddleware<ProxiJob.Management.API.Middleware.IdentityUserContextMiddleware>();
+app.UseAuthentication();
 
 app.UseAuthorization();
 

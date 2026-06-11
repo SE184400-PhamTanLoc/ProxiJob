@@ -9,8 +9,24 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+
+// Pure JS Haversine formula
+const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000; // Earth radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c); // returns distance in meters
+};
 
 export default function StudentCheckIn() {
   const { 
@@ -19,6 +35,8 @@ export default function StudentCheckIn() {
     checkOutShift, 
     simulatedDistanceToActive, 
     setSimulatedDistanceToActive,
+    studentCoords,
+    setStudentCoords,
     navigationParams,
     showToast,
     STUDENT_MOCK_GPS
@@ -30,10 +48,12 @@ export default function StudentCheckIn() {
   const [cameraScanned, setCameraScanned] = useState(false);
   const [scanningCamera, setScanningCamera] = useState(false);
 
-  // Find if there is any active shift right now
-  const activeShift = shifts.find(s => s.status === 'checkin_active');
+  // Shop coordinates (Default to FPT Polytechnic HCM for the thesis defense presentation)
+  const shopLat = selectedShiftForCheckIn?.latitude || 10.8261;
+  const shopLng = selectedShiftForCheckIn?.longitude || 106.6297;
 
-  // Find all approved shifts available to check-in
+  // Active shift
+  const activeShift = shifts.find(s => s.status === 'checkin_active');
   const approvedShifts = shifts.filter(s => s.status === 'approved');
 
   // Keep selected shift in sync
@@ -41,7 +61,7 @@ export default function StudentCheckIn() {
     if (activeShift) {
       setSelectedShiftForCheckIn(activeShift);
       setIsTimerRunning(true);
-      setCameraScanned(true); // default to true if already checked-in
+      setCameraScanned(true); 
     } else if (navigationParams?.shiftId) {
       const targetShift = shifts.find(s => s.id === navigationParams.shiftId);
       if (targetShift) {
@@ -62,6 +82,15 @@ export default function StudentCheckIn() {
       setCameraScanned(false);
     }
   }, [shifts, activeShift, navigationParams]);
+
+  // Sync initial student coordinates based on simulatedDistanceToActive
+  useEffect(() => {
+    if (simulatedDistanceToActive > 100) {
+      setStudentCoords({ latitude: 10.8550, longitude: 106.6300 }); // Far coords (~3.2km)
+    } else {
+      setStudentCoords({ latitude: 10.8265, longitude: 106.6302 }); // Near coords (~45m)
+    }
+  }, []);
 
   // Timer effect
   useEffect(() => {
@@ -84,10 +113,19 @@ export default function StudentCheckIn() {
   };
 
   const handleSimulateTravel = () => {
-    if (simulatedDistanceToActive > 100) {
-      setSimulatedDistanceToActive(45); // Move inside 100m radius
+    const isCurrentlyFar = simulatedDistanceToActive > 100;
+    if (isCurrentlyFar) {
+      const nearCoords = { latitude: 10.8265, longitude: 106.6302 }; // Near FPT Polytechnic
+      setStudentCoords(nearCoords);
+      const dist = calculateHaversineDistance(nearCoords.latitude, nearCoords.longitude, shopLat, shopLng);
+      setSimulatedDistanceToActive(dist);
+      showToast('Đã di chuyển vào vùng an toàn của quán!', 'success');
     } else {
-      setSimulatedDistanceToActive(3200); // Move away
+      const farCoords = { latitude: 10.8550, longitude: 106.6300 }; // Far away
+      setStudentCoords(farCoords);
+      const dist = calculateHaversineDistance(farCoords.latitude, farCoords.longitude, shopLat, shopLng);
+      setSimulatedDistanceToActive(dist);
+      showToast('Đã di chuyển ra xa cửa hàng!', 'info');
     }
   };
 
@@ -102,8 +140,8 @@ export default function StudentCheckIn() {
 
   const handleCheckIn = () => {
     if (selectedShiftForCheckIn) {
-      const lat = STUDENT_MOCK_GPS?.latitude || 10.7769;
-      const lng = STUDENT_MOCK_GPS?.longitude || 106.7009;
+      const lat = studentCoords?.latitude || 10.8265;
+      const lng = studentCoords?.longitude || 106.6302;
       checkInShift(
         selectedShiftForCheckIn.id,
         'default-qr-token',
@@ -117,8 +155,8 @@ export default function StudentCheckIn() {
 
   const handleCheckOut = () => {
     if (selectedShiftForCheckIn) {
-      const lat = STUDENT_MOCK_GPS?.latitude || 10.7769;
-      const lng = STUDENT_MOCK_GPS?.longitude || 106.7009;
+      const lat = studentCoords?.latitude || 10.8265;
+      const lng = studentCoords?.longitude || 106.6302;
       checkOutShift(
         selectedShiftForCheckIn.id,
         lat,
@@ -128,11 +166,95 @@ export default function StudentCheckIn() {
       setIsTimerRunning(false);
       setTimerSeconds(0);
       setCameraScanned(false);
-      setSimulatedDistanceToActive(3200); // Reset distance
+      
+      // Reset coordinates to far away
+      const farCoords = { latitude: 10.8550, longitude: 106.6300 };
+      setStudentCoords(farCoords);
+      const dist = calculateHaversineDistance(farCoords.latitude, farCoords.longitude, shopLat, shopLng);
+      setSimulatedDistanceToActive(dist);
     }
   };
 
   const isWithinRadius = simulatedDistanceToActive <= 100;
+  const studentLat = studentCoords?.latitude || 10.8550;
+  const studentLng = studentCoords?.longitude || 106.6300;
+
+  // Leaflet HTML String for single student check-in
+  const mapHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100vw; }
+        .leaflet-control-attribution { display: none !important; }
+        
+        @keyframes pulse-shop {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .shop-pulse-icon {
+          animation: pulse-shop 2s infinite;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script>
+        var map = L.map('map', { 
+          zoomControl: true,
+          dragging: true,
+          touchZoom: true,
+          scrollWheelZoom: true
+        }).setView([${shopLat}, ${shopLng}], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19
+        }).addTo(map);
+
+        // 100m Geofence Circle
+        L.circle([${shopLat}, ${shopLng}], {
+          color: '#FF6B00',
+          fillColor: '#FF6B00',
+          fillOpacity: 0.15,
+          radius: 100
+        }).addTo(map);
+
+        // Shop Marker (Custom Animated Store Icon)
+        L.marker([${shopLat}, ${shopLng}], {
+          icon: L.divIcon({
+            html: '<div class="shop-pulse-icon" style="background: #EF4444; width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px;">🏪</div>',
+            className: 'custom-shop-icon',
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+            popupAnchor: [0, -22]
+          })
+        }).addTo(map)
+          .bindPopup('<b>${selectedShiftForCheckIn?.shopName || 'Cửa hàng'}</b><br>Địa điểm làm việc')
+          .openPopup();
+
+        // Student Marker (Custom Student Badge Icon)
+        var studentMarker = L.marker([${studentLat}, ${studentLng}], {
+          icon: L.divIcon({
+            html: '<div style="background: #10B981; width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; font-size: 18px;">🙋‍♂️</div>',
+            className: 'custom-student-icon',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+            popupAnchor: [0, -18]
+          })
+        }).addTo(map)
+          .bindPopup('Vị trí hiện tại của bạn');
+
+        // Auto zoom and pan to fit both points
+        var bounds = L.latLngBounds([[${shopLat}, ${shopLng}], [${studentLat}, ${studentLng}]]);
+        map.fitBounds(bounds, { padding: [50, 50] });
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -156,8 +278,8 @@ export default function StudentCheckIn() {
           >
             <Text style={styles.simulateBtnText}>
               {isWithinRadius 
-                ? '📍 Đã đến quán (Khoảng cách: 45m)' 
-                : '🚗 Di chuyển đến quán (Khoảng cách: 3.2km)'}
+                ? `📍 Đã đến quán (Khoảng cách: ${simulatedDistanceToActive}m)` 
+                : '🚗 Di chuyển đến quán (Khoảng cách: ~3.2km)'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -177,6 +299,40 @@ export default function StudentCheckIn() {
               <Text style={styles.briefTitle}>{selectedShiftForCheckIn.title}</Text>
               <Text style={styles.briefTime}>⏰ Hôm nay: {selectedShiftForCheckIn.time}</Text>
               <Text style={styles.briefRate}>💰 Lương: {(selectedShiftForCheckIn.hourlyRate).toLocaleString('vi-VN')} đ/h</Text>
+            </View>
+
+            {/* Interactive Leaflet Map Card */}
+            <View style={styles.mapCard}>
+              <Text style={styles.mapCardTitle}>🗺️ Định vị thực tế (Leaflet Map API)</Text>
+              {Platform.OS === 'web' ? (
+                <iframe
+                  srcDoc={mapHtml}
+                  style={styles.webMap}
+                  title="Bản đồ định vị GPS"
+                />
+              ) : (
+                <WebView
+                  originWhitelist={['*']}
+                  source={{ html: mapHtml }}
+                  style={styles.mobileMap}
+                  javaScriptEnabled={true}
+                  domStorageEnabled={true}
+                />
+              )}
+              <View style={styles.mapLegends}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
+                  <Text style={styles.legendText}>Cửa hàng</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
+                  <Text style={styles.legendText}>Bạn</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#FF6B00', borderRadius: 0, width: 14, height: 2, top: 4 }]} />
+                  <Text style={styles.legendText}>Ranh giới 100m</Text>
+                </View>
+              </View>
             </View>
 
             {/* GPS Radius Status Ring */}
@@ -363,7 +519,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   briefShop: {
     fontSize: 11,
@@ -388,9 +544,54 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginVertical: 1,
   },
+  mapCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: theme.spacing.md,
+  },
+  mapCardTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
+  },
+  webMap: {
+    width: '100%',
+    height: 220,
+    borderWidth: 0,
+    borderRadius: theme.borderRadius.sm,
+  },
+  mobileMap: {
+    height: 220,
+    width: '100%',
+    borderRadius: theme.borderRadius.sm,
+  },
+  mapLegends: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: theme.spacing.sm,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: theme.colors.textMuted,
+  },
   statusSection: {
     alignItems: 'center',
-    marginVertical: theme.spacing.lg,
+    marginVertical: theme.spacing.md,
   },
   radiusRing: {
     width: 220,
