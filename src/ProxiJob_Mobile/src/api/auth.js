@@ -106,6 +106,7 @@ export async function loginApi(email, password, role) {
     const mappedRole = roleStr.toLowerCase() === 'student' ? 'student' : 'employer';
     const userId = parseInt(decodedUser.sub || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
     const subTier = decodedUser['subscription_tier'] || 'Free';
+    const avatarUrl = decodedUser['avatar_url'] || '';
 
     return {
       token: token,
@@ -116,6 +117,7 @@ export async function loginApi(email, password, role) {
         name: decodedUser.name || decodedUser.unique_name || decodedUser['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (roleStr.toLowerCase() === 'student' ? 'Sinh viên' : 'Chủ quán'),
         role: mappedRole,
         subscriptionTier: subTier,
+        avatarUrl: avatarUrl,
       }
     };
   } catch (error) {
@@ -192,6 +194,7 @@ export async function checkAuthApi(token) {
     const mappedRole = roleStr.toLowerCase() === 'student' ? 'student' : 'employer';
     const userId = parseInt(decoded.sub || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 1, 10);
     const subTier = decoded['subscription_tier'] || 'Free';
+    const avatarUrl = decoded['avatar_url'] || '';
 
     return {
       id: userId,
@@ -199,6 +202,7 @@ export async function checkAuthApi(token) {
       name: decoded.name || decoded.unique_name || decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || (roleStr.toLowerCase() === 'student' ? 'Sinh viên' : 'Chủ quán'),
       role: mappedRole,
       subscriptionTier: subTier,
+      avatarUrl: avatarUrl,
     };
   } catch (error) {
     console.log('[ProxiJob API] checkAuthApi failed. Falling back to local cache:', error.message);

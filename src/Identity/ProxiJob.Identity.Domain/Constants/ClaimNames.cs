@@ -10,5 +10,6 @@ namespace ProxiJob.Identity.Domain.Constants
         /// <summary>Giữ tương thích client cũ (sinh viên).</summary>
         public const string ProfileReadiness = "profile_readiness";
         public const string ReputationScore = "reputation_score";
+        public const string AvatarUrl = "avatar_url";
     }
 }

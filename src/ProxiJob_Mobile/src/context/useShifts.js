@@ -134,7 +134,7 @@ export const useShifts = ({
         try {
           const jobShiftsRes = await getJobPostShifts(job.id);
           const jobShifts = Array.isArray(jobShiftsRes) ? jobShiftsRes : (Array.isArray(jobShiftsRes?.data) ? jobShiftsRes.data : (jobShiftsRes?.items || jobShiftsRes?.data?.items || []));
-          
+
           const appsPromises = jobShifts.map(async (s) => {
             let applicantCount = 0;
             let currentStatus = 'available';
@@ -142,7 +142,7 @@ export const useShifts = ({
             try {
               const appsRes = await getApplicationsByShift(s.id, user.id);
               const appsList = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.data?.items || []));
-              
+
               const activeApps = appsList.filter(a => a.status !== 'Cancelled' && a.status !== 'CancelledApproved' && a.status !== 'CancelledRejected' && a.status !== 'Rejected');
               applicantCount = activeApps.length;
 
