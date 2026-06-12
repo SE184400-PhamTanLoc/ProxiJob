@@ -59,7 +59,7 @@ export const useShifts = ({
               rating: 5.0,
               reviewsCount: 1,
               status: s.remainingSlots <= 0 ? 'full' : 'available',
-              isEmergency: job.title.toLowerCase().includes('khẩn cấp') || job.description.toLowerCase().includes('khẩn cấp'),
+              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.description || '').toLowerCase().includes('khẩn cấp'),
               auditFields: {
                 createdBy: job.createdBy,
                 updatedBy: job.createdBy,
@@ -207,7 +207,7 @@ export const useShifts = ({
               rating: 5.0,
               reviewsCount: 0,
               status: currentStatus,
-              isEmergency: job.title.toLowerCase().includes('khẩn cấp'),
+              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp'),
               applicantCount,
               auditFields: {
                 createdBy: 'System',
