@@ -344,18 +344,78 @@ export async function purchasePlanApi(planId) {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
+    const payload = { planId };
+    console.log('[ProxiJob Auth API] purchasePlanApi request:', { url: `${API_BASE_URL}/plans/purchase`, planId, hasToken: !!token });
     const response = await fetch(`${API_BASE_URL}/plans/purchase`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ planId })
+      body: JSON.stringify(payload)
     });
     const resData = await response.json().catch(() => ({}));
+    console.log('[ProxiJob Auth API] purchasePlanApi response:', { status: response.status, resData });
     if (!response.ok) {
-      throw new Error(resData.message || `Failed to purchase plan: ${response.status}`);
+      // Backend uses ApiResponse with message and errors[] fields
+      const errMessages = resData.errors && Array.isArray(resData.errors) ? resData.errors.join(', ') : '';
+      const errorMsg = resData.message || errMessages || `Failed to purchase plan: ${response.status}`;
+      throw new Error(errorMsg);
     }
     return resData.data || resData;
   } catch (error) {
     console.log('[ProxiJob Auth API] purchasePlanApi error:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Get payment order status (includes bank transfer instructions + QR URL when Pending)
+ * GET /api/payments/{orderId}
+ * @param {number} orderId
+ * @returns {Promise<object>} PaymentOrderStatusDto
+ */
+export async function getPaymentStatusApi(orderId) {
+  try {
+    const token = await getStoredToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/api/payments/${orderId}`, {
+      method: 'GET',
+      headers,
+    });
+    const resData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(resData.message || `Failed to get payment status: ${response.status}`);
+    }
+    return resData.data || resData;
+  } catch (error) {
+    console.log('[ProxiJob Auth API] getPaymentStatusApi error:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Issue new session tokens after payment is confirmed (Paid status)
+ * POST /api/payments/{orderId}/session
+ * @param {number} orderId
+ * @returns {Promise<object|null>} AuthTokensDto or null if not yet paid
+ */
+export async function createPaymentSessionApi(orderId) {
+  try {
+    const token = await getStoredToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/api/payments/${orderId}/session`, {
+      method: 'POST',
+      headers,
+    });
+    const resData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(resData.message || `Failed to create payment session: ${response.status}`);
+    }
+    return resData.data || resData;
+  } catch (error) {
+    console.log('[ProxiJob Auth API] createPaymentSessionApi error:', error.message);
     throw error;
   }
 }

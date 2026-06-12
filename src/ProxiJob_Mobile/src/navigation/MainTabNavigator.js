@@ -27,6 +27,7 @@ import EmployerHRM from '../screens/employer/EmployerHRM';
 import EmployerScheduling from '../screens/employer/EmployerScheduling';
 import EmployerMonitor from '../screens/employer/EmployerMonitor';
 import PayrollSettlementScreen from '../screens/employer/PayrollSettlementScreen';
+import PaymentQRScreen from '../screens/employer/PaymentQRScreen';
 
 export default function MainTabNavigator({ isStudent }) {
   const { currentScreen, navigateTo } = useContext(AppContext);
@@ -76,6 +77,8 @@ export default function MainTabNavigator({ isStudent }) {
         return <EmployerMonitor />;
       case 'payroll_settlement':
         return <PayrollSettlementScreen />;
+      case 'payment_qr':
+        return <PaymentQRScreen />;
       default:
         return <EmployerApprovals />;
     }
@@ -207,7 +210,7 @@ export default function MainTabNavigator({ isStudent }) {
           <TouchableOpacity
             style={[
               styles.tabItem,
-              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package') && styles.activeTabItemEmployer
+              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabItemEmployer
             ]}
             onPress={() => navigateTo('payroll_settlement')}
           >
@@ -218,7 +221,7 @@ export default function MainTabNavigator({ isStudent }) {
             />
             <Text style={[
               styles.tabLabel,
-              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package') && styles.activeTabLabelEmployer
+              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabLabelEmployer
             ]}>Quyết Toán</Text>
           </TouchableOpacity>
         </BlurView>
