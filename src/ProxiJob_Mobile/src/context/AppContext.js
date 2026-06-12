@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   loginApi,
   registerApi,
@@ -153,6 +154,7 @@ export const AppProvider = ({ children }) => {
               hourlyRate: s.salary,
               latitude: job.location?.latitude || STUDENT_MOCK_GPS.latitude,
               longitude: job.location?.longitude || STUDENT_MOCK_GPS.longitude,
+              startTime: s.startTime,
               date: new Date(s.startTime).toLocaleDateString('vi-VN'),
               time: `${new Date(s.startTime).getHours().toString().padStart(2, '0')}:${new Date(s.startTime).getMinutes().toString().padStart(2, '0')} - ${new Date(s.endTime).getHours().toString().padStart(2, '0')}:${new Date(s.endTime).getMinutes().toString().padStart(2, '0')}`,
               description: job.description || '',
@@ -160,7 +162,7 @@ export const AppProvider = ({ children }) => {
               rating: 5.0,
               reviewsCount: 1,
               status: s.remainingSlots <= 0 ? 'full' : 'available',
-              isEmergency: job.title.toLowerCase().includes('khẩn cấp') || job.description.toLowerCase().includes('khẩn cấp'),
+              isEmergency: ((job.title || '').toLowerCase().includes('khẩn cấp') || (job.description || '').toLowerCase().includes('khẩn cấp')),
               auditFields: {
                 createdBy: job.createdBy,
                 updatedBy: job.createdBy,
@@ -239,7 +241,7 @@ export const AppProvider = ({ children }) => {
         try {
           const jobShiftsRes = await getJobPostShifts(job.id);
           const jobShifts = Array.isArray(jobShiftsRes) ? jobShiftsRes : (Array.isArray(jobShiftsRes?.data) ? jobShiftsRes.data : (jobShiftsRes?.items || jobShiftsRes?.data?.items || []));
-          
+
           // For each shift, fetch its applications in parallel
           const appsPromises = jobShifts.map(async (s) => {
             let applicantCount = 0;
@@ -248,7 +250,7 @@ export const AppProvider = ({ children }) => {
             try {
               const appsRes = await getApplicationsByShift(s.id, user.id);
               const appsList = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.data?.items || []));
-              
+
               // Only count active (non-cancelled and non-rejected) applications as active applicants
               const activeApps = appsList.filter(a => a.status !== 'Cancelled' && a.status !== 'CancelledApproved' && a.status !== 'CancelledRejected' && a.status !== 'Rejected');
               applicantCount = activeApps.length;
@@ -310,6 +312,7 @@ export const AppProvider = ({ children }) => {
               hourlyRate: s.salary,
               latitude: STUDENT_MOCK_GPS.latitude,
               longitude: STUDENT_MOCK_GPS.longitude,
+              startTime: s.startTime,
               date: new Date(s.startTime).toLocaleDateString('vi-VN'),
               time: `${new Date(s.startTime).getHours().toString().padStart(2, '0')}:${new Date(s.startTime).getMinutes().toString().padStart(2, '0')} - ${new Date(s.endTime).getHours().toString().padStart(2, '0')}:${new Date(s.endTime).getMinutes().toString().padStart(2, '0')}`,
               description: '',
@@ -317,7 +320,7 @@ export const AppProvider = ({ children }) => {
               rating: 5.0,
               reviewsCount: 0,
               status: currentStatus,
-              isEmergency: job.title.toLowerCase().includes('khẩn cấp'),
+              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp'),
               applicantCount,
               auditFields: {
                 createdBy: 'System',
@@ -428,6 +431,18 @@ export const AppProvider = ({ children }) => {
       try {
         const token = await getStoredToken();
         const storedUser = await getStoredUser();
+
+        const savedCoordsStr = await AsyncStorage.getItem('@student_custom_gps');
+        if (savedCoordsStr) {
+          try {
+            const savedCoords = JSON.parse(savedCoordsStr);
+            if (savedCoords && savedCoords.latitude && savedCoords.longitude) {
+              setStudentCoords(savedCoords);
+            }
+          } catch (e) {
+            console.log('Error parsing stored custom GPS:', e);
+          }
+        }
 
         if (token && storedUser) {
           try {

@@ -19,7 +19,7 @@ const getApiBaseUrl = () => {
   return envUrl;
 };
 
-const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
 console.log('[ProxiJob Auth API] Base URL initialized to:', API_BASE_URL);
 
 const AUTH_TOKEN_KEY = '@proxijob_auth_token';
@@ -296,7 +296,7 @@ export async function refreshTokensApi(refreshToken) {
 
     const resData = await response.json();
     const authData = resData.data || resData;
-    
+
     if (!authData.accessToken || !authData.refreshToken) {
       throw new Error('Phản hồi token không hợp lệ.');
     }

@@ -88,7 +88,7 @@ export async function applyToShiftApi(shiftId, studentId, introduction, createdB
       headers,
       body: JSON.stringify({ shiftId, studentId, introduction, createdBy })
     });
-    
+
     const resData = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errorMsg = resData.message || 'Không thể ứng tuyển vào ca làm. Vui lòng thử lại.';
@@ -169,7 +169,7 @@ export async function approveApplication(id, businessId, updatedBy = 'Employer')
       headers,
       body: JSON.stringify({ applicationId: id, businessId, updatedBy })
     });
-    
+
     const resData = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errorMsg = resData.message || 'Không thể duyệt đơn ứng tuyển này.';
@@ -197,7 +197,7 @@ export async function rejectApplication(id, businessId, updatedBy = 'Employer') 
       headers,
       body: JSON.stringify({ applicationId: id, businessId, updatedBy })
     });
-    
+
     const resData = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errorMsg = resData.message || 'Không thể từ chối đơn ứng tuyển này.';
@@ -341,6 +341,7 @@ export async function getSkillsApi() {
     throw error;
   }
 }
+
 
 
 

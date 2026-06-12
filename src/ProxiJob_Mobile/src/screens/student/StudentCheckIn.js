@@ -445,9 +445,10 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '800',
     color: theme.colors.text,
+    lineHeight: 34,
     marginBottom: theme.spacing.md,
   },
   simulatorCard: {

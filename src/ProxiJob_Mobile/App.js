@@ -61,32 +61,19 @@ function MainAppShell() {
           {/* Universal Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              {isStudent ? (
-                <>
-                  <Text style={styles.logoText}>ProxiJob</Text>
-                  <View style={[
-                    styles.roleBadge,
-                    { backgroundColor: theme.colors.student + '1A' }
-                  ]}>
-                    <Text style={[styles.roleBadgeText, { color: theme.colors.student }]}>
-                      STUDENT
-                    </Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <View style={styles.avatarWrapper}>
-                    <Image 
-                      source={{ uri: user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' }} 
-                      style={styles.avatarImage}
-                    />
-                  </View>
-                  <View>
-                    <Text style={styles.brandTitle}>ProxiJob</Text>
-                    <Text style={styles.brandSubtitle}>Store Management</Text>
-                  </View>
-                </>
-              )}
+              <View style={styles.avatarWrapper}>
+                <Image 
+                  source={{ uri: user?.avatarUrl || (isStudent 
+                    ? 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&q=80' 
+                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80') 
+                  }} 
+                  style={styles.avatarImage}
+                />
+              </View>
+              <View>
+                <Text style={styles.brandTitle}>ProxiJob</Text>
+                <Text style={styles.brandSubtitle}>{isStudent ? 'Student' : 'Store Management'}</Text>
+              </View>
             </View>
 
             <View style={styles.headerRight}>
