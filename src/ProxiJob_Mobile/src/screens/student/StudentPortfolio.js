@@ -4,7 +4,6 @@ import {
   View,
   Text,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Modal,
   TextInput,
@@ -12,12 +11,16 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 import { getStudentProfileApi, updateStudentProfileApi, registerStudentProfileApi } from '../../api/studentApi';
 import { supabase } from '../../db/dbConfig';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,6 +32,16 @@ const getInitials = (name) => {
     return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
   }
   return name.substring(0, 2).toUpperCase();
+};
+
+const isValidAvatar = (url) => {
+  if (!url) return false;
+  if (typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (trimmed.toLowerCase() === 'string' || trimmed.toLowerCase() === 'null' || trimmed === '') {
+    return false;
+  }
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/');
 };
 
 const formatDateToInput = (isoString) => {
@@ -65,8 +78,46 @@ const parseDateInput = (str) => {
   return new Date().toISOString();
 };
 
+const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const lookup = new Uint8Array(256);
+for (let i = 0; i < chars.length; i++) {
+  lookup[chars.charCodeAt(i)] = i;
+}
+
+const decodeBase64ToArrayBuffer = (base64String) => {
+  const cleaned = base64String.replace(/[^A-Za-z0-9+/=]/g, "");
+  let bufferLength = cleaned.length * 0.75;
+  let len = cleaned.length;
+  let i;
+  let p = 0;
+  let encoded1, encoded2, encoded3, encoded4;
+
+  if (cleaned[cleaned.length - 1] === '=') {
+    bufferLength--;
+    if (cleaned[cleaned.length - 2] === '=') {
+      bufferLength--;
+    }
+  }
+
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const bytes = new Uint8Array(arrayBuffer);
+
+  for (i = 0; i < len; i += 4) {
+    encoded1 = lookup[cleaned.charCodeAt(i)];
+    encoded2 = lookup[cleaned.charCodeAt(i + 1)];
+    encoded3 = lookup[cleaned.charCodeAt(i + 2)];
+    encoded4 = lookup[cleaned.charCodeAt(i + 3)];
+
+    bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+    bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+    bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+  }
+
+  return arrayBuffer;
+};
+
 export default function StudentPortfolio() {
-  const { reviews, shifts, user, showToast, studentCoords, setStudentCoords } = useContext(AppContext);
+  const { reviews, shifts, user, setUser, showToast, studentCoords, setStudentCoords } = useContext(AppContext);
   const [profile, setProfile] = useState(null);
   const [profileExists, setProfileExists] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -82,24 +133,32 @@ export default function StudentPortfolio() {
 
   const handlePickImage = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Quyền truy cập', 'Bạn cần cho phép truy cập thư viện ảnh để đổi ảnh đại diện.');
-        return;
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          setAvatarMenuVisible(false);
+          Alert.alert('Quyền truy cập', 'Bạn cần cho phép truy cập thư viện ảnh để đổi ảnh đại diện.');
+          return;
+        }
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaType ? ImagePicker.MediaType.Images : 'Images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
+        base64: true,
       });
+
+      setAvatarMenuVisible(false);
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const localUri = result.assets[0].uri;
-        await handleUploadAvatar(localUri);
+        const base64Data = result.assets[0].base64;
+        await handleUploadAvatar(localUri, base64Data);
       }
     } catch (error) {
+      setAvatarMenuVisible(false);
       console.log('[StudentPortfolio] handlePickImage error:', error);
       Alert.alert('Lỗi', 'Không thể chọn hình ảnh.');
     }
@@ -107,43 +166,53 @@ export default function StudentPortfolio() {
 
   const handleTakePhoto = async () => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Quyền truy cập', 'Bạn cần cho phép truy cập camera để chụp ảnh đại diện.');
-        return;
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          setAvatarMenuVisible(false);
+          Alert.alert('Quyền truy cập', 'Bạn cần cho phép truy cập camera để chụp ảnh đại diện.');
+          return;
+        }
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaType ? ImagePicker.MediaType.Images : 'Images',
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
+        base64: true,
       });
+
+      setAvatarMenuVisible(false);
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const localUri = result.assets[0].uri;
-        await handleUploadAvatar(localUri);
+        const base64Data = result.assets[0].base64;
+        await handleUploadAvatar(localUri, base64Data);
       }
     } catch (error) {
+      setAvatarMenuVisible(false);
       console.log('[StudentPortfolio] handleTakePhoto error:', error);
       Alert.alert('Lỗi', 'Không thể chụp ảnh.');
     }
   };
 
-  const handleUploadAvatar = async (localUri) => {
+  const handleUploadAvatar = async (localUri, base64Data) => {
     try {
       setUploadingAvatar(true);
 
-      const response = await fetch(localUri);
-      const blob = await response.blob();
+      if (!base64Data) {
+        throw new Error("Không thể lấy dữ liệu ảnh.");
+      }
 
+      const arrayBuffer = decodeBase64ToArrayBuffer(base64Data);
       const fileExt = localUri.split('.').pop() || 'jpg';
       const fileName = `avatar_${user?.id || 'guest'}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       const { data, error } = await supabase.storage
         .from('avatars')
-        .upload(filePath, blob, {
+        .upload(filePath, arrayBuffer, {
           upsert: true,
           contentType: `image/${fileExt}`
         });
@@ -153,6 +222,8 @@ export default function StudentPortfolio() {
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
+
+      console.log('[StudentPortfolio] generated publicUrl:', publicUrl);
 
       const updatedProfileData = {
         phoneNumber: profile?.phoneNumber || '',
@@ -173,6 +244,16 @@ export default function StudentPortfolio() {
       } else {
         await registerStudentProfileApi(updatedProfileData);
         setProfileExists(true);
+      }
+
+      // Update the global user context so it updates the header immediately!
+      const updatedUser = { ...user, avatarUrl: `${publicUrl.split('?')[0]}?t=${Date.now()}` };
+      if (setUser) {
+        setUser(updatedUser);
+        const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
+        const token = await getStoredToken();
+        const refreshToken = await getStoredRefreshToken();
+        await saveAuthSession(token, refreshToken, updatedUser);
       }
 
       await loadProfile();
@@ -289,6 +370,27 @@ export default function StudentPortfolio() {
       setLoading(true);
       const data = await getStudentProfileApi();
       if (data) {
+        if (data.avatarUrl) {
+          if (isValidAvatar(data.avatarUrl)) {
+            data.avatarUrl = `${data.avatarUrl.split('?')[0]}?t=${Date.now()}`;
+            // Synchronize with global user context if they differ
+            if (user && user.avatarUrl !== data.avatarUrl) {
+              const updatedUser = { ...user, avatarUrl: data.avatarUrl };
+              setUser(updatedUser);
+              try {
+                const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
+                const token = await getStoredToken();
+                const refreshToken = await getStoredRefreshToken();
+                await saveAuthSession(token, refreshToken, updatedUser);
+              } catch (e) {
+                console.log('[StudentPortfolio] error saving auth session during sync:', e);
+              }
+            }
+          } else {
+            data.avatarUrl = '';
+          }
+        }
+        console.log('[StudentPortfolio] profile data loaded:', data);
         setProfile(data);
         setProfileExists(true);
       }
@@ -489,17 +591,15 @@ export default function StudentPortfolio() {
   const totalCompletedShifts = completedShifts.length + (profile?.reviewCount || 12);
   const averageRating = profile?.reputationScore !== undefined ? profile.reputationScore.toFixed(1) : '4.9';
 
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={theme.colors.student} />
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {loading && (
+          <View style={{ paddingVertical: 10, alignItems: 'center', backgroundColor: 'rgba(255, 107, 0, 0.05)', borderRadius: 10, marginHorizontal: 16, marginBottom: 12 }}>
+            <ActivityIndicator size="small" color={theme.colors.student} />
+            <Text style={{ fontSize: 11, color: theme.colors.student, marginTop: 4, fontWeight: '600' }}>Đang đồng bộ hồ sơ...</Text>
+          </View>
+        )}
 
         {/* Profile Card Header */}
         <View style={[styles.profileHeaderCard, theme.shadows.light]}>
@@ -512,7 +612,9 @@ export default function StudentPortfolio() {
               <View style={[styles.avatarCircle, { justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="small" color={theme.colors.student} />
               </View>
-            ) : profile?.avatarUrl ? (
+            ) : isValidAvatar(user?.avatarUrl) ? (
+              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+            ) : isValidAvatar(profile?.avatarUrl) ? (
               <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatarCircle}>
@@ -1112,7 +1214,7 @@ export default function StudentPortfolio() {
           <View style={styles.avatarMenuContent}>
             <Text style={styles.avatarMenuTitle}>Ảnh đại diện</Text>
 
-            {profile?.avatarUrl && (
+            {(isValidAvatar(user?.avatarUrl) || isValidAvatar(profile?.avatarUrl)) && (
               <TouchableOpacity
                 style={styles.avatarMenuItem}
                 onPress={() => {
@@ -1129,10 +1231,7 @@ export default function StudentPortfolio() {
             <TouchableOpacity
               style={styles.avatarMenuItem}
               onPress={() => {
-                setAvatarMenuVisible(false);
-                setTimeout(() => {
-                  handleTakePhoto();
-                }, 400);
+                handleTakePhoto();
               }}
             >
               <Text style={styles.avatarMenuItemText}>📷 Chụp ảnh mới</Text>
@@ -1141,10 +1240,7 @@ export default function StudentPortfolio() {
             <TouchableOpacity
               style={styles.avatarMenuItem}
               onPress={() => {
-                setAvatarMenuVisible(false);
-                setTimeout(() => {
-                  handlePickImage();
-                }, 400);
+                handlePickImage();
               }}
             >
               <Text style={styles.avatarMenuItemText}>🖼️ Chọn ảnh từ thư viện</Text>
@@ -1174,9 +1270,9 @@ export default function StudentPortfolio() {
           >
             <Text style={styles.closeFullscreenText}>✕ Đóng</Text>
           </TouchableOpacity>
-          {profile?.avatarUrl && (
+          {(isValidAvatar(user?.avatarUrl) || isValidAvatar(profile?.avatarUrl)) && (
             <Image
-              source={{ uri: profile.avatarUrl }}
+              source={{ uri: isValidAvatar(user?.avatarUrl) ? user.avatarUrl : profile.avatarUrl }}
               style={styles.fullscreenImage}
               resizeMode="contain"
             />
@@ -1859,8 +1955,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   fullscreenImage: {
-    width: '100%',
-    height: '100%',
+    width: screenWidth,
+    height: screenHeight - 120,
+    resizeMode: 'contain',
   },
   mapIconButton: {
     backgroundColor: '#FF6B001F',

@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   Slider, // React Native standard Slider or custom slider container
   Modal,
-  SafeAreaView,
   Platform,
   Dimensions
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 export default function StudentDashboard() {
@@ -129,10 +129,10 @@ export default function StudentDashboard() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <View style={styles.header}>
         <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeGreeting}>Chào buổi chiều, {user?.name || 'Sinh viên'} 👋</Text>
+          <Text style={styles.welcomeGreeting}>Chào buổi sáng, {user?.name || 'Sinh viên'}</Text>
           <Text style={styles.welcomeSubtitle}>Hôm nay bạn muốn tìm công việc gì?</Text>
         </View>
         <View style={styles.gpsIndicator}>
@@ -196,7 +196,7 @@ export default function StudentDashboard() {
       {closestShift && (
         <View style={styles.closestShiftBanner}>
           <Text style={styles.closestShiftBannerText}>
-            🎯 Ca làm gần nhất: <Text style={{fontWeight: 'bold'}}>{closestShift.title}</Text> ({closestShift.shopName}) cách bạn chỉ <Text style={{fontWeight: 'bold', color: theme.colors.student}}>{closestShift.distanceKm} km</Text>!
+            🎯 Ca làm gần nhất: <Text style={{ fontWeight: 'bold' }}>{closestShift.title}</Text> ({closestShift.shopName}) cách bạn chỉ <Text style={{ fontWeight: 'bold', color: theme.colors.student }}>{closestShift.distanceKm} km</Text>!
           </Text>
         </View>
       )}

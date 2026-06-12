@@ -20,6 +20,18 @@ import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import MainTabNavigator from "./src/navigation/MainTabNavigator";
 import Toast from "./src/components/Toast";
 
+const cacheBuster = Date.now();
+
+const isValidAvatar = (url) => {
+  if (!url) return false;
+  if (typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (trimmed.toLowerCase() === "string" || trimmed.toLowerCase() === "null" || trimmed === "") {
+    return false;
+  }
+  return trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:image/");
+};
+
 function MainAppShell() {
   const {
     user,
@@ -67,6 +79,13 @@ function MainAppShell() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style="dark" />
+      {avatarMenuOpen && !isStudent && (
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={() => setAvatarMenuOpen(false)}
+        />
+      )}
       {showHeader && (
         <SafeAreaView
           edges={["top"]}
@@ -79,65 +98,51 @@ function MainAppShell() {
           {/* Universal Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              {isStudent ? (
-                <>
-                  <Text style={styles.logoText}>ProxiJob</Text>
+              <TouchableOpacity
+                style={styles.headerLeftBtn}
+                onPress={() => setAvatarMenuOpen(!avatarMenuOpen)}
+                activeOpacity={0.8}
+                disabled={isStudent}
+              >
+                <View style={styles.avatarWrapper}>
+                  <Image
+                    source={{
+                      uri: isValidAvatar(user?.avatarUrl)
+                        ? (user.avatarUrl.includes("supabase.co") && !user.avatarUrl.includes("?t=")
+                          ? `${user.avatarUrl}?t=${cacheBuster}`
+                          : user.avatarUrl)
+                        : (isStudent
+                          ? "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&q=80"
+                          : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"),
+                    }}
+                    style={styles.avatarImage}
+                  />
+                  {!isStudent && isEnterprise && (
+                    <View style={styles.crownBadge}>
+                      <Text style={styles.crownIcon}>👑</Text>
+                    </View>
+                  )}
+                </View>
+                <View>
                   <View
-                    style={[
-                      styles.roleBadge,
-                      { backgroundColor: theme.colors.student + "1A" },
-                    ]}
+                    style={{ flexDirection: "row", alignItems: "center" }}
                   >
-                    <Text
-                      style={[
-                        styles.roleBadgeText,
-                        { color: theme.colors.student },
-                      ]}
-                    >
-                      STUDENT
-                    </Text>
-                  </View>
-                </>
-              ) : (
-                <TouchableOpacity
-                  style={styles.headerLeftBtn}
-                  onPress={() => setAvatarMenuOpen(!avatarMenuOpen)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.avatarWrapper}>
-                    <Image
-                      source={{
-                        uri:
-                          user?.avatarUrl ||
-                          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80",
-                      }}
-                      style={styles.avatarImage}
-                    />
-                    {isEnterprise && (
-                      <View style={styles.crownBadge}>
-                        <Text style={styles.crownIcon}>👑</Text>
+                    <Text style={styles.brandTitle}>ProxiJob</Text>
+                    {!isStudent && isEnterprise && (
+                      <View style={styles.activePill}>
+                        <Text style={styles.activePillText}>Enterprise</Text>
                       </View>
                     )}
                   </View>
-                  <View>
-                    <View
-                      style={{ flexDirection: "row", alignItems: "center" }}
-                    >
-                      <Text style={styles.brandTitle}>ProxiJob</Text>
-                      {isEnterprise && (
-                        <View style={styles.activePill}>
-                          <Text style={styles.activePillText}>Enterprise</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.brandSubtitle}>
-                      {isEnterprise
-                        ? "Đã kích hoạt Enterprise"
-                        : "Nâng cấp tài khoản"}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
+                  <Text style={styles.brandSubtitle}>
+                    {isStudent
+                      ? "Student"
+                      : (isEnterprise
+                        ? "Store Management"
+                        : "Nâng cấp tài khoản")}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.headerRight}>
@@ -167,37 +172,41 @@ function MainAppShell() {
           </View>
 
           {/* Avatar Dropdown Menu */}
-          {avatarMenuOpen && !isStudent && (
+          {avatarMenuOpen && (
             <View style={styles.dropdownMenu}>
               <Text style={styles.dropdownUser}>
-                {user?.name || "Chủ quán"}
+                {user?.name || (isStudent ? "Sinh viên" : "Chủ quán")}
               </Text>
               <Text style={styles.dropdownEmail}>{user?.email}</Text>
               <View style={styles.dropdownDivider} />
 
               <View style={styles.dropdownStatusRow}>
-                <Text style={styles.dropdownStatusLabel}>Gói dịch vụ:</Text>
+                <Text style={styles.dropdownStatusLabel}>
+                  {isStudent ? "Vai trò:" : "Gói dịch vụ:"}
+                </Text>
                 <Text
                   style={[
                     styles.dropdownStatusValue,
-                    isEnterprise && { color: "#0A58CA", fontWeight: "800" },
+                    !isStudent && isEnterprise && { color: "#0A58CA", fontWeight: "800" },
                   ]}
                 >
-                  {user?.subscriptionTier || "Free"}
+                  {isStudent ? "Student" : (user?.subscriptionTier || "Free")}
                 </Text>
               </View>
 
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setAvatarMenuOpen(false);
-                  navigateTo("upgrade_package");
-                }}
-              >
-                <Text style={styles.dropdownItemText}>
-                  📋 Xem các gói dịch vụ
-                </Text>
-              </TouchableOpacity>
+              {!isStudent && (
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setAvatarMenuOpen(false);
+                    navigateTo("upgrade_package");
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>
+                    📋 Xem các gói dịch vụ
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[styles.dropdownItem, { borderBottomWidth: 0 }]}
@@ -371,8 +380,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   avatarImage: {
-    width: "100%",
-    height: "100%",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     resizeMode: "cover",
   },
   brandTitle: {
@@ -556,5 +566,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#374151",
+  },
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent",
+    zIndex: 998,
   },
 });

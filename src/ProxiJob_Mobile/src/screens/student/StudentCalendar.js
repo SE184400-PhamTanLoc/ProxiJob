@@ -5,9 +5,9 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
@@ -174,7 +174,7 @@ export default function StudentCalendar() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       {/* Earnings Header */}
       <View style={styles.earningsCard}>
         <Text style={styles.earningsLabel}>Tổng thu nhập dự kiến tháng này</Text>
