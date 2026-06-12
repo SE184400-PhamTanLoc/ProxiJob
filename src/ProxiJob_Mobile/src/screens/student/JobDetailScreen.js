@@ -12,7 +12,7 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
 export default function JobDetailScreen() {
-  const { shifts, applyToShift, navigationParams, goBack, navigateTo } = useContext(AppContext);
+  const { shifts, applyToShift, navigationParams, goBack, navigateTo, studentCoords, getDistanceInMeters } = useContext(AppContext);
   const [applying, setApplying] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -99,7 +99,23 @@ export default function JobDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Địa điểm</Text>
               <Text style={styles.infoText}>{shift.address || 'Chưa có địa chỉ'}</Text>
-              <Text style={[styles.infoLabel, { marginTop: 2 }]}>Cách bạn {shift.distanceKm || '?'} km</Text>
+              {(() => {
+                const hasGps = shift.latitude && shift.longitude && !(shift.latitude === 0 && shift.longitude === 0);
+                let distanceText = 'Chưa định vị';
+                if (hasGps && studentCoords) {
+                  const distMeters = getDistanceInMeters(
+                    studentCoords.latitude,
+                    studentCoords.longitude,
+                    shift.latitude,
+                    shift.longitude
+                  );
+                  const distKm = (distMeters / 1000).toFixed(1);
+                  distanceText = `${distKm} km`;
+                }
+                return (
+                  <Text style={[styles.infoLabel, { marginTop: 2 }]}>Cách bạn: {distanceText}</Text>
+                );
+              })()}
             </View>
           </View>
 

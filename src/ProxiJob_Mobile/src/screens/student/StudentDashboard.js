@@ -10,6 +10,7 @@ import {
   Platform,
   Dimensions
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
@@ -17,10 +18,41 @@ export default function StudentDashboard() {
   const { shifts, studentCoords, getDistanceInMeters, navigateTo, loadShifts, user, STUDENT_MOCK_GPS, setStudentCoords } = useContext(AppContext);
 
   const [radius, setRadius] = useState(5.0); // 5km radius default
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
+  const [profileAddress, setProfileAddress] = useState('');
 
   React.useEffect(() => {
     loadShifts();
+  }, []);
+
+  React.useEffect(() => {
+    const loadAddressAndProfile = async () => {
+      try {
+        const savedAddress = await AsyncStorage.getItem('@student_profile_address');
+        if (savedAddress) {
+          setProfileAddress(savedAddress);
+        }
+        
+        // Fetch fresh from API to sync coordinates and address
+        const { getStudentProfileApi } = require('../../api/studentApi');
+        const profileData = await getStudentProfileApi();
+        if (profileData) {
+          if (profileData.address) {
+            setProfileAddress(profileData.address);
+            await AsyncStorage.setItem('@student_profile_address', profileData.address);
+          }
+          if (profileData.latitude && profileData.longitude) {
+            const coords = { latitude: profileData.latitude, longitude: profileData.longitude };
+            await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
+            if (setStudentCoords) {
+              setStudentCoords(coords);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('[StudentDashboard] Error loading profile address:', e);
+      }
+    };
+    loadAddressAndProfile();
   }, []);
 
   // Calculate distances and filter shifts
@@ -39,10 +71,10 @@ export default function StudentDashboard() {
     return { ...shift, distanceKm: distKm, noGps: false };
   });
 
-  const filteredShifts = processedShifts.filter(shift => !shift.noGps && shift.distanceKm <= radius);
+  const filteredShifts = processedShifts.filter(shift => shift.noGps || shift.distanceKm <= radius);
 
-  const closestShift = filteredShifts.length > 0
-    ? [...filteredShifts].sort((a, b) => a.distanceKm - b.distanceKm)[0]
+  const closestShift = filteredShifts.filter(s => !s.noGps).length > 0
+    ? [...filteredShifts].filter(s => !s.noGps).sort((a, b) => a.distanceKm - b.distanceKm)[0]
     : null;
 
   const renderShiftCard = (shift) => {
@@ -92,7 +124,9 @@ export default function StudentDashboard() {
           </View>
           <View style={styles.cardInfoTag}>
             <Text style={styles.cardInfoTagIcon}>📍</Text>
-            <Text style={styles.cardInfoTagText}>{shift.distanceKm} km</Text>
+            <Text style={styles.cardInfoTagText}>
+              {shift.noGps ? 'Chưa định vị' : `${shift.distanceKm} km`}
+            </Text>
           </View>
         </View>
 
@@ -122,6 +156,9 @@ export default function StudentDashboard() {
   };
 
   const getGpsLabel = () => {
+    if (profileAddress) {
+      return profileAddress;
+    }
     if (studentCoords.latitude === 10.7769 && studentCoords.longitude === 106.7009) {
       return "Q. 1, TP.HCM (mặc định)";
     }
@@ -137,14 +174,14 @@ export default function StudentDashboard() {
         </View>
         <View style={styles.gpsIndicator}>
           <Text style={styles.gpsSymbol}>📍</Text>
-          <Text style={styles.gpsText}>{getGpsLabel()}</Text>
+          <Text style={styles.gpsText} numberOfLines={1} ellipsizeMode="tail">{getGpsLabel()}</Text>
         </View>
       </View>
 
       {/* Radius slider card */}
       <View style={[styles.filterCard, theme.shadows.light]}>
         <View style={styles.sliderHeader}>
-          <Text style={styles.sliderTitle}>Tìm kiếm Hyperlocal (Bán kính)</Text>
+          <Text style={styles.sliderTitle}>Phạm vi tìm kiếm</Text>
           <Text style={styles.sliderValue}>{radius.toFixed(1)} km</Text>
         </View>
 
@@ -175,22 +212,6 @@ export default function StudentDashboard() {
             <Text style={[styles.radiusOptionText, radius === 10.0 && styles.activeRadiusText]}>10km</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Toggle between list and map */}
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'list' && styles.activeToggle]}
-            onPress={() => setViewMode('list')}
-          >
-            <Text style={[styles.toggleText, viewMode === 'list' && styles.activeToggleText]}>📋 Xem Danh Sách ({filteredShifts.length})</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'map' && styles.activeToggle]}
-            onPress={() => setViewMode('map')}
-          >
-            <Text style={[styles.toggleText, viewMode === 'map' && styles.activeToggleText]}>🗺️ Xem Bản Đồ</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {closestShift && (
@@ -201,63 +222,17 @@ export default function StudentDashboard() {
         </View>
       )}
 
-      {viewMode === 'list' ? (
-        <ScrollView contentContainerStyle={styles.listContent}>
-          {filteredShifts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>🔍</Text>
-              <Text style={styles.emptyText}>Không tìm thấy ca làm việc nào trong bán kính {radius}km.</Text>
-              <Text style={styles.emptySub}>Hãy tăng phạm vi tìm kiếm lên xem sao nhé!</Text>
-            </View>
-          ) : (
-            filteredShifts.map(renderShiftCard)
-          )}
-        </ScrollView>
-      ) : (
-        /* Mock premium map representation with interactive radar style */
-        <View style={styles.mapContainer}>
-          <View style={styles.radarCircleBig}>
-            <View style={styles.radarCircleMedium}>
-              <View style={styles.radarCircleSmall}>
-                {/* User point */}
-                <View style={styles.userDot}>
-                  <Text style={styles.userEmoji}>🎓</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Plot filtered jobs as absolute pins */}
-            {filteredShifts.map((shift, index) => {
-              // Calculate angles for mock visual mapping distribution
-              const angle = (index * (360 / Math.max(filteredShifts.length, 1)) * Math.PI) / 180;
-              const maxOffset = 120; // max radius of map
-              const offsetRatio = (shift.distanceKm / radius);
-              const xOffset = Math.cos(angle) * maxOffset * offsetRatio;
-              const yOffset = Math.sin(angle) * maxOffset * offsetRatio;
-
-              return (
-                <TouchableOpacity
-                  key={shift.id}
-                  style={[
-                    styles.pin,
-                    { transform: [{ translateX: xOffset }, { translateY: yOffset }] },
-                    shift.isEmergency && styles.emergencyPin
-                  ]}
-                  activeOpacity={0.8}
-                  onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
-                >
-                  <Text style={styles.pinIcon}>{shift.isEmergency ? '🔥' : '☕'}</Text>
-                  <View style={styles.pinLabel}>
-                    <Text style={styles.pinLabelText} numberOfLines={1}>{shift.shopName.split(' - ')[0]}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+      <ScrollView contentContainerStyle={styles.listContent}>
+        {filteredShifts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Text style={styles.emptyText}>Không tìm thấy ca làm việc nào trong bán kính {radius}km.</Text>
+            <Text style={styles.emptySub}>Hãy tăng phạm vi tìm kiếm lên xem sao nhé!</Text>
           </View>
-
-          <Text style={styles.radarTip}>Nhấn vào ghim trên bản đồ radar để xem chi tiết công việc.</Text>
-        </View>
-      )}
+        ) : (
+          filteredShifts.map(renderShiftCard)
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -302,6 +277,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
     borderColor: theme.colors.primary + '33',
+    maxWidth: 160,
   },
   gpsSymbol: {
     fontSize: 12,
@@ -311,6 +287,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     color: theme.colors.primary,
+    flexShrink: 1,
   },
   filterCard: {
     backgroundColor: theme.colors.white,

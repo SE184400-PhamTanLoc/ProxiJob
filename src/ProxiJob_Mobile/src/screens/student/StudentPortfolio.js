@@ -273,6 +273,8 @@ export default function StudentPortfolio() {
     gender: '',
     address: '',
     city: '',
+    latitude: null,
+    longitude: null,
     school: '',
     major: '',
     yearOfStudy: '0',
@@ -290,6 +292,8 @@ export default function StudentPortfolio() {
       form.gender !== initialForm.gender ||
       form.address !== initialForm.address ||
       form.city !== initialForm.city ||
+      form.latitude !== initialForm.latitude ||
+      form.longitude !== initialForm.longitude ||
       form.school !== initialForm.school ||
       form.major !== initialForm.major ||
       form.yearOfStudy !== initialForm.yearOfStudy ||
@@ -390,9 +394,16 @@ export default function StudentPortfolio() {
             data.avatarUrl = '';
           }
         }
-        console.log('[StudentPortfolio] profile data loaded:', data);
-        setProfile(data);
-        setProfileExists(true);
+         console.log('[StudentPortfolio] profile data loaded:', data);
+         if (data.latitude && data.longitude) {
+           const coords = { latitude: data.latitude, longitude: data.longitude };
+           await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
+           if (setStudentCoords) {
+             setStudentCoords(coords);
+           }
+         }
+         setProfile(data);
+         setProfileExists(true);
       }
     } catch (err) {
       console.log('[StudentPortfolio] Error loading profile:', err.message);
@@ -436,6 +447,8 @@ export default function StudentPortfolio() {
         gender: profile.gender || '',
         address: profile.address || '',
         city: profile.city || '',
+        latitude: profile.latitude || null,
+        longitude: profile.longitude || null,
         school: profile.school || '',
         major: profile.major || '',
         yearOfStudy: String(profile.yearOfStudy || 0),
@@ -450,6 +463,8 @@ export default function StudentPortfolio() {
         gender: 'Nam',
         address: '',
         city: '',
+        latitude: null,
+        longitude: null,
         school: '',
         major: '',
         yearOfStudy: '1',
@@ -488,10 +503,15 @@ export default function StudentPortfolio() {
     try {
       setSaving(true);
 
+      let currentLat = form.latitude;
+      let currentLng = form.longitude;
+
       // Auto geocode address input if custom coords not explicitly picked
       if (form.address && form.address !== initialForm?.address) {
         const coords = await geocodeAddress(form.address, form.city);
         if (coords) {
+          currentLat = coords.latitude;
+          currentLng = coords.longitude;
           await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
           if (setStudentCoords) {
             setStudentCoords(coords);
@@ -507,6 +527,8 @@ export default function StudentPortfolio() {
         gender: form.gender,
         address: form.address,
         city: form.city,
+        latitude: currentLat,
+        longitude: currentLng,
         school: form.school,
         major: form.major,
         yearOfStudy: parseInt(form.yearOfStudy, 10) || 0,
@@ -550,13 +572,17 @@ export default function StudentPortfolio() {
         setForm(prev => ({
           ...prev,
           address: addressVal,
-          city: cityVal
+          city: cityVal,
+          latitude: selectedLat,
+          longitude: selectedLng
         }));
       } else {
         setForm(prev => ({
           ...prev,
           address: `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`,
-          city: 'TP. Hồ Chí Minh'
+          city: 'TP. Hồ Chí Minh',
+          latitude: selectedLat,
+          longitude: selectedLng
         }));
       }
       
@@ -576,7 +602,9 @@ export default function StudentPortfolio() {
       setForm(prev => ({
         ...prev,
         address: `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`,
-        city: 'TP. Hồ Chí Minh'
+        city: 'TP. Hồ Chí Minh',
+        latitude: selectedLat,
+        longitude: selectedLng
       }));
       setMapModalVisible(false);
       setTimeout(() => {

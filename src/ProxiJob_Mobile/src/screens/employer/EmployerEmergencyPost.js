@@ -9,9 +9,12 @@ import {
   SafeAreaView,
   Image,
   Switch,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
+  Platform
 } from 'react-native';
 import * as Location from 'expo-location';
+import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getCategoriesApi, getSkillsApi } from '../../api/jobs';
@@ -54,6 +57,70 @@ export default function EmployerEmergencyPost() {
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
+
+  const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [selectedLat, setSelectedLat] = useState(10.7769);
+  const [selectedLng, setSelectedLng] = useState(106.7009);
+
+  // Lắng nghe postMessage trên web (nếu có preview/web environment)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleMessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data && data.lat && data.lng) {
+            setSelectedLat(data.lat);
+            setSelectedLng(data.lng);
+          }
+        } catch (e) {
+          // Bỏ qua tin nhắn không liên quan
+        }
+      };
+      window.addEventListener('message', handleMessage);
+      return () => window.removeEventListener('message', handleMessage);
+    }
+  }, []);
+
+  const handleOpenMapPicker = () => {
+    const initialLat = parseFloat(latitude) || 10.7769;
+    const initialLng = parseFloat(longitude) || 106.7009;
+    setSelectedLat(initialLat);
+    setSelectedLng(initialLng);
+    setMapModalVisible(true);
+  };
+
+  const handleConfirmMapLocation = async () => {
+    try {
+      setLatitude(selectedLat.toString());
+      setLongitude(selectedLng.toString());
+
+      // Reverse geocode chosen coordinates to get a human-readable address
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${selectedLat}&lon=${selectedLng}&format=json`,
+        { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const road = data.address?.road || '';
+        const suburb = data.address?.suburb || data.address?.quarter || '';
+        const city = data.address?.city || data.address?.town || data.address?.state || '';
+        const displayAddress = [road, suburb, city].filter(Boolean).join(', ');
+        if (displayAddress) {
+          setAddress(displayAddress);
+        } else {
+          setAddress(data.display_name || `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
+        }
+      } else {
+        setAddress(`Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
+      }
+      showToast('Đã định vị vị trí công việc thành công!', 'success');
+    } catch (e) {
+      console.log('Reverse geocoding error:', e);
+      setAddress(`Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
+    } finally {
+      setMapModalVisible(false);
+    }
+  };
   
   // Date and Time states
   const getTodayDateString = () => {
@@ -413,18 +480,27 @@ export default function EmployerEmergencyPost() {
                   onChangeText={setAddress}
                 />
 
-                {/* GPS Button */}
-                <TouchableOpacity
-                  style={styles.gpsButton}
-                  onPress={getCurrentLocation}
-                  disabled={gpsLoading}
-                >
-                  {gpsLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.gpsButtonText}>📍 Lấy vị trí GPS hiện tại</Text>
-                  )}
-                </TouchableOpacity>
+                 {/* Location Buttons Row */}
+                 <View style={styles.locationButtonsRow}>
+                   <TouchableOpacity
+                     style={[styles.gpsButton, { flex: 1, marginRight: 8, marginBottom: 0 }]}
+                     onPress={getCurrentLocation}
+                     disabled={gpsLoading}
+                   >
+                     {gpsLoading ? (
+                       <ActivityIndicator size="small" color="#FFFFFF" />
+                     ) : (
+                       <Text style={styles.gpsButtonText}>📍 GPS Hiện Tại</Text>
+                     )}
+                   </TouchableOpacity>
+
+                   <TouchableOpacity
+                     style={[styles.mapButton, { flex: 1 }]}
+                     onPress={handleOpenMapPicker}
+                   >
+                     <Text style={styles.mapButtonText}>🗺 Bản Đồ</Text>
+                   </TouchableOpacity>
+                 </View>
 
                 {/* Coordinates */}
                 {latitude && longitude ? (
@@ -517,6 +593,174 @@ export default function EmployerEmergencyPost() {
           Bằng cách nhấn đăng tin, bạn đồng ý với các điều khoản dịch vụ của ProxiJob.
         </Text>
       </ScrollView>
+
+      {/* Map Picker Modal */}
+      <Modal
+        visible={mapModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setMapModalVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <View style={{
+            height: 56,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E9EB'
+          }}>
+            <TouchableOpacity
+              onPress={() => setMapModalVisible(false)}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.textMuted }}>Hủy</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.text }}>📍 Vị trí công việc</Text>
+            <TouchableOpacity onPress={handleConfirmMapLocation} style={{ padding: 8, backgroundColor: '#FF6B00', borderRadius: 8, paddingHorizontal: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' }}>Xác nhận</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={{ flex: 1, position: 'relative' }}>
+            {Platform.OS === 'web' ? (
+              <iframe
+                srcDoc={`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                    <style>
+                      body { margin: 0; padding: 0; }
+                      #map { height: 100vh; width: 100vw; }
+                    </style>
+                  </head>
+                  <body>
+                    <div id="map"></div>
+                    <script>
+                      var map = L.map('map', { zoomControl: true }).setView([${selectedLat}, ${selectedLng}], 15);
+                      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+                      var marker = L.marker([${selectedLat}, ${selectedLng}], {
+                        draggable: true
+                      }).addTo(map);
+
+                      function sendCoords(lat, lng) {
+                        var payload = JSON.stringify({ lat: lat, lng: lng });
+                        if (window.ReactNativeWebView) {
+                          window.ReactNativeWebView.postMessage(payload);
+                        } else {
+                          window.parent.postMessage(payload, '*');
+                        }
+                      }
+
+                      map.on('click', function(e) {
+                        marker.setLatLng(e.latlng);
+                        sendCoords(e.latlng.lat, e.latlng.lng);
+                      });
+
+                      marker.on('dragend', function(e) {
+                        var position = marker.getLatLng();
+                        sendCoords(position.lat, position.lng);
+                      });
+                    </script>
+                  </body>
+                  </html>
+                `}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="Bản đồ chọn vị trí"
+              />
+            ) : (
+              <WebView
+                originWhitelist={['*']}
+                source={{
+                  html: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                      <style>
+                        body { margin: 0; padding: 0; }
+                        #map { height: 100vh; width: 100vw; }
+                      </style>
+                    </head>
+                    <body>
+                      <div id="map"></div>
+                      <script>
+                        var map = L.map('map', { zoomControl: true }).setView([${selectedLat}, ${selectedLng}], 15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+                        var marker = L.marker([${selectedLat}, ${selectedLng}], {
+                          draggable: true
+                        }).addTo(map);
+
+                        function sendCoords(lat, lng) {
+                          var payload = JSON.stringify({ lat: lat, lng: lng });
+                          if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(payload);
+                          } else {
+                            window.parent.postMessage(payload, '*');
+                          }
+                        }
+
+                        map.on('click', function(e) {
+                          marker.setLatLng(e.latlng);
+                          sendCoords(e.latlng.lat, e.latlng.lng);
+                        });
+
+                        marker.on('dragend', function(e) {
+                          var position = marker.getLatLng();
+                          sendCoords(position.lat, position.lng);
+                        });
+                      </script>
+                    </body>
+                    </html>
+                  `
+                }}
+                onMessage={(event) => {
+                  try {
+                    const data = JSON.parse(event.nativeEvent.data);
+                    if (data.lat && data.lng) {
+                      setSelectedLat(data.lat);
+                      setSelectedLng(data.lng);
+                    }
+                  } catch (e) {
+                    console.log('Error parsing map webview message:', e);
+                  }
+                }}
+                style={{ flex: 1 }}
+              />
+            )}
+            <View style={{
+              position: 'absolute',
+              bottom: 20,
+              left: 20,
+              right: 20,
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#E5E9EB',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 6,
+              elevation: 4
+            }}>
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#FF6B00' }}>Kéo ghim hoặc click chọn đúng địa điểm làm việc</Text>
+              <Text style={{ fontSize: 10, color: theme.colors.textMuted, marginTop: 4 }}>
+                Tọa độ đã chọn: {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
+              </Text>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -892,24 +1136,47 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontWeight: '600',
   },
-  gpsButton: {
-    backgroundColor: '#10B981',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  gpsButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+   locationButtonsRow: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     marginBottom: 12,
+   },
+   gpsButton: {
+     backgroundColor: '#10B981',
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+     borderRadius: 14,
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'center',
+     shadowColor: '#10B981',
+     shadowOffset: { width: 0, height: 3 },
+     shadowOpacity: 0.2,
+     shadowRadius: 6,
+     elevation: 2,
+   },
+   gpsButtonText: {
+     fontSize: 13,
+     fontWeight: '700',
+     color: '#FFFFFF',
+   },
+   mapButton: {
+     backgroundColor: '#FF6B00',
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+     borderRadius: 14,
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'center',
+     shadowColor: '#FF6B00',
+     shadowOffset: { width: 0, height: 3 },
+     shadowOpacity: 0.2,
+     shadowRadius: 6,
+     elevation: 2,
+   },
+   mapButtonText: {
+     fontSize: 13,
+     fontWeight: '700',
+     color: '#FFFFFF',
+   },
 });

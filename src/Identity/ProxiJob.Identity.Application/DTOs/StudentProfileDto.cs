@@ -12,6 +12,8 @@ namespace ProxiJob.Identity.Application.DTOs
         public string? Gender { get; set; }
         public string? Address { get; set; }
         public string? City { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
         public string? School { get; set; }
         public string? Major { get; set; }
         public int? YearOfStudy { get; set; }
