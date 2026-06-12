@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   loginApi,
   registerApi,
@@ -64,6 +64,18 @@ export const useAuth = ({
   const [selectedRole, setSelectedRole] = useState(0); // 0 = student, 1 = employer
   const [isEnterprise, setIsEnterprise] = useState(false);
 
+  // Use refs for callbacks that might be defined inline in the parent component
+  // to avoid infinite loops and stale closures.
+  const setCurrentScreenRef = useRef(setCurrentScreen);
+  const setNavigationStackRef = useRef(setNavigationStack);
+  const onLogoutResetsRef = useRef(onLogoutResets);
+
+  useEffect(() => {
+    setCurrentScreenRef.current = setCurrentScreen;
+    setNavigationStackRef.current = setNavigationStack;
+    onLogoutResetsRef.current = onLogoutResets;
+  });
+
   useEffect(() => {
     if (user) {
       const premiumTiers = ['Enterprise', 'Premium', 'Standard'];
@@ -86,11 +98,11 @@ export const useAuth = ({
       setSelectedRole(mappedRoleValue);
 
       if (userRole === 'student') {
-        setCurrentScreen('student_dashboard');
-        setNavigationStack(['student_dashboard']);
+        setCurrentScreenRef.current?.('student_dashboard');
+        setNavigationStackRef.current?.(['student_dashboard']);
       } else {
-        setCurrentScreen('employer_approvals');
-        setNavigationStack(['employer_approvals']);
+        setCurrentScreenRef.current?.('employer_approvals');
+        setNavigationStackRef.current?.(['employer_approvals']);
       }
 
       addNotification('Bảo mật', `Đăng nhập thành công với vai trò ${userRole === 'student' ? 'Sinh viên' : 'Chủ quán'}`, 'Vừa xong');
@@ -102,7 +114,7 @@ export const useAuth = ({
     } finally {
       setAuthLoading(false);
     }
-  }, [showToast, addNotification, setCurrentScreen, setNavigationStack]);
+  }, [showToast, addNotification]);
 
   const register = useCallback(async (fullName, email, password, confirmPassword, role) => {
     try {
@@ -126,9 +138,9 @@ export const useAuth = ({
       await clearAuthSession();
       setUser(null);
       setIsEnterprise(false);
-      if (onLogoutResets) onLogoutResets();
-      setCurrentScreen('login');
-      setNavigationStack([]);
+      if (onLogoutResetsRef.current) onLogoutResetsRef.current();
+      setCurrentScreenRef.current?.('login');
+      setNavigationStackRef.current?.([]);
       addNotification('Bảo mật', 'Bạn đã đăng xuất khỏi hệ thống thành công.', 'Vừa xong');
       showToast('Đăng xuất thành công!', 'info');
     } catch (error) {
@@ -137,7 +149,7 @@ export const useAuth = ({
     } finally {
       setAuthLoading(false);
     }
-  }, [showToast, addNotification, setCurrentScreen, setNavigationStack, onLogoutResets]);
+  }, [showToast, addNotification]);
 
   useEffect(() => {
     async function restoreSession() {
@@ -150,9 +162,9 @@ export const useAuth = ({
             const verifiedUser = await checkAuthApi(token);
             setUser(verifiedUser);
             if (verifiedUser.role === 'student') {
-              setCurrentScreen('student_dashboard');
+              setCurrentScreenRef.current?.('student_dashboard');
             } else {
-              setCurrentScreen('employer_approvals');
+              setCurrentScreenRef.current?.('employer_approvals');
             }
           } catch (apiError) {
             console.log('[ProxiJob Auth] Access token invalid/expired, attempting refresh...');
@@ -164,9 +176,9 @@ export const useAuth = ({
                 const verifiedUser = await checkAuthApi(newTokens.accessToken);
                 setUser(verifiedUser);
                 if (verifiedUser.role === 'student') {
-                  setCurrentScreen('student_dashboard');
+                  setCurrentScreenRef.current?.('student_dashboard');
                 } else {
-                  setCurrentScreen('employer_approvals');
+                  setCurrentScreenRef.current?.('employer_approvals');
                 }
               } catch (refreshErr) {
                 console.log('[ProxiJob Auth] Token refresh failed, clearing session:', refreshErr.message);
@@ -186,7 +198,7 @@ export const useAuth = ({
       }
     }
     restoreSession();
-  }, [setCurrentScreen]);
+  }, []);
 
   return {
     user,

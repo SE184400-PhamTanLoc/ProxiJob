@@ -21,8 +21,9 @@ import MainTabNavigator from './src/navigation/MainTabNavigator';
 import Toast from './src/components/Toast';
 
 function MainAppShell() {
-  const { user, logout, notifications, isRestoringSession, currentScreen } = useContext(AppContext);
+  const { user, logout, notifications, isRestoringSession, currentScreen, isEnterprise, navigateTo, showToast } = useContext(AppContext);
   const [notifModalVisible, setNotifModalVisible] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 
   if (isRestoringSession) {
     return (
@@ -48,7 +49,6 @@ function MainAppShell() {
 
   const hideHeaderScreens = [
     'candidate_list',
-    'upgrade_package',
     'job_detail'
   ];
   const showHeader = !hideHeaderScreens.includes(currentScreen);
@@ -57,7 +57,7 @@ function MainAppShell() {
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style="dark" />
       {showHeader && (
-        <SafeAreaView edges={['top']} style={{ backgroundColor: theme.colors.white }}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: theme.colors.white, zIndex: 999, position: 'relative' }}>
           {/* Universal Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -74,18 +74,36 @@ function MainAppShell() {
                   </View>
                 </>
               ) : (
-                <>
+                <TouchableOpacity 
+                  style={styles.headerLeftBtn}
+                  onPress={() => setAvatarMenuOpen(!avatarMenuOpen)}
+                  activeOpacity={0.8}
+                >
                   <View style={styles.avatarWrapper}>
                     <Image 
                       source={{ uri: user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' }} 
                       style={styles.avatarImage}
                     />
+                    {isEnterprise && (
+                      <View style={styles.crownBadge}>
+                        <Text style={styles.crownIcon}>👑</Text>
+                      </View>
+                    )}
                   </View>
                   <View>
-                    <Text style={styles.brandTitle}>ProxiJob</Text>
-                    <Text style={styles.brandSubtitle}>Store Management</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.brandTitle}>ProxiJob</Text>
+                      {isEnterprise && (
+                        <View style={styles.activePill}>
+                          <Text style={styles.activePillText}>Enterprise</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.brandSubtitle}>
+                      {isEnterprise ? 'Đã kích hoạt Enterprise' : 'Nâng cấp tài khoản'}
+                    </Text>
                   </View>
-                </>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -109,6 +127,42 @@ function MainAppShell() {
               </TouchableOpacity>
             </View>
           </View>
+          
+          {/* Avatar Dropdown Menu */}
+          {avatarMenuOpen && !isStudent && (
+            <View style={styles.dropdownMenu}>
+              <Text style={styles.dropdownUser}>{user?.name || 'Chủ quán'}</Text>
+              <Text style={styles.dropdownEmail}>{user?.email}</Text>
+              <View style={styles.dropdownDivider} />
+              
+              <View style={styles.dropdownStatusRow}>
+                <Text style={styles.dropdownStatusLabel}>Gói dịch vụ:</Text>
+                <Text style={[styles.dropdownStatusValue, isEnterprise && { color: '#0A58CA', fontWeight: '800' }]}>
+                  {user?.subscriptionTier || 'Free'}
+                </Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setAvatarMenuOpen(false);
+                  navigateTo('upgrade_package');
+                }}
+              >
+                <Text style={styles.dropdownItemText}>📋 Xem các gói dịch vụ</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.dropdownItem, { borderBottomWidth: 0 }]}
+                onPress={() => {
+                  setAvatarMenuOpen(false);
+                  logout();
+                }}
+              >
+                <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>🚪 Đăng xuất</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </SafeAreaView>
       )}
       {/* Main Content Area using MainTabNavigator */}
@@ -281,6 +335,39 @@ const styles = StyleSheet.create({
     color: '#5A4136',
     opacity: 0.7,
   },
+  headerLeftBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  crownBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#FFD700',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  crownIcon: {
+    fontSize: 8,
+    lineHeight: 10,
+  },
+  activePill: {
+    backgroundColor: '#0A58CA1F',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  activePillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0A58CA',
+  },
 
   modalOverlay: {
     flex: 1,
@@ -356,5 +443,66 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     lineHeight: 16,
     marginTop: 2,
-  }
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 56,
+    left: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    width: 220,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 9999,
+  },
+  dropdownUser: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1F2937',
+  },
+  dropdownEmail: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  dropdownDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 8,
+  },
+  dropdownStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    backgroundColor: '#F3F4F6',
+    padding: 8,
+    borderRadius: 8,
+  },
+  dropdownStatusLabel: {
+    fontSize: 11,
+    color: '#4B5563',
+    fontWeight: '600',
+  },
+  dropdownStatusValue: {
+    fontSize: 11,
+    color: '#1F2937',
+    fontWeight: '700',
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownItemText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+  },
 });
