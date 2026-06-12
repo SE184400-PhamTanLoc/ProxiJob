@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STUDENT_MOCK_GPS = {
   latitude: 10.7769,
@@ -8,6 +10,51 @@ const STUDENT_MOCK_GPS = {
 export const useLocation = () => {
   const [studentCoords, setStudentCoords] = useState(STUDENT_MOCK_GPS);
   const [simulatedDistanceToActive, setSimulatedDistanceToActive] = useState(3200);
+  const [gpsStatus, setGpsStatus] = useState('pending'); // 'pending' | 'granted' | 'denied' | 'error'
+
+  // Trên mount: thử load GPS đã lưu trước, rồi xin GPS thật
+  useEffect(() => {
+    const initLocation = async () => {
+      // 1. Thử load tọa độ từ AsyncStorage (đã chọn qua bản đồ trước đó)
+      try {
+        const saved = await AsyncStorage.getItem('@student_custom_gps');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.latitude && parsed.longitude) {
+            setStudentCoords(parsed);
+            setGpsStatus('granted');
+            return; // Đã có tọa độ tùy chọn, không cần GPS
+          }
+        }
+      } catch (e) {
+        console.log('[useLocation] Error reading saved GPS:', e);
+      }
+
+      // 2. Xin quyền GPS thiết bị
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          setGpsStatus('granted');
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setStudentCoords({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        } else {
+          setGpsStatus('denied');
+          // Giữ mock GPS nếu bị từ chối
+        }
+      } catch (err) {
+        console.log('[useLocation] GPS error, using mock:', err);
+        setGpsStatus('error');
+        // Giữ mock GPS nếu lỗi
+      }
+    };
+
+    initLocation();
+  }, []);
 
   const getDistanceInMeters = useCallback((lat1, lon1, lat2, lon2) => {
     const R = 6371e3; // metres
@@ -31,6 +78,7 @@ export const useLocation = () => {
     setStudentCoords,
     simulatedDistanceToActive,
     setSimulatedDistanceToActive,
-    getDistanceInMeters
+    getDistanceInMeters,
+    gpsStatus
   };
 };

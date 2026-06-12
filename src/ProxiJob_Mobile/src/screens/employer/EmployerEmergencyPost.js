@@ -11,6 +11,7 @@ import {
   Switch,
   ActivityIndicator
 } from 'react-native';
+import * as Location from 'expo-location';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getCategoriesApi, getSkillsApi } from '../../api/jobs';
@@ -38,6 +39,7 @@ export default function EmployerEmergencyPost() {
 
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   // Form states
   const [step, setStep] = useState(1);
@@ -49,9 +51,9 @@ export default function EmployerEmergencyPost() {
   const [salary, setSalary] = useState('35000');
   const [selectedSkills, setSelectedSkills] = useState([1]); // Default 'Giao tiếp'
 
-  const [address, setAddress] = useState('123 Đường Nguyễn Văn Cừ, Quận 5, TP.HCM');
-  const [latitude, setLatitude] = useState('10.762622');
-  const [longitude, setLongitude] = useState('106.660172');
+  const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
   
   // Date and Time states
   const getTodayDateString = () => {
@@ -99,6 +101,52 @@ export default function EmployerEmergencyPost() {
     }
     loadData();
   }, []);
+
+  // GPS: Lấy vị trí hiện tại của thiết bị
+  const getCurrentLocation = async () => {
+    try {
+      setGpsLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('Bạn cần cấp quyền truy cập vị trí để sử dụng tính năng này!', 'warning');
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const lat = location.coords.latitude;
+      const lng = location.coords.longitude;
+      setLatitude(lat.toString());
+      setLongitude(lng.toString());
+
+      // Reverse geocode để lấy địa chỉ
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+          { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const road = data.address?.road || '';
+          const suburb = data.address?.suburb || data.address?.quarter || '';
+          const city = data.address?.city || data.address?.town || data.address?.state || '';
+          const displayAddress = [road, suburb, city].filter(Boolean).join(', ');
+          if (displayAddress) {
+            setAddress(displayAddress);
+          }
+        }
+      } catch (geoErr) {
+        console.log('Reverse geocoding error:', geoErr);
+      }
+
+      showToast(`Đã lấy vị trí GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, 'success');
+    } catch (err) {
+      console.log('GPS error:', err);
+      showToast('Không thể lấy vị trí GPS. Vui lòng thử lại hoặc nhập thủ công.', 'error');
+    } finally {
+      setGpsLoading(false);
+    }
+  };
 
   // Handle emergency toggle rate adjustments
   const toggleEmergency = (value) => {
@@ -154,7 +202,11 @@ export default function EmployerEmergencyPost() {
 
   const handleSubmit = async () => {
     if (!address.trim()) {
-      showToast('Vui lòng nhập địa chỉ làm việc!', 'warning');
+      showToast('Vui lòng nhập địa chỉ làm việc hoặc nhấn nút GPS!', 'warning');
+      return;
+    }
+    if (!latitude || !longitude || parseFloat(latitude) === 0 || parseFloat(longitude) === 0) {
+      showToast('Vui lòng nhấn nút "Lấy vị trí GPS" để xác định tọa độ địa điểm làm việc!', 'warning');
       return;
     }
     if (!date.trim() || !startTime.trim() || !endTime.trim()) {
@@ -355,34 +407,45 @@ export default function EmployerEmergencyPost() {
                 <Text style={styles.inputLabel}>Địa điểm làm việc</Text>
                 <TextInput
                   style={styles.premiumInput}
-                  placeholder="Nhập địa chỉ..."
+                  placeholder="Nhập địa chỉ hoặc nhấn nút GPS bên dưới..."
                   placeholderTextColor={theme.colors.textLight}
                   value={address}
                   onChangeText={setAddress}
                 />
 
-                {/* Map Display */}
-                <View style={styles.mapContainer}>
-                  <Image
-                    source={{
-                      uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB4_nuXKPT5Z2wNKvK4p5SUwrrNOk4BGXUgi9dgtkYGUQwv4EmyQ7KAFfw60PD2FJDtzxCpq5tr-DF-AjD5Qbvl6_9IbC69c2TRn9sulSQt3xY8kRVDsELLfzESQEOqToXt_tdP09nj97ByJsDF4c2PVR3ojmUk5SB7qRgCAYwXZkI-FwPz62xZKj3_-dJm8d10hQQSdPUSBETrzM_HfMm_FDRoFeJXZvuGEwGA7DsNyK24ogpUfD-oNWx78zJBezJ8P2ChgA--_6Q'
-                    }}
-                    style={styles.mapImage}
-                  />
-                  <View style={styles.mapOverlayPill}>
-                    <Text style={styles.mapOverlayText}>Hyperlocal Location Matched 📍</Text>
-                  </View>
-                </View>
+                {/* GPS Button */}
+                <TouchableOpacity
+                  style={styles.gpsButton}
+                  onPress={getCurrentLocation}
+                  disabled={gpsLoading}
+                >
+                  {gpsLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.gpsButtonText}>📍 Lấy vị trí GPS hiện tại</Text>
+                  )}
+                </TouchableOpacity>
 
                 {/* Coordinates */}
-                <View style={styles.coordsRow}>
-                  <View style={styles.coordBox}>
-                    <Text style={styles.coordLabel}>Lat: {parseFloat(latitude).toFixed(6)}</Text>
+                {latitude && longitude ? (
+                  <View style={styles.coordsRow}>
+                    <View style={styles.coordBox}>
+                      <Text style={styles.coordLabel}>Lat: {parseFloat(latitude).toFixed(6)}</Text>
+                    </View>
+                    <View style={styles.coordBox}>
+                      <Text style={styles.coordLabel}>Long: {parseFloat(longitude).toFixed(6)}</Text>
+                    </View>
+                    <View style={[styles.coordBox, { backgroundColor: '#10B98120', borderColor: '#10B981' }]}>
+                      <Text style={[styles.coordLabel, { color: '#10B981' }]}>✓ GPS Đã kết nối</Text>
+                    </View>
                   </View>
-                  <View style={styles.coordBox}>
-                    <Text style={styles.coordLabel}>Long: {parseFloat(longitude).toFixed(6)}</Text>
+                ) : (
+                  <View style={styles.coordsRow}>
+                    <View style={[styles.coordBox, { backgroundColor: '#EF444420', borderColor: '#EF4444' }]}>
+                      <Text style={[styles.coordLabel, { color: '#EF4444' }]}>⚠ Chưa có tọa độ GPS</Text>
+                    </View>
                   </View>
-                </View>
+                )}
 
                 {/* DateTime Inputs */}
                 <Text style={[styles.inputLabel, { marginTop: 12 }]}>Ngày làm việc (YYYY-MM-DD)</Text>
@@ -828,5 +891,25 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 10,
     fontWeight: '600',
-  }
+  },
+  gpsButton: {
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  gpsButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });

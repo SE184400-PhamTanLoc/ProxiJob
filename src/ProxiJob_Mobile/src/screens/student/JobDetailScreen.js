@@ -98,7 +98,8 @@ export default function JobDetailScreen() {
             <Text style={styles.infoIcon}>📍</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Địa điểm</Text>
-              <Text style={styles.infoText}>Bán kính {shift.distanceKm || '3.5'} km từ vị trí của bạn</Text>
+              <Text style={styles.infoText}>{shift.address || 'Chưa có địa chỉ'}</Text>
+              <Text style={[styles.infoLabel, { marginTop: 2 }]}>Cách bạn {shift.distanceKm || '?'} km</Text>
             </View>
           </View>
 

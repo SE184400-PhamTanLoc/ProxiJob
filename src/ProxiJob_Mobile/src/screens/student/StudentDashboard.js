@@ -21,13 +21,14 @@ export default function StudentDashboard() {
 
   React.useEffect(() => {
     loadShifts();
-    if (setStudentCoords && STUDENT_MOCK_GPS) {
-      setStudentCoords(STUDENT_MOCK_GPS);
-    }
   }, []);
 
   // Calculate distances and filter shifts
   const processedShifts = (shifts || []).map(shift => {
+    // Jobs with no GPS coordinates (0,0) get Infinity distance
+    if (!shift.latitude || !shift.longitude || (shift.latitude === 0 && shift.longitude === 0)) {
+      return { ...shift, distanceKm: Infinity, noGps: true };
+    }
     const distMeters = getDistanceInMeters(
       studentCoords.latitude,
       studentCoords.longitude,
@@ -35,10 +36,10 @@ export default function StudentDashboard() {
       shift.longitude
     );
     const distKm = parseFloat((distMeters / 1000).toFixed(1));
-    return { ...shift, distanceKm: distKm };
+    return { ...shift, distanceKm: distKm, noGps: false };
   });
 
-  const filteredShifts = processedShifts.filter(shift => shift.distanceKm <= radius);
+  const filteredShifts = processedShifts.filter(shift => !shift.noGps && shift.distanceKm <= radius);
 
   const closestShift = filteredShifts.length > 0
     ? [...filteredShifts].sort((a, b) => a.distanceKm - b.distanceKm)[0]
@@ -122,7 +123,7 @@ export default function StudentDashboard() {
 
   const getGpsLabel = () => {
     if (studentCoords.latitude === 10.7769 && studentCoords.longitude === 106.7009) {
-      return "Q. 1, TP.HCM";
+      return "Q. 1, TP.HCM (mặc định)";
     }
     return `${studentCoords.latitude.toFixed(4)}, ${studentCoords.longitude.toFixed(4)}`;
   };
