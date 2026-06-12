@@ -40,6 +40,14 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<DateTime>("EndTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("endtime");
@@ -105,6 +113,14 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<string>("Introduction")
                         .HasColumnType("text")
                         .HasColumnName("introduction");
@@ -122,8 +138,8 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("status");
 
-                    b.Property<Guid>("StudentId")
-                        .HasColumnType("uuid")
+                    b.Property<int>("StudentId")
+                        .HasColumnType("integer")
                         .HasColumnName("studentid");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -167,6 +183,14 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("isdeleted");
@@ -195,6 +219,58 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                     b.ToTable("job_applicationhistories");
                 });
 
+            modelBuilder.Entity("ProxiJob.Job.Domain.Models.JobCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdat");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("isdeleted");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedat");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updatedby");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("job_jobcategories");
+                });
+
             modelBuilder.Entity("ProxiJob.Job.Domain.Models.JobLocation", b =>
                 {
                     b.Property<int>("Id")
@@ -217,6 +293,14 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -259,8 +343,8 @@ namespace ProxiJob.Job.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<Guid>("BusinessId")
-                        .HasColumnType("uuid")
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer")
                         .HasColumnName("businessid");
 
                     b.Property<int>("CategoryId")
@@ -275,6 +359,14 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -310,7 +402,64 @@ namespace ProxiJob.Job.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CategoryId");
+
                     b.ToTable("job_jobposts");
+                });
+
+            modelBuilder.Entity("ProxiJob.Job.Domain.Models.JobPostSkill", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdat");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("isdeleted");
+
+                    b.Property<int>("JobPostId")
+                        .HasColumnType("integer")
+                        .HasColumnName("jobpostid");
+
+                    b.Property<int>("SkillId")
+                        .HasColumnType("integer")
+                        .HasColumnName("skillid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updatedat");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updatedby");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostId");
+
+                    b.HasIndex("SkillId");
+
+                    b.ToTable("job_jobpostskills");
                 });
 
             modelBuilder.Entity("ProxiJob.Job.Domain.Models.Skill", b =>
@@ -330,6 +479,14 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -402,6 +559,36 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                     b.Navigation("JobPost");
                 });
 
+            modelBuilder.Entity("ProxiJob.Job.Domain.Models.JobPost", b =>
+                {
+                    b.HasOne("ProxiJob.Job.Domain.Models.JobCategory", "Category")
+                        .WithMany("JobPosts")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("ProxiJob.Job.Domain.Models.JobPostSkill", b =>
+                {
+                    b.HasOne("ProxiJob.Job.Domain.Models.JobPost", "JobPost")
+                        .WithMany("JobPostSkills")
+                        .HasForeignKey("JobPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProxiJob.Job.Domain.Models.Skill", "Skill")
+                        .WithMany("JobPostSkills")
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("JobPost");
+
+                    b.Navigation("Skill");
+                });
+
             modelBuilder.Entity("ProxiJob.Job.Domain.JobShift", b =>
                 {
                     b.Navigation("Applications");
@@ -412,12 +599,24 @@ namespace ProxiJob.Job.Infrastructure.Migrations
                     b.Navigation("Histories");
                 });
 
+            modelBuilder.Entity("ProxiJob.Job.Domain.Models.JobCategory", b =>
+                {
+                    b.Navigation("JobPosts");
+                });
+
             modelBuilder.Entity("ProxiJob.Job.Domain.Models.JobPost", b =>
                 {
+                    b.Navigation("JobPostSkills");
+
                     b.Navigation("Location")
                         .IsRequired();
 
                     b.Navigation("Shifts");
+                });
+
+            modelBuilder.Entity("ProxiJob.Job.Domain.Models.Skill", b =>
+                {
+                    b.Navigation("JobPostSkills");
                 });
 #pragma warning restore 612, 618
         }

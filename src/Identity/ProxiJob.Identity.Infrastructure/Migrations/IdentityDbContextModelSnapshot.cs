@@ -60,6 +60,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -143,6 +151,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
@@ -236,6 +252,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<string>("Description")
                         .HasColumnType("text")
                         .HasColumnName("description");
@@ -274,6 +298,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<DateTime>("ExpiryDate")
                         .HasColumnType("timestamp with time zone")
@@ -331,6 +363,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<string>("Description")
                         .HasColumnType("text")
@@ -394,6 +434,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("dateofbirth");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<string>("Gender")
                         .HasMaxLength(20)
@@ -483,6 +531,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text")
@@ -566,6 +622,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text")
@@ -616,6 +680,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<string>("Description")
                         .HasColumnType("text")
@@ -670,6 +742,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -738,6 +818,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("createdby");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("isdeleted");
@@ -785,6 +873,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("timestamp with time zone")
@@ -849,6 +945,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("createdby");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deletedat");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("deletedby");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")

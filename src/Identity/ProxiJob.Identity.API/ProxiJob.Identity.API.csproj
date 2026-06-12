@@ -20,4 +20,8 @@
     <ProjectReference Include="..\..\..\common\ProxiJob.Shared.Contract\ProxiJob.Shared.Contract.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.62.0" />
+  </ItemGroup>
+
 </Project>

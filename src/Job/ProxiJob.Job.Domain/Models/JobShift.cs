@@ -1,7 +1,6 @@
-using ProxiJob.Job.Domain.Models;
 using ProxiJob.Shared.Kernel;
 
-namespace ProxiJob.Job.Domain
+namespace ProxiJob.Job.Domain.Models
 {
     public class JobShift : BaseEntity
     {

@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
-using ProxiJob.Job.Domain;
 using ProxiJob.Job.Domain.Models;
+
+using ProxiJob.Job.Application.Common.Interfaces;
 
 namespace ProxiJob.Job.Infrastructure.Data
 {
-    public class JobDbContext : DbContext
+    public class JobDbContext : DbContext, IJobDbContext
     {
         public JobDbContext(DbContextOptions<JobDbContext> options) : base(options) { }
 
@@ -13,8 +14,10 @@ namespace ProxiJob.Job.Infrastructure.Data
         public DbSet<JobLocation> JobLocations { get; set; }
         public DbSet<JobShift> JobShifts { get; set; }
         public DbSet<Skill> Skills { get; set; }
-        public DbSet<Application> Applications { get; set; }
+        public DbSet<Domain.Models.Application> Applications { get; set; }
         public DbSet<ApplicationHistory> ApplicationHistories { get; set; }
+        public DbSet<JobCategory> JobCategories { get; set; }
+        public DbSet<JobPostSkill> JobPostSkills { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -75,7 +78,7 @@ namespace ProxiJob.Job.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Restrict); // Hạn chế xóa ca nếu đã có đơn ứng tuyển
             });
 
-            modelBuilder.Entity<Application>(entity =>
+            modelBuilder.Entity<Domain.Models.Application>(entity =>
             {
                 entity.HasMany(e => e.Histories)
                       .WithOne(h => h.Application)
@@ -83,13 +86,36 @@ namespace ProxiJob.Job.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<JobPostSkill>(entity =>
+            {
+                entity.HasOne(e => e.JobPost)
+                      .WithMany(j => j.JobPostSkills)
+                      .HasForeignKey(e => e.JobPostId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Skill)
+                      .WithMany(s => s.JobPostSkills)
+                      .HasForeignKey(e => e.SkillId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<JobCategory>(entity =>
+            {
+                entity.HasMany(e => e.JobPosts)
+                      .WithOne(j => j.Category)
+                      .HasForeignKey(j => j.CategoryId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
             // 4. Global Query Filter (Soft Delete)
             modelBuilder.Entity<JobPost>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<JobShift>().HasQueryFilter(x => !x.IsDeleted);
-            modelBuilder.Entity<Application>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<Domain.Models.Application>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<JobLocation>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<ApplicationHistory>().HasQueryFilter(x => !x.IsDeleted);
             modelBuilder.Entity<Skill>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<JobCategory>().HasQueryFilter(x => !x.IsDeleted);
+            modelBuilder.Entity<JobPostSkill>().HasQueryFilter(x => !x.IsDeleted);
         }
     }
 }

@@ -1,0 +1,71 @@
+@identityHttps = https://localhost:7159
+@jobHttp = http://localhost:5021
+
+# User test id 4+ — Password1! — user 1–3 không đổi
+
+###
+# @name loginStudent
+POST {{identityHttps}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@proxijob.test",
+  "password": "Password1!"
+}
+
+###
+# @name loginBusiness
+POST {{identityHttps}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "business@proxijob.test",
+  "password": "Password1!"
+}
+
+###
+# @name loginAdmin
+POST {{identityHttps}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@proxijob.test",
+  "password": "Password1!"
+}
+
+###
+@studentToken = {{loginStudent.response.body.accessToken}}
+@businessToken = {{loginBusiness.response.body.accessToken}}
+@adminToken = {{loginAdmin.response.body.accessToken}}
+
+###
+GET {{identityHttps}}/api/student/profile
+Authorization: Bearer {{studentToken}}
+
+###
+GET {{identityHttps}}/api/business/profile
+Authorization: Bearer {{businessToken}}
+
+###
+GET {{identityHttps}}/api/plans/current
+Authorization: Bearer {{businessToken}}
+
+###
+GET http://localhost:5231/api/public/students/4/cv
+
+###
+GET {{jobHttp}}/api/job-posts/published
+
+###
+GET {{jobHttp}}/api/applications/my?studentId=4&status=Pending
+
+###
+# Approve — đổi applicationId theo DB; businessId = 5
+PATCH {{jobHttp}}/api/applications/1/approve
+Content-Type: application/json
+
+{
+  "applicationId": 1,
+  "businessId": 5,
+  "updatedBy": "business@proxijob.test"
+}
