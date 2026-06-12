@@ -1,0 +1,55 @@
+@ProxiJob.Identity.API_HostAddress = https://localhost:7159
+
+### 1. Đăng ký tài khoản chủ quán
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Tran Thi B",
+  "email": "business-profile@example.com",
+  "password": "Password1!",
+  "confirmPassword": "Password1!",
+  "userType": 1
+}
+
+### 2. Đăng nhập (JWT có profile_status: Incomplete)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "business-profile@example.com",
+  "password": "Password1!"
+}
+
+### 3. Đăng ký hồ sơ doanh nghiệp (lần đầu)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/business/profile/register
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "phoneNumber": "0912345678",
+  "avatarUrl": null,
+  "businessName": "Cafe Proxi",
+  "businessType": "Cafe",
+  "city": "Ho Chi Minh",
+  "address": "45 Le Loi, Quan 1",
+  "taxCode": "0123456789",
+  "description": "Quan cafe phuc vu part-time, can sinh vien linh hoat ca toi va cuoi tuan."
+}
+
+### 4. Xem hồ sơ (+ completionPercent, missingFields)
+GET {{ProxiJob.Identity.API_HostAddress}}/api/business/profile
+Authorization: Bearer {{accessToken}}
+
+### 5. Sửa hồ sơ
+PUT {{ProxiJob.Identity.API_HostAddress}}/api/business/profile
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "description": "Quan cafe tai Quan 1, uu tien sinh vien co kinh nghiem phuc vu, ca 4-8h."
+}
+
+### 6. Kích hoạt hoàn thiện hồ sơ (+ token mới, profile_status: ProfileComplete)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/business/profile/activate
+Authorization: Bearer {{accessToken}}

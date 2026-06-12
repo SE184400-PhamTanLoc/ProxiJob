@@ -1,0 +1,60 @@
+@ProxiJob.Identity.API_HostAddress = https://localhost:7159
+
+### 1. Đăng ký tài khoản sinh viên
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Nguyen Van A",
+  "email": "student@example.com",
+  "password": "Password1!",
+  "confirmPassword": "Password1!",
+  "userType": 0
+}
+
+### 2. Đăng nhập
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@example.com",
+  "password": "Password1!"
+}
+
+### 3. Đăng ký hồ sơ năng lực (lần đầu — bắt buộc đủ field)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/student/profile/register
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "phoneNumber": "0901234567",
+  "avatarUrl": null,
+  "dateOfBirth": "2002-05-15T00:00:00Z",
+  "gender": "Nam",
+  "city": "Ho Chi Minh",
+  "address": "123 Nguyen Van Cu",
+  "school": "Đại học Kinh tế TP.HCM",
+  "major": "Quản trị kinh doanh",
+  "yearOfStudy": 3,
+  "bio": "Sinh viên năm 3, có kinh nghiệm phục vụ F&B và bán hàng part-time.",
+  "skills": "Giao tiếp, Phục vụ, Excel"
+}
+
+### 4. Xem hồ sơ (+ completionPercent, missingFields)
+GET {{ProxiJob.Identity.API_HostAddress}}/api/student/profile
+Authorization: Bearer {{accessToken}}
+
+### 5. Sửa hồ sơ (sau khi đã register)
+PUT {{ProxiJob.Identity.API_HostAddress}}/api/student/profile
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "bio": "Sinh viên năm 3, kinh nghiệm F&B 1 năm, linh hoạt ca tối và cuối tuần."
+}
+
+### 6. Kích hoạt Sẵn sàng nhận việc (+ token mới)
+POST {{ProxiJob.Identity.API_HostAddress}}/api/student/profile/activate
+Authorization: Bearer {{accessToken}}
+
+### 7. Sau login/activate — decode JWT: claim profile_status (ReadyForWork), profile_readiness (tương thích)

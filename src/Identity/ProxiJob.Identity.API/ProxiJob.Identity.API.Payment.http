@@ -1,0 +1,36 @@
+@ProxiJob.Identity.API_HostAddress = https://localhost:7159
+
+### Đăng nhập chủ quán
+POST {{ProxiJob.Identity.API_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "business@example.com",
+  "password": "Password1!"
+}
+
+### Mua gói — chuyển khoản MB
+POST {{ProxiJob.Identity.API_HostAddress}}/api/plans/purchase
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "planId": 3
+}
+
+### Poll trạng thái
+GET {{ProxiJob.Identity.API_HostAddress}}/api/payments/1
+Authorization: Bearer {{accessToken}}
+
+### Admin: đơn chờ
+GET {{ProxiJob.Identity.API_HostAddress}}/api/admin/payments/pending
+Authorization: Bearer {{adminAccessToken}}
+
+### Admin: xác nhận
+POST {{ProxiJob.Identity.API_HostAddress}}/api/admin/payments/1/confirm
+Authorization: Bearer {{adminAccessToken}}
+Content-Type: application/json
+
+{
+  "adminNote": "Da nhan CK"
+}
