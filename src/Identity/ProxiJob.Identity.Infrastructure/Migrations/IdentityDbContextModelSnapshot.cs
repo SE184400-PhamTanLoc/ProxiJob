@@ -452,6 +452,14 @@ namespace ProxiJob.Identity.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("isdeleted");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
+
                     b.Property<string>("Major")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")

@@ -64,6 +64,10 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.UpdateMyStude
                 profile.Address = request.Address.Trim();
             if (request.City != null)
                 profile.City = request.City.Trim();
+            if (request.Latitude.HasValue)
+                profile.Latitude = request.Latitude.Value;
+            if (request.Longitude.HasValue)
+                profile.Longitude = request.Longitude.Value;
             if (request.School != null)
                 profile.School = request.School.Trim();
             if (request.Major != null)

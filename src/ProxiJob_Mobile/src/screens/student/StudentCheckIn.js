@@ -4,11 +4,11 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Platform,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
@@ -39,7 +39,8 @@ export default function StudentCheckIn() {
     setStudentCoords,
     navigationParams,
     showToast,
-    STUDENT_MOCK_GPS
+    STUDENT_MOCK_GPS,
+    user
   } = useContext(AppContext);
 
   const [selectedShiftForCheckIn, setSelectedShiftForCheckIn] = useState(null);
@@ -147,7 +148,7 @@ export default function StudentCheckIn() {
         'default-qr-token',
         lat,
         lng,
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+        user?.avatarUrl || ''
       );
       setIsTimerRunning(true);
     }
@@ -161,7 +162,7 @@ export default function StudentCheckIn() {
         selectedShiftForCheckIn.id,
         lat,
         lng,
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+        user?.avatarUrl || ''
       );
       setIsTimerRunning(false);
       setTimerSeconds(0);
@@ -257,7 +258,7 @@ export default function StudentCheckIn() {
   `;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.headerTitle}>Xác thực hiện diện GPS & Camera</Text>
         
@@ -445,9 +446,10 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '800',
     color: theme.colors.text,
+    lineHeight: 34,
     marginBottom: theme.spacing.md,
   },
   simulatorCard: {

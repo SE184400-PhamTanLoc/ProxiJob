@@ -38,20 +38,21 @@ namespace ProxiJob.Job.Application.Features.Applications.Queries
             query = query.OrderByDescending(a => a.CreatedAt);
 
             var totalCount = await query.CountAsync(cancellationToken);
-            var items = await query.Skip((request.PageNumber - 1) * request.PageSize)
-                                   .Take(request.PageSize)
-                                   .Select(a => new ApplicationDto
-                                   {
-                                       Id = a.Id,
-                                       ShiftId = a.JobShiftId,
-                                       ShiftStartTime = a.JobShift.StartTime,
-                                       ShiftEndTime = a.JobShift.EndTime,
-                                       Salary = a.JobShift.Salary,
-                                       JobTitle = a.JobShift.JobPost.Title,
-                                       Status = a.Status,
-                                       CreatedAt = a.CreatedAt
-                                   })
-                                   .ToListAsync(cancellationToken);
+             var items = await query.Skip((request.PageNumber - 1) * request.PageSize)
+                                    .Take(request.PageSize)
+                                    .Select(a => new ApplicationDto
+                                    {
+                                        Id = a.Id,
+                                        ShiftId = a.JobShiftId,
+                                        StudentId = a.StudentId,
+                                        ShiftStartTime = a.JobShift.StartTime,
+                                        ShiftEndTime = a.JobShift.EndTime,
+                                        Salary = a.JobShift.Salary,
+                                        JobTitle = a.JobShift.JobPost.Title,
+                                        Status = a.Status,
+                                        CreatedAt = a.CreatedAt
+                                    })
+                                    .ToListAsync(cancellationToken);
 
             return new PagedResult<ApplicationDto>
             {

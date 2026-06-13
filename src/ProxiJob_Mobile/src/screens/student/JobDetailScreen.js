@@ -5,14 +5,14 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
 export default function JobDetailScreen() {
-  const { shifts, applyToShift, navigationParams, goBack, navigateTo } = useContext(AppContext);
+  const { shifts, applyToShift, navigationParams, goBack, navigateTo, studentCoords, getDistanceInMeters } = useContext(AppContext);
   const [applying, setApplying] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -30,19 +30,16 @@ export default function JobDetailScreen() {
     );
   }
 
-  const handleApply = () => {
+  const handleApply = async () => {
     setApplying(true);
-    // Simulate API calling delay
-    setTimeout(() => {
-      applyToShift(shift.id);
-      setApplying(false);
+    const ok = await applyToShift(shift.id);
+    setApplying(false);
+    if (ok) {
       setSuccess(true);
-      
-      // Auto redirect after showing success
       setTimeout(() => {
         navigateTo('student_calendar');
       }, 1500);
-    }, 1000);
+    }
   };
 
   const isApplied = shift.status === 'applied';
@@ -98,7 +95,24 @@ export default function JobDetailScreen() {
             <Text style={styles.infoIcon}>📍</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Địa điểm</Text>
-              <Text style={styles.infoText}>Bán kính {shift.distanceKm || '3.5'} km từ vị trí của bạn</Text>
+              <Text style={styles.infoText}>{shift.address || 'Chưa có địa chỉ'}</Text>
+              {(() => {
+                const hasGps = shift.latitude && shift.longitude && !(shift.latitude === 0 && shift.longitude === 0);
+                let distanceText = 'Chưa định vị';
+                if (hasGps && studentCoords) {
+                  const distMeters = getDistanceInMeters(
+                    studentCoords.latitude,
+                    studentCoords.longitude,
+                    shift.latitude,
+                    shift.longitude
+                  );
+                  const distKm = (distMeters / 1000).toFixed(1);
+                  distanceText = `${distKm} km`;
+                }
+                return (
+                  <Text style={[styles.infoLabel, { marginTop: 2 }]}>Cách bạn: {distanceText}</Text>
+                );
+              })()}
             </View>
           </View>
 

@@ -88,7 +88,7 @@ export async function applyToShiftApi(shiftId, studentId, introduction, createdB
       headers,
       body: JSON.stringify({ shiftId, studentId, introduction, createdBy })
     });
-    
+
     const resData = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errorMsg = resData.message || 'Không thể ứng tuyển vào ca làm. Vui lòng thử lại.';
@@ -169,7 +169,7 @@ export async function approveApplication(id, businessId, updatedBy = 'Employer')
       headers,
       body: JSON.stringify({ applicationId: id, businessId, updatedBy })
     });
-    
+
     const resData = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errorMsg = resData.message || 'Không thể duyệt đơn ứng tuyển này.';
@@ -197,7 +197,7 @@ export async function rejectApplication(id, businessId, updatedBy = 'Employer') 
       headers,
       body: JSON.stringify({ applicationId: id, businessId, updatedBy })
     });
-    
+
     const resData = await response.json().catch(() => ({}));
     if (!response.ok) {
       const errorMsg = resData.message || 'Không thể từ chối đơn ứng tuyển này.';
@@ -341,6 +341,58 @@ export async function getSkillsApi() {
     throw error;
   }
 }
+
+/**
+ * Update a job post
+ * @param {number} id 
+ * @param {object} payload 
+ * @returns {Promise<object>}
+ */
+export async function updateJobPostApi(id, payload) {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${JOB_API_BASE_URL}/job-posts/${id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(payload)
+    });
+    const resData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(resData.message || `Failed to update job post: ${response.status}`);
+    }
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Jobs API] updateJobPostApi error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a job post
+ * @param {number} id 
+ * @param {number} businessId 
+ * @param {string} deletedBy 
+ * @returns {Promise<object>}
+ */
+export async function deleteJobPostApi(id, businessId, deletedBy = 'Business') {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${JOB_API_BASE_URL}/job-posts/${id}`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({ id, businessId, deletedBy })
+    });
+    const resData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(resData.message || `Failed to delete job post: ${response.status}`);
+    }
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Jobs API] deleteJobPostApi error:', error);
+    throw error;
+  }
+}
+
 
 
 

@@ -9,6 +9,7 @@ import {
 import { theme } from '../styles/theme';
 import { BlurView } from 'expo-blur';
 import { AppContext } from '../context/AppContext';
+import { Ionicons } from '@expo/vector-icons';
 
 // Student Screens
 import StudentDashboard from '../screens/student/StudentDashboard';
@@ -26,6 +27,7 @@ import EmployerHRM from '../screens/employer/EmployerHRM';
 import EmployerScheduling from '../screens/employer/EmployerScheduling';
 import EmployerMonitor from '../screens/employer/EmployerMonitor';
 import PayrollSettlementScreen from '../screens/employer/PayrollSettlementScreen';
+import PaymentQRScreen from '../screens/employer/PaymentQRScreen';
 
 export default function MainTabNavigator({ isStudent }) {
   const { currentScreen, navigateTo } = useContext(AppContext);
@@ -75,6 +77,8 @@ export default function MainTabNavigator({ isStudent }) {
         return <EmployerMonitor />;
       case 'payroll_settlement':
         return <PayrollSettlementScreen />;
+      case 'payment_qr':
+        return <PaymentQRScreen />;
       default:
         return <EmployerApprovals />;
     }
@@ -97,7 +101,11 @@ export default function MainTabNavigator({ isStudent }) {
             ]}
             onPress={() => navigateTo('student_dashboard')}
           >
-            <Text style={styles.tabIcon}>🔍</Text>
+            <Ionicons
+              name={currentScreen === 'student_dashboard' || currentScreen === 'job_detail' ? 'search' : 'search-outline'}
+              size={20}
+              color={currentScreen === 'student_dashboard' || currentScreen === 'job_detail' ? '#FF6B00' : '#9CA3AF'}
+            />
             <Text style={[
               styles.tabLabel,
               (currentScreen === 'student_dashboard' || currentScreen === 'job_detail') && styles.activeTabLabelStudent
@@ -108,7 +116,11 @@ export default function MainTabNavigator({ isStudent }) {
             style={[styles.tabItem, currentScreen === 'student_calendar' && styles.activeTabItemStudent]}
             onPress={() => navigateTo('student_calendar')}
           >
-            <Text style={styles.tabIcon}>📅</Text>
+            <Ionicons
+              name={currentScreen === 'student_calendar' ? 'calendar' : 'calendar-outline'}
+              size={20}
+              color={currentScreen === 'student_calendar' ? '#FF6B00' : '#9CA3AF'}
+            />
             <Text style={[styles.tabLabel, currentScreen === 'student_calendar' && styles.activeTabLabelStudent]}>Lịch Roster</Text>
           </TouchableOpacity>
 
@@ -116,15 +128,23 @@ export default function MainTabNavigator({ isStudent }) {
             style={[styles.tabItem, currentScreen === 'student_checkin' && styles.activeTabItemStudent]}
             onPress={() => navigateTo('student_checkin')}
           >
-            <Text style={styles.tabIcon}>📍</Text>
-            <Text style={[styles.tabLabel, currentScreen === 'student_checkin' && styles.activeTabLabelStudent]}>GPS Điểm Danh</Text>
+            <Ionicons
+              name={currentScreen === 'student_checkin' ? 'location' : 'location-outline'}
+              size={20}
+              color={currentScreen === 'student_checkin' ? '#FF6B00' : '#9CA3AF'}
+            />
+            <Text style={[styles.tabLabel, currentScreen === 'student_checkin' && styles.activeTabLabelStudent]}>Điểm Danh</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabItem, currentScreen === 'student_portfolio' && styles.activeTabItemStudent]}
             onPress={() => navigateTo('student_portfolio')}
           >
-            <Text style={styles.tabIcon}>👤</Text>
+            <Ionicons
+              name={currentScreen === 'student_portfolio' ? 'person' : 'person-outline'}
+              size={20}
+              color={currentScreen === 'student_portfolio' ? '#FF6B00' : '#9CA3AF'}
+            />
             <Text style={[styles.tabLabel, currentScreen === 'student_portfolio' && styles.activeTabLabelStudent]}>Hồ Sơ</Text>
           </TouchableOpacity>
         </BlurView>
@@ -140,7 +160,11 @@ export default function MainTabNavigator({ isStudent }) {
             ]}
             onPress={() => navigateTo('employer_approvals')}
           >
-            <Text style={styles.tabIcon}>📋</Text>
+            <Ionicons
+              name={currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list' ? 'briefcase' : 'briefcase-outline'}
+              size={20}
+              color={currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list' ? '#0A58CA' : '#9CA3AF'}
+            />
             <Text style={[
               styles.tabLabel,
               (currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list') && styles.activeTabLabelEmployer
@@ -151,7 +175,11 @@ export default function MainTabNavigator({ isStudent }) {
             style={[styles.tabItem, currentScreen === 'employer_hrm' && styles.activeTabItemEmployer]}
             onPress={() => navigateTo('employer_hrm')}
           >
-            <Text style={styles.tabIcon}>👥</Text>
+            <Ionicons
+              name={currentScreen === 'employer_hrm' ? 'people' : 'people-outline'}
+              size={20}
+              color={currentScreen === 'employer_hrm' ? '#0A58CA' : '#9CA3AF'}
+            />
             <Text style={[styles.tabLabel, currentScreen === 'employer_hrm' && styles.activeTabLabelEmployer]}>Nhân Sự</Text>
           </TouchableOpacity>
 
@@ -159,7 +187,11 @@ export default function MainTabNavigator({ isStudent }) {
             style={[styles.tabItem, currentScreen === 'employer_scheduling' && styles.activeTabItemEmployer]}
             onPress={() => navigateTo('employer_scheduling')}
           >
-            <Text style={styles.tabIcon}>🗓️</Text>
+            <Ionicons
+              name={currentScreen === 'employer_scheduling' ? 'calendar' : 'calendar-outline'}
+              size={20}
+              color={currentScreen === 'employer_scheduling' ? '#0A58CA' : '#9CA3AF'}
+            />
             <Text style={[styles.tabLabel, currentScreen === 'employer_scheduling' && styles.activeTabLabelEmployer]}>Xếp Lịch</Text>
           </TouchableOpacity>
 
@@ -167,21 +199,29 @@ export default function MainTabNavigator({ isStudent }) {
             style={[styles.tabItem, currentScreen === 'employer_monitor' && styles.activeTabItemEmployer]}
             onPress={() => navigateTo('employer_monitor')}
           >
-            <Text style={styles.tabIcon}>📡</Text>
+            <Ionicons
+              name={currentScreen === 'employer_monitor' ? 'navigate' : 'navigate-outline'}
+              size={20}
+              color={currentScreen === 'employer_monitor' ? '#0A58CA' : '#9CA3AF'}
+            />
             <Text style={[styles.tabLabel, currentScreen === 'employer_monitor' && styles.activeTabLabelEmployer]}>GPS Live</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.tabItem,
-              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package') && styles.activeTabItemEmployer
+              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabItemEmployer
             ]}
             onPress={() => navigateTo('payroll_settlement')}
           >
-            <Text style={styles.tabIcon}>💵</Text>
+            <Ionicons
+              name={currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' ? 'wallet' : 'wallet-outline'}
+              size={20}
+              color={currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' ? '#0A58CA' : '#9CA3AF'}
+            />
             <Text style={[
               styles.tabLabel,
-              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package') && styles.activeTabLabelEmployer
+              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabLabelEmployer
             ]}>Quyết Toán</Text>
           </TouchableOpacity>
         </BlurView>
@@ -203,13 +243,13 @@ const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 24 : 16,
-    left: 12,
-    right: 12,
-    height: 64,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 24,
+    left: 16,
+    right: 16,
+    height: 68,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(229, 231, 235, 0.5)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -217,38 +257,37 @@ const styles = StyleSheet.create({
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 10,
+    shadowRadius: 12,
     overflow: 'hidden',
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginHorizontal: 3,
+    paddingVertical: 8,
+    borderRadius: 14,
+    marginHorizontal: 4,
     marginVertical: 4,
-    height: 52,
+    height: 56,
   },
   activeTabItemStudent: {
-    backgroundColor: '#FF6B001F',
+    backgroundColor: '#FF6B000C',
   },
   activeTabItemEmployer: {
-    backgroundColor: '#0A58CA1F',
-  },
-  tabIcon: {
-    fontSize: 16,
-    marginBottom: 2,
+    backgroundColor: '#0A58CA0C',
   },
   tabLabel: {
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: '#6B7280',
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginTop: 3,
   },
   activeTabLabelStudent: {
     color: '#FF6B00',
+    fontWeight: '700',
   },
   activeTabLabelEmployer: {
     color: '#0A58CA',
+    fontWeight: '700',
   },
 });

@@ -41,15 +41,19 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Queries
             var items = await query.Skip((request.PageNumber - 1) * request.PageSize)
                                    .Take(request.PageSize)
                                    .Select(j => new JobPostSummaryDto
-                                   {
-                                       Id = j.Id,
-                                       Title = j.Title,
-                                       Status = j.Status,
-                                       CategoryName = j.Category != null ? j.Category.Name : null,
-                                       Address = j.Location != null ? j.Location.Address : null,
-                                       ShiftCount = j.Shifts.Count,
-                                       CreatedAt = j.CreatedAt
-                                   })
+                                    {
+                                        Id = j.Id,
+                                        Title = j.Title,
+                                        Status = j.Status,
+                                        CategoryName = j.Category != null ? j.Category.Name : null,
+                                        Address = j.Location != null ? j.Location.Address : null,
+                                        Latitude = j.Location != null ? j.Location.Latitude : 0,
+                                        Longitude = j.Location != null ? j.Location.Longitude : 0,
+                                        Description = j.Description,
+                                        Requirements = j.Requirements,
+                                        ShiftCount = j.Shifts.Count,
+                                        CreatedAt = j.CreatedAt
+                                    })
                                    .ToListAsync(cancellationToken);
 
             return new PagedResult<JobPostSummaryDto>

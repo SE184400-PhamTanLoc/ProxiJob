@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,10 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
-  Image
+  Image,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { getCategoriesApi, getSkillsApi, getJobPostById } from '../../api/jobs';
 
 export default function EmployerApprovals() {
   const { 
@@ -18,14 +23,170 @@ export default function EmployerApprovals() {
     handleLeaveRequest,
     navigateTo,
     loadEmployerJobs,
+    updateJobPostWizard,
+    deleteJobPost,
+    showToast,
     user
   } = useContext(AppContext);
 
   const [activeSegment, setActiveSegment] = useState('job_posts'); // 'job_posts' | 'leaves'
 
-  React.useEffect(() => {
+  // Categories & Skills local states
+  const [categories, setCategories] = useState([
+    { id: 1, name: 'Giao hàng' },
+    { id: 2, name: 'Dịch vụ thú cưng' },
+    { id: 3, name: 'Gia sư' },
+    { id: 4, name: 'Sửa chữa' },
+    { id: 5, name: 'Phục vụ' },
+    { id: 6, name: 'Khác' }
+  ]);
+  const [skillsList, setSkillsList] = useState([
+    { id: 1, name: 'Giao tiếp' },
+    { id: 2, name: 'Pha chế' },
+    { id: 3, name: 'Xử lý tình huống' },
+    { id: 4, name: 'Tiếng Anh' },
+    { id: 5, name: 'Sử dụng máy POS' },
+    { id: 6, name: 'Làm việc nhóm' }
+  ]);
+
+  // Edit Modal States
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingJobId, setEditingJobId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategoryId, setEditCategoryId] = useState('5');
+  const [editDescription, setEditDescription] = useState('');
+  const [editRequirements, setEditRequirements] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editLatitude, setEditLatitude] = useState('');
+  const [editLongitude, setEditLongitude] = useState('');
+  const [editSelectedSkills, setEditSelectedSkills] = useState([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Delete Modal States
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deletingShift, setDeletingShift] = useState(null);
+  const [deletingJob, setDeletingJob] = useState(false);
+
+  useEffect(() => {
     loadEmployerJobs();
+
+    // Fetch categories and skills from backend
+    getCategoriesApi().then(res => {
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || []));
+      if (list.length > 0) setCategories(list);
+    }).catch(e => console.log('Error loading categories in approvals:', e));
+
+    getSkillsApi().then(res => {
+      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || []));
+      if (list.length > 0) setSkillsList(list);
+    }).catch(e => console.log('Error loading skills in approvals:', e));
   }, []);
+
+  // Handle Delete Press
+  const handleDeletePress = (shift) => {
+    setDeletingShift(shift);
+    setDeleteModalVisible(true);
+  };
+
+  // Handle Confirm Delete
+  const handleConfirmDelete = async () => {
+    if (!deletingShift) return;
+    try {
+      setDeletingJob(true);
+      const success = await deleteJobPost(deletingShift.jobPostId);
+      if (success) {
+        setDeleteModalVisible(false);
+        setDeletingShift(null);
+        await loadEmployerJobs();
+      }
+    } catch (err) {
+      console.log('Error deleting job post:', err);
+      showToast('Có lỗi xảy ra khi xóa bài đăng.', 'error');
+    } finally {
+      setDeletingJob(false);
+    }
+  };
+
+  // Handle Edit Press
+  const handleEditPress = async (shift) => {
+    try {
+      setLoadingDetails(true);
+      setEditModalVisible(true); // Open modal immediately to show loader and eliminate perceived delay
+      const originalJob = await getJobPostById(shift.jobPostId);
+      if (!originalJob) {
+        setEditModalVisible(false);
+        showToast('Không tìm thấy thông tin bài đăng gốc.', 'error');
+        return;
+      }
+      
+      setEditingJobId(originalJob.id);
+      setEditTitle(originalJob.title || '');
+      setEditDescription(originalJob.description || '');
+      setEditRequirements(originalJob.requirements || '');
+      
+      const cat = categories.find(c => c.name === originalJob.categoryName);
+      setEditCategoryId(cat ? String(cat.id) : '6');
+      
+      setEditAddress(originalJob.location?.address || '');
+      setEditLatitude(String(originalJob.location?.latitude || ''));
+      setEditLongitude(String(originalJob.location?.longitude || ''));
+      
+      const skillIds = Array.isArray(originalJob.skills) 
+        ? originalJob.skills.map(s => s.id) 
+        : [];
+      setEditSelectedSkills(skillIds);
+    } catch (err) {
+      console.log('Error opening edit modal:', err);
+      setEditModalVisible(false);
+      showToast('Không thể tải thông tin chi tiết bài đăng.', 'error');
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  // Handle Submit Edit
+  const handleSubmitEdit = async () => {
+    if (!editTitle.trim()) {
+      showToast('Vui lòng nhập tiêu đề!', 'warning');
+      return;
+    }
+    if (!editDescription.trim()) {
+      showToast('Vui lòng nhập mô tả!', 'warning');
+      return;
+    }
+    if (!editAddress.trim()) {
+      showToast('Vui lòng nhập địa chỉ!', 'warning');
+      return;
+    }
+
+    setSavingEdit(true);
+    const success = await updateJobPostWizard(editingJobId, {
+      title: editTitle,
+      description: editDescription,
+      requirements: editRequirements,
+      categoryId: editCategoryId,
+      address: editAddress,
+      latitude: editLatitude,
+      longitude: editLongitude,
+      skillIds: editSelectedSkills
+    });
+    setSavingEdit(false);
+
+    if (success) {
+      setEditModalVisible(false);
+      await loadEmployerJobs();
+    }
+  };
+
+  // Toggle skill
+  const handleSkillToggle = (skillId) => {
+    if (editSelectedSkills.includes(skillId)) {
+      setEditSelectedSkills(editSelectedSkills.filter(id => id !== skillId));
+    } else {
+      setEditSelectedSkills([...editSelectedSkills, skillId]);
+    }
+  };
 
   // Filter pending leave requests
   const pendingLeaves = leaveRequests.filter(l => l.status === 'pending');
@@ -112,16 +273,33 @@ export default function EmployerApprovals() {
                       <Text style={styles.jobShopName}>{shift.shopName.toUpperCase()}</Text>
                       <Text style={styles.jobTitleText}>{shift.title}</Text>
                     </View>
-                    <View style={[
-                      styles.candidateBadge,
-                      hasApplicants ? styles.candidateBadgeActive : styles.candidateBadgeInactive
-                    ]}>
-                      <Text style={[
-                        styles.candidateBadgeText,
-                        hasApplicants ? styles.candidateBadgeTextActive : styles.candidateBadgeTextInactive
+                    <View style={styles.headerRightContainer}>
+                      <View style={[
+                        styles.candidateBadge,
+                        hasApplicants ? styles.candidateBadgeActive : styles.candidateBadgeInactive,
+                        { marginBottom: 6 }
                       ]}>
-                        Ứng viên: {applicantCount}
-                      </Text>
+                        <Text style={[
+                          styles.candidateBadgeText,
+                          hasApplicants ? styles.candidateBadgeTextActive : styles.candidateBadgeTextInactive
+                        ]}>
+                          Ứng viên: {applicantCount}
+                        </Text>
+                      </View>
+                      <View style={styles.cardActionsRow}>
+                        <TouchableOpacity 
+                          style={[styles.cardActionBtn, { marginRight: 8 }]} 
+                          onPress={() => handleEditPress(shift)}
+                        >
+                          <Text style={styles.cardActionIcon}>✏️</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.cardActionBtn, styles.cardActionBtnDelete]} 
+                          onPress={() => handleDeletePress(shift)}
+                        >
+                          <Text style={styles.cardActionIcon}>🗑️</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
 
@@ -315,8 +493,200 @@ export default function EmployerApprovals() {
         onPress={() => navigateTo('employer_emergency_post')}
         activeOpacity={0.8}
       >
-        <Text style={styles.floatingFabIcon}>+</Text>
+        <View style={styles.fabPlusHorizontal} />
+        <View style={styles.fabPlusVertical} />
       </TouchableOpacity>
+
+      {/* Edit Job Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chỉnh sửa bài đăng</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.closeModalBtn}>
+                <Text style={styles.closeModalIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {loadingDetails ? (
+              <View style={styles.modalLoaderContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.modalLoaderText}>Đang tải chi tiết bài đăng...</Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+                <View style={styles.modalFormGroup}>
+                  <Text style={styles.modalInputLabel}>Tiêu đề công việc</Text>
+                  <TextInput
+                    style={styles.modalPremiumInput}
+                    value={editTitle}
+                    onChangeText={setEditTitle}
+                    placeholder="Nhập tiêu đề công việc..."
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.modalInputLabel}>Danh mục công việc</Text>
+                  <View style={styles.modalCategoryGrid}>
+                    {categories.map((cat) => {
+                      const isSelected = editCategoryId === String(cat.id);
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={[
+                            styles.modalCategoryPill,
+                            isSelected && styles.modalCategoryPillActive
+                          ]}
+                          onPress={() => setEditCategoryId(String(cat.id))}
+                        >
+                          <Text style={[
+                            styles.modalCategoryPillText,
+                            isSelected && styles.modalCategoryPillTextActive
+                          ]}>
+                            {cat.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={styles.modalInputLabel}>Mô tả công việc</Text>
+                  <TextInput
+                    style={[styles.modalPremiumInput, styles.modalTextArea]}
+                    value={editDescription}
+                    onChangeText={setEditDescription}
+                    multiline
+                    numberOfLines={4}
+                    placeholder="Nhập mô tả chi tiết công việc..."
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.modalInputLabel}>Yêu cầu đối với ứng viên</Text>
+                  <TextInput
+                    style={[styles.modalPremiumInput, styles.modalTextArea, { height: 80 }]}
+                    value={editRequirements}
+                    onChangeText={setEditRequirements}
+                    multiline
+                    numberOfLines={3}
+                    placeholder="Nhập yêu cầu đối với ứng viên..."
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.modalInputLabel}>Địa chỉ làm việc</Text>
+                  <TextInput
+                    style={styles.modalPremiumInput}
+                    value={editAddress}
+                    onChangeText={setEditAddress}
+                    placeholder="Nhập địa chỉ làm việc..."
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  {/* Skills Section */}
+                  <Text style={styles.modalInputLabel}>Kỹ năng yêu cầu</Text>
+                  <View style={styles.modalSkillsContainer}>
+                    {skillsList.map((skill) => {
+                      const isSelected = editSelectedSkills.includes(skill.id);
+                      return (
+                        <TouchableOpacity
+                          key={skill.id}
+                          style={[
+                            styles.modalSkillPill,
+                            isSelected && styles.modalSkillPillActive
+                          ]}
+                          onPress={() => handleSkillToggle(skill.id)}
+                        >
+                          <Text style={[
+                            styles.modalSkillPillText,
+                            isSelected && styles.modalSkillPillTextActive
+                          ]}>
+                            {isSelected ? '✓ ' : ''}{skill.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </ScrollView>
+            )}
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setEditModalVisible(false)}
+                disabled={savingEdit}
+              >
+                <Text style={styles.modalCancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleSubmitEdit}
+                disabled={savingEdit}
+              >
+                {savingEdit ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSaveBtnText}>Lưu thay đổi ⚡</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Custom Delete Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={deleteModalVisible}
+        onRequestClose={() => {
+          setDeleteModalVisible(false);
+          setDeletingShift(null);
+        }}
+      >
+        <SafeAreaView style={styles.confirmOverlay}>
+          <View style={styles.confirmContent}>
+            {/* Circular warning icon badge */}
+            <View style={styles.warningBadge}>
+              <Text style={styles.warningBadgeText}>!</Text>
+            </View>
+
+            <Text style={styles.confirmTitle}>Xác nhận xóa bài đăng</Text>
+            <Text style={styles.confirmMessage}>
+              Bạn có chắc chắn muốn xóa bài đăng{'\n'}
+              <Text style={styles.confirmJobTitle}>"{deletingShift?.title}"</Text>?{'\n'}
+              Hành động này không thể hoàn tác.
+            </Text>
+
+            <View style={styles.confirmFooter}>
+              <TouchableOpacity
+                style={styles.confirmCancelBtn}
+                onPress={() => {
+                  setDeleteModalVisible(false);
+                  setDeletingShift(null);
+                }}
+                disabled={deletingJob}
+              >
+                <Text style={styles.confirmCancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmDeleteBtn}
+                onPress={handleConfirmDelete}
+                disabled={deletingJob}
+              >
+                {deletingJob ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.confirmDeleteBtnText}>Xóa tin ⚡</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -605,24 +975,36 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 24,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#FF6B00', // Neon Orange accent
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FF6B00',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
     elevation: 6,
     zIndex: 99,
   },
-  floatingFabIcon: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: 'bold',
-    lineHeight: 28,
+  fabPlusHorizontal: {
+    position: 'absolute',
+    left: 18,
+    top: 26,
+    width: 20,
+    height: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+  },
+  fabPlusVertical: {
+    position: 'absolute',
+    left: 26,
+    top: 18,
+    width: 4,
+    height: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
   },
   emptyState: {
     alignItems: 'center',
@@ -819,5 +1201,305 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
-  }
+  },
+  headerRightContainer: {
+    alignItems: 'flex-end',
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+  },
+  cardActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EEF1F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E9EB',
+  },
+  cardActionBtnDelete: {
+    backgroundColor: '#FFDAD6',
+    borderColor: '#FFDAD6',
+  },
+  cardActionIcon: {
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(24, 28, 30, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '85%',
+    display: 'flex',
+    flexDirection: 'column',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E9EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#181C1E',
+  },
+  closeModalBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EEF1F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeModalIcon: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#5A4136',
+  },
+  modalScrollView: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  modalFormGroup: {
+    marginBottom: 20,
+  },
+  modalInputLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  modalPremiumInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalTextArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  modalCategoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  modalCategoryPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 99,
+    backgroundColor: '#F1F5F9',
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalCategoryPillActive: {
+    backgroundColor: '#FF6B001F',
+    borderColor: '#FF6B00',
+  },
+  modalCategoryPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  modalCategoryPillTextActive: {
+    color: '#FF6B00',
+  },
+  modalSkillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+  },
+  modalSkillPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 99,
+    backgroundColor: '#F1F5F9',
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalSkillPillActive: {
+    backgroundColor: '#FF6B001F',
+    borderColor: '#FF6B00',
+  },
+  modalSkillPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  modalSkillPillTextActive: {
+    color: '#FF6B00',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E9EB',
+    backgroundColor: '#FFFFFF',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 9999,
+    backgroundColor: '#EEF1F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalCancelBtnText: {
+    color: '#5A4136',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modalSaveBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: 9999,
+    backgroundColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  modalSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modalLoaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  modalLoaderText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 10,
+    fontWeight: '600',
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(24, 28, 30, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  confirmContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  warningBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  warningBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#181C1E',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  confirmMessage: {
+    fontSize: 13,
+    color: '#5A4136',
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  confirmJobTitle: {
+    fontWeight: '800',
+    color: '#FF6B00',
+  },
+  confirmFooter: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 9999,
+    backgroundColor: '#EEF1F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  confirmCancelBtnText: {
+    color: '#5A4136',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  confirmDeleteBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 9999,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  confirmDeleteBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
 });

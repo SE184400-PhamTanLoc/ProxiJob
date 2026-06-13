@@ -5,68 +5,107 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView
+  Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
+function getCurrentWeekDays() {
+  const today = new Date();
+  const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+  const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+  
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + distanceToMonday);
+  
+  const days = [];
+  const dayNames = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    
+    const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+    const apiDateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+    const isToday = d.toDateString() === today.toDateString();
+    
+    days.push({
+      name: dayNames[i],
+      date: dateStr,
+      apiDateStr: apiDateStr,
+      isToday: isToday,
+      fullYear: d.getFullYear(),
+      month: d.getMonth() + 1
+    });
+  }
+  return days;
+}
+
 export default function StudentCalendar() {
   const { shifts, navigateTo, loadMyApplications, user } = useContext(AppContext);
+  const [weekDays, setWeekDays] = useState([]);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'completed'
-  const [selectedDay, setSelectedDay] = useState(5); // June 5th (default current day)
 
   React.useEffect(() => {
     if (user?.id) {
       loadMyApplications(user.id);
     }
+    const days = getCurrentWeekDays();
+    setWeekDays(days);
+    const todayIdx = days.findIndex(d => d.isToday);
+    setSelectedDayIndex(todayIdx >= 0 ? todayIdx : 0);
   }, []);
 
-  // Filter approved/active/applied shifts
-  const upcomingShifts = shifts.filter(
+  const isSameDate = (shiftStartTime, apiDateStr) => {
+    if (!shiftStartTime || !apiDateStr) return false;
+    try {
+      const shiftDate = new Date(shiftStartTime);
+      const [year, month, day] = apiDateStr.split('-').map(Number);
+      return shiftDate.getFullYear() === year && 
+             (shiftDate.getMonth() + 1) === month && 
+             shiftDate.getDate() === day;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const selectedDay = weekDays[selectedDayIndex];
+
+  // Filter approved/active/applied shifts globally
+  const upcomingShiftsGlobal = shifts.filter(
     (s) => s.status === 'approved' || s.status === 'checkin_active' || s.status === 'applied'
   );
 
-  // Filter completed shifts
-  const completedShifts = shifts.filter((s) => s.status === 'completed');
+  // Filter completed shifts globally
+  const completedShiftsGlobal = shifts.filter((s) => s.status === 'completed');
+
+  // Filter approved/active/applied shifts by selected day
+  const upcomingShifts = upcomingShiftsGlobal.filter(s =>
+    selectedDay ? isSameDate(s.startTime, selectedDay.apiDateStr) : true
+  );
+
+  // Filter completed shifts by selected day
+  const completedShifts = completedShiftsGlobal.filter(s =>
+    selectedDay ? isSameDate(s.startTime, selectedDay.apiDateStr) : true
+  );
 
   // Calculate monthly earnings
-  const completedEarnings = completedShifts.reduce((sum, s) => sum + s.hourlyRate * 4, 0); // assume 4hr shifts
-  const projectedEarnings = upcomingShifts.filter(s => s.status !== 'applied').reduce((sum, s) => sum + s.hourlyRate * 4, 0);
+  const completedEarnings = completedShiftsGlobal.reduce((sum, s) => sum + s.hourlyRate * 4, 0); // assume 4hr shifts
+  const projectedEarnings = upcomingShiftsGlobal.filter(s => s.status !== 'applied').reduce((sum, s) => sum + s.hourlyRate * 4, 0);
   const totalEarnings = completedEarnings + projectedEarnings + 3250000; // seed static baseline earnings
 
-  // Mock Calendar days for June 2026 (June 1st is Monday)
-  const days = [
-    { num: 1, hasShift: false },
-    { num: 2, hasShift: false },
-    { num: 3, hasShift: false },
-    { num: 4, hasShift: false },
-    { num: 5, hasShift: true, isToday: true },
-    { num: 6, hasShift: true },
-    { num: 7, hasShift: true },
-    { num: 8, hasShift: true },
-    { num: 9, hasShift: false },
-    { num: 10, hasShift: false },
-    { num: 11, hasShift: false },
-    { num: 12, hasShift: false },
-    { num: 13, hasShift: false },
-    { num: 14, hasShift: false },
-    { num: 15, hasShift: false },
-    { num: 16, hasShift: false },
-    { num: 17, hasShift: false },
-    { num: 18, hasShift: false },
-    { num: 19, hasShift: false },
-    { num: 20, hasShift: false },
-    { num: 21, hasShift: false },
-    { num: 22, hasShift: false },
-    { num: 23, hasShift: false },
-    { num: 24, hasShift: false },
-    { num: 25, hasShift: false },
-    { num: 26, hasShift: false },
-    { num: 27, hasShift: false },
-    { num: 28, hasShift: false },
-    { num: 29, hasShift: false },
-    { num: 30, hasShift: false },
-  ];
+  const getTimelineLabel = () => {
+    if (!selectedDay) return 'Tuần này';
+    return `Tuần này (Tháng ${selectedDay.month}, ${selectedDay.fullYear})`;
+  };
+
+  const getDaySummaryTitle = () => {
+    if (!selectedDay) return 'Lịch trình';
+    const dayName = selectedDay.name === 'CN' ? 'Chủ Nhật' : `Thứ ${selectedDay.name.slice(1)}`;
+    return `Lịch trình: ${dayName} (${selectedDay.date}/${selectedDay.fullYear})`;
+  };
 
   const renderShiftItem = (shift) => {
     const isWorking = shift.status === 'checkin_active';
@@ -75,10 +114,14 @@ export default function StudentCalendar() {
     const isApproved = shift.status === 'approved';
 
     return (
-      <View key={shift.id} style={[styles.shiftCard, theme.shadows.light]}>
+      <View key={shift.id} style={styles.shiftCard}>
+        {/* Futuristic Viewfinder Bracket Accents */}
+        <View style={styles.viewfinderCornerTL} />
+        <View style={styles.viewfinderCornerBR} />
+
         <View style={styles.shiftCardHeader}>
-          <View style={{flex: 1}}>
-            <Text style={styles.shiftShopName}>{shift.shopName}</Text>
+          <View style={{flex: 1, paddingRight: 8}}>
+            <Text style={styles.shiftShopName}>{shift.shopName.toUpperCase()}</Text>
             <Text style={styles.shiftTitle}>{shift.title}</Text>
           </View>
           <View style={[
@@ -109,26 +152,29 @@ export default function StudentCalendar() {
         </View>
 
         {!isCompleted && (
-          <TouchableOpacity
-            style={[
-              styles.checkInActionBtn, 
-              isWorking && { backgroundColor: theme.colors.success },
-              isApplied && { backgroundColor: theme.colors.textLight }
-            ]}
-            disabled={isApplied}
-            onPress={() => navigateTo('student_checkin', { shiftId: shift.id })}
-          >
-            <Text style={styles.checkInActionText}>
-              {isWorking ? 'Xem phiên điểm danh GPS' : isApplied ? 'Đang chờ chủ quán duyệt hồ sơ...' : '📍 Đến điểm check-in GPS'}
-            </Text>
-          </TouchableOpacity>
+          <>
+            <View style={styles.cardDivider} />
+            <TouchableOpacity
+              style={[
+                styles.checkInActionBtn, 
+                isWorking && { backgroundColor: theme.colors.success },
+                isApplied && { backgroundColor: theme.colors.textLight }
+              ]}
+              disabled={isApplied}
+              onPress={() => navigateTo('student_checkin', { shiftId: shift.id })}
+            >
+              <Text style={styles.checkInActionText}>
+                {isWorking ? 'Xem phiên điểm danh GPS' : isApplied ? 'Đang chờ chủ quán duyệt hồ sơ...' : '📍 Đến điểm check-in GPS'}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       {/* Earnings Header */}
       <View style={styles.earningsCard}>
         <Text style={styles.earningsLabel}>Tổng thu nhập dự kiến tháng này</Text>
@@ -139,50 +185,55 @@ export default function StudentCalendar() {
         </View>
       </View>
 
+      {/* Week Day Header Slider */}
+      <View style={styles.weekTimeline}>
+        <Text style={styles.timelineLabel}>{getTimelineLabel()}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
+          {weekDays.map((day, idx) => {
+            const isSelected = selectedDayIndex === idx;
+            const dayHasShift = shifts.some(s => isSameDate(s.startTime, day.apiDateStr));
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={[
+                  styles.dayHeaderCell,
+                  isSelected && styles.selectedDayHeaderCell,
+                  day.isToday && !isSelected && styles.todayHeaderCell
+                ]}
+                onPress={() => setSelectedDayIndex(idx)}
+              >
+                <Text style={[
+                  styles.dayNameText,
+                  isSelected && styles.selectedDayNameText,
+                  day.isToday && { color: theme.colors.student }
+                ]}>
+                  {day.name}
+                </Text>
+                <Text style={[
+                  styles.dayDateText,
+                  isSelected && styles.selectedDayDateText
+                ]}>
+                  {day.date.split('/')[0]}
+                </Text>
+                {isSelected && <View style={styles.activeIndicatorDot} />}
+                {day.isToday && !isSelected && <View style={styles.todayIndicatorDot} />}
+                {dayHasShift && (
+                  <View style={[
+                    styles.shiftDot,
+                    isSelected && { backgroundColor: theme.colors.white }
+                  ]} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Calendar Title */}
-        <Text style={styles.sectionHeader}>Tháng 6, 2026</Text>
-        
-        {/* Custom Mock Calendar Grid */}
-        <View style={[styles.calendarContainer, theme.shadows.light]}>
-          {/* Weekday headers */}
-          <View style={styles.weekHeaders}>
-            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((h, i) => (
-              <Text key={i} style={styles.weekHeaderText}>{h}</Text>
-            ))}
-          </View>
-          
-          {/* Month grid */}
-          <View style={styles.daysGrid}>
-            {days.map((day) => {
-              const isSelected = selectedDay === day.num;
-              return (
-                <TouchableOpacity
-                  key={day.num}
-                  style={[
-                    styles.dayCell,
-                    day.isToday && styles.todayCell,
-                    isSelected && styles.selectedDayCell
-                  ]}
-                  onPress={() => setSelectedDay(day.num)}
-                >
-                  <Text style={[
-                    styles.dayNumber,
-                    day.isToday && styles.todayDayNumber,
-                    isSelected && styles.selectedDayNumber
-                  ]}>
-                    {day.num}
-                  </Text>
-                  {day.hasShift && (
-                    <View style={[
-                      styles.shiftDot,
-                      isSelected && { backgroundColor: theme.colors.white }
-                    ]} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        {/* Day Summary Header */}
+        <View style={styles.daySummary}>
+          <Text style={styles.summaryTitle}>{getDaySummaryTitle()}</Text>
+          {selectedDay?.isToday && <Text style={styles.todayTag}>Hôm nay</Text>}
         </View>
 
         {/* Tab Selection */}
@@ -210,7 +261,7 @@ export default function StudentCalendar() {
           {activeTab === 'upcoming' ? (
             upcomingShifts.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>Bạn không có lịch làm việc nào sắp tới.</Text>
+                <Text style={styles.emptyText}>Bạn không có lịch làm việc nào sắp tới vào ngày này.</Text>
                 <Text style={styles.emptySubText}>Vào mục tìm kiếm để nhận thêm ca mới nhé!</Text>
               </View>
             ) : (
@@ -219,7 +270,7 @@ export default function StudentCalendar() {
           ) : (
             completedShifts.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>Chưa có lịch sử ca làm nào được lưu lại.</Text>
+                <Text style={styles.emptyText}>Chưa có lịch sử ca làm nào vào ngày này.</Text>
                 <Text style={styles.emptySubText}>Hoàn thành các ca làm được giao để nhận lương.</Text>
               </View>
             ) : (
@@ -276,75 +327,129 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: theme.spacing.xl,
   },
-  sectionHeader: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
+  weekTimeline: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBEEF0',
   },
-  calendarContainer: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginHorizontal: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  weekHeaders: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  weekHeaderText: {
-    width: 32,
-    textAlign: 'center',
+  timelineLabel: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: theme.colors.textMuted,
+    color: '#94A3B8',
+    paddingHorizontal: 16,
+    marginBottom: 8,
   },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  daysScroll: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
-  dayCell: {
-    width: 38,
-    height: 38,
+  dayHeaderCell: {
+    width: 52,
+    height: 76,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 4,
-    borderRadius: 8,
-    position: 'relative',
-  },
-  todayCell: {
+    marginHorizontal: 6,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
+    borderColor: 'rgba(226, 191, 176, 0.2)',
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 1,
+      },
+      web: {
+        boxShadow: '0 4px 20px -5px rgba(0, 0, 0, 0.05)',
+      }
+    }),
+  },
+  selectedDayHeaderCell: {
+    backgroundColor: theme.colors.student,
+    borderColor: theme.colors.student,
+    shadowColor: theme.colors.student,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  todayHeaderCell: {
+    borderWidth: 1.5,
     borderColor: theme.colors.student,
   },
-  selectedDayCell: {
-    backgroundColor: theme.colors.student,
-  },
-  dayNumber: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: theme.colors.text,
-  },
-  todayDayNumber: {
-    color: theme.colors.student,
+  dayNameText: {
+    fontSize: 10,
     fontWeight: 'bold',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
   },
-  selectedDayNumber: {
-    color: theme.colors.white,
-    fontWeight: 'bold',
+  selectedDayNameText: {
+    color: 'rgba(255, 255, 255, 0.8)',
   },
-  shiftDot: {
+  dayDateText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#181C1E',
+    marginTop: 4,
+  },
+  selectedDayDateText: {
+    color: '#FFFFFF',
+  },
+  activeIndicatorDot: {
     position: 'absolute',
-    bottom: 4,
+    bottom: 8,
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#FFFFFF',
+  },
+  todayIndicatorDot: {
+    position: 'absolute',
+    bottom: 8,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.student,
+  },
+  shiftDot: {
+    position: 'absolute',
+    bottom: 8,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.student,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: theme.spacing.xl,
+  },
+  daySummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  todayTag: {
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+    color: theme.colors.student,
+    fontSize: 10,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 9999,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -375,12 +480,40 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
   },
   shiftCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#E5E9EB',
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 15,
+    elevation: 2,
+  },
+  viewfinderCornerTL: {
+    position: 'absolute',
+    top: -1,
+    left: -1,
+    width: 12,
+    height: 12,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: theme.colors.student,
+    borderTopLeftRadius: 6,
+  },
+  viewfinderCornerBR: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: theme.colors.student,
+    borderBottomRightRadius: 6,
   },
   shiftCardHeader: {
     flexDirection: 'row',
@@ -389,52 +522,54 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   shiftShopName: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#5B00DF',
+    letterSpacing: 0.5,
   },
   shiftTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#181C1E',
     marginTop: 2,
   },
   statusBadge: {
-    backgroundColor: theme.colors.primary + '1A',
-    borderRadius: theme.borderRadius.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 9999,
+    backgroundColor: '#FF6B001F',
     borderWidth: 1,
-    borderColor: theme.colors.primary + '33',
+    borderColor: '#FF6B0033',
   },
   badgeWorking: {
-    backgroundColor: theme.colors.success + '1A',
-    borderColor: theme.colors.success + '33',
+    backgroundColor: '#10B9811F',
+    borderColor: '#10B98133',
   },
   badgeCompleted: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderColor: theme.colors.border,
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
   },
   badgeApplied: {
-    backgroundColor: theme.colors.warning + '1A',
-    borderColor: theme.colors.warning + '33',
+    backgroundColor: '#F59E0B1F',
+    borderColor: '#F59E0B33',
   },
   statusText: {
     fontSize: 10,
-    color: theme.colors.primary,
+    color: '#FF6B00',
     fontWeight: 'bold',
   },
   textWorking: {
-    color: theme.colors.success,
+    color: '#10B981',
   },
   textCompleted: {
-    color: theme.colors.textMuted,
+    color: '#6B7280',
   },
   textApplied: {
-    color: theme.colors.warning,
+    color: '#F59E0B',
   },
   shiftCardDetails: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 4,
+    marginTop: 8,
   },
   detailRow: {
     fontSize: 12,
@@ -458,10 +593,16 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontWeight: '600',
   },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#E5E9EB',
+    opacity: 0.6,
+    marginVertical: 12,
+  },
   checkInActionBtn: {
     backgroundColor: theme.colors.student,
     height: 40,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: 9999,
     justifyContent: 'center',
     alignItems: 'center',
   },

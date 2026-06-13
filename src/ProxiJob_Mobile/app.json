@@ -19,6 +19,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép ProxiJob truy cập thư viện ảnh của bạn.",
+          "cameraPermission": "Cho phép ProxiJob truy cập camera của bạn."
+        }
+      ]
+    ]
   }
 }

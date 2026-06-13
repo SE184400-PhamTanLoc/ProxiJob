@@ -35,19 +35,19 @@ namespace ProxiJob.Job.Application.Features.Applications.Commands
                 .FirstOrDefaultAsync(s => s.Id == request.ShiftId, cancellationToken);
 
             if (shift == null || shift.IsDeleted)
-                throw new Exception("Shift not found or deleted.");
+                throw new Exception("Không tìm thấy ca làm hoặc ca làm đã bị xóa.");
 
             if (shift.JobPost.Status != "Published")
-                throw new Exception("Job post is not published.");
+                throw new Exception("Bài đăng tuyển dụng của ca làm này chưa được công bố.");
 
             if (shift.RemainingSlots <= 0)
-                throw new Exception("No remaining slots.");
+                throw new Exception("Ca làm việc đã hết chỗ tuyển dụng.");
 
             var existingApp = await _context.Applications
                 .FirstOrDefaultAsync(a => a.JobShiftId == request.ShiftId && a.StudentId == request.StudentId && (a.Status == "Pending" || a.Status == "Approved"), cancellationToken);
 
             if (existingApp != null)
-                throw new Exception("You have already applied for this shift.");
+                throw new Exception("Bạn đã ứng tuyển vào ca làm này rồi.");
 
             var conflictingApp = await _context.Applications
                 .Include(a => a.JobShift)
@@ -55,7 +55,7 @@ namespace ProxiJob.Job.Application.Features.Applications.Commands
                     && (a.JobShift.StartTime < shift.EndTime && a.JobShift.EndTime > shift.StartTime), cancellationToken);
 
             if (conflictingApp != null)
-                throw new Exception("You have an approved shift that conflicts with this time.");
+                throw new Exception("Bạn đã có ca làm khác trùng khung giờ với ca làm này.");
 
             var cvUrl = await _identityGrpc.GetStudentCVUrlAsync(request.StudentId, cancellationToken);
 

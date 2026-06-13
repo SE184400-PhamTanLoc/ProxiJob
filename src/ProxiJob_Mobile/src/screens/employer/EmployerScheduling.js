@@ -14,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { getAvatarSource } from '../../utils/avatarHelper';
 
 function getCurrentWeekDays() {
   const today = new Date();
@@ -347,19 +348,12 @@ export default function EmployerScheduling() {
           {selectedDay?.isToday && <Text style={styles.todayTag}>Hôm nay</Text>}
         </View>
 
-        {/* Lịch trình chi tiết Header Row with plus button */}
+        {/* Lịch trình chi tiết Header Row */}
         <View style={styles.sectionHeaderRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={styles.sectionTitleIcon}>📋</Text>
             <Text style={styles.sectionTitleText}>Lịch trình chi tiết</Text>
           </View>
-          <TouchableOpacity
-            style={styles.addShiftButton}
-            onPress={() => setAddShiftModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addShiftButtonText}>+</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Shift Grid */}
@@ -405,7 +399,7 @@ export default function EmployerScheduling() {
             const badgeBg = isPrimaryBadge ? 'rgba(255, 107, 0, 0.1)' : 'rgba(91, 0, 223, 0.1)';
             const badgeTextColor = isPrimaryBadge ? '#FF6B00' : '#5B00DF';
 
-            const avatarUrl = `https://i.pravatar.cc/150?u=${encodeURIComponent(assignedStaffName)}`;
+            const avatarSource = getAvatarSource(null, staff?.gender, assignedStaffName);
 
             if (isAssigned) {
               return (
@@ -436,7 +430,7 @@ export default function EmployerScheduling() {
                     onPress={() => openAssignModal(slot.id)}
                     style={styles.assignedStaffBox}
                   >
-                    <Image source={{ uri: avatarUrl }} style={styles.staffAvatarImage} />
+                    <Image source={avatarSource} style={styles.staffAvatarImage} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.staffNameText}>{assignedStaffName}</Text>
                       <Text style={styles.staffRateText}>Lương ca: {rate}</Text>
@@ -528,7 +522,7 @@ export default function EmployerScheduling() {
 
             <ScrollView contentContainerStyle={styles.modalList} showsVerticalScrollIndicator={false}>
               {filteredStaff.map((staff) => {
-                const avatarUrl = `https://i.pravatar.cc/150?u=${encodeURIComponent(staff.name)}`;
+                const avatarSource = getAvatarSource(null, staff.gender, staff.name);
                 const slotSchedule = (localSchedules || []).find(s => s.note === assigningShift?.slotId);
                 const isSelected = slotSchedule && slotSchedule.employeeId === staff.id;
 
@@ -546,7 +540,7 @@ export default function EmployerScheduling() {
                     activeOpacity={0.8}
                   >
                     <View style={styles.staffSelectLeft}>
-                      <Image source={{ uri: avatarUrl }} style={styles.staffSelectAvatar} />
+                      <Image source={avatarSource} style={styles.staffSelectAvatar} />
                       <View>
                         <Text style={styles.selectStaffName}>{staff.name}</Text>
                         <Text style={[styles.selectStaffType, { color: staff.isExternal ? '#5B00DF' : '#FF6B00' }]}>
@@ -666,6 +660,16 @@ export default function EmployerScheduling() {
           </View>
         </View>
       </Modal>
+
+      {/* Floating Action Button (FAB) */}
+      <TouchableOpacity
+        style={styles.floatingFab}
+        onPress={() => setAddShiftModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.fabPlusHorizontal} />
+        <View style={styles.fabPlusVertical} />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -806,34 +810,40 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#181C1E',
   },
-  addShiftButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  floatingFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#FF6B00',
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#FF6B00',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: '0 4px 12px rgba(255, 107, 0, 0.3)',
-      }
-    }),
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
+    zIndex: 99,
   },
-  addShiftButtonText: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '600',
-    lineHeight: 28,
-    textAlign: 'center',
+  fabPlusHorizontal: {
+    position: 'absolute',
+    left: 18,
+    top: 26,
+    width: 20,
+    height: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+  },
+  fabPlusVertical: {
+    position: 'absolute',
+    left: 26,
+    top: 18,
+    width: 4,
+    height: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
   },
 
   shiftGridContainer: {
