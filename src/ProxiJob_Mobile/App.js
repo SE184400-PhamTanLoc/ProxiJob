@@ -19,18 +19,11 @@ import RegisterScreen from "./src/screens/RegisterScreen";
 import ForgotPasswordScreen from "./src/screens/ForgotPasswordScreen";
 import MainTabNavigator from "./src/navigation/MainTabNavigator";
 import Toast from "./src/components/Toast";
+import { Ionicons } from "@expo/vector-icons";
+
+import { getAvatarSource, isValidAvatar } from "./src/utils/avatarHelper";
 
 const cacheBuster = Date.now();
-
-const isValidAvatar = (url) => {
-  if (!url) return false;
-  if (typeof url !== "string") return false;
-  const trimmed = url.trim();
-  if (trimmed.toLowerCase() === "string" || trimmed.toLowerCase() === "null" || trimmed === "") {
-    return false;
-  }
-  return trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:image/");
-};
 
 function MainAppShell() {
   const {
@@ -79,7 +72,7 @@ function MainAppShell() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style="dark" />
-      {avatarMenuOpen && !isStudent && (
+      {avatarMenuOpen && (
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
@@ -90,7 +83,7 @@ function MainAppShell() {
         <SafeAreaView
           edges={["top"]}
           style={{
-            backgroundColor: theme.colors.white,
+            backgroundColor: "#FFFFFF",
             zIndex: 999,
             position: "relative",
           }}
@@ -98,75 +91,42 @@ function MainAppShell() {
           {/* Universal Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <TouchableOpacity
-                style={styles.headerLeftBtn}
-                onPress={() => setAvatarMenuOpen(!avatarMenuOpen)}
-                activeOpacity={0.8}
-                disabled={isStudent}
-              >
-                <View style={styles.avatarWrapper}>
-                  <Image
-                    source={{
-                      uri: isValidAvatar(user?.avatarUrl)
-                        ? (user.avatarUrl.includes("supabase.co") && !user.avatarUrl.includes("?t=")
-                          ? `${user.avatarUrl}?t=${cacheBuster}`
-                          : user.avatarUrl)
-                        : (isStudent
-                          ? "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&q=80"
-                          : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"),
-                    }}
-                    style={styles.avatarImage}
-                  />
-                  {!isStudent && isEnterprise && (
-                    <View style={styles.crownBadge}>
-                      <Text style={styles.crownIcon}>👑</Text>
-                    </View>
-                  )}
-                </View>
-                <View>
-                  <View
-                    style={{ flexDirection: "row", alignItems: "center" }}
-                  >
-                    <Text style={styles.brandTitle}>ProxiJob</Text>
-                    {!isStudent && isEnterprise && (
-                      <View style={styles.activePill}>
-                        <Text style={styles.activePillText}>Enterprise</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.brandSubtitle}>
-                    {isStudent
-                      ? "Student"
-                      : (isEnterprise
-                        ? "Store Management"
-                        : "Nâng cấp tài khoản")}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              <Image
+                source={require("./src/img/proxijob logo.png")}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerBrandText}>ProxiJob</Text>
             </View>
 
             <View style={styles.headerRight}>
               {/* Notification Button */}
               <TouchableOpacity
-                style={styles.headerBtn}
+                style={styles.bellButton}
                 onPress={() => setNotifModalVisible(true)}
+                activeOpacity={0.7}
               >
-                <Text style={styles.btnIcon}>🔔</Text>
-                {unreadNotifsCount > 0 && (
-                  <View style={styles.notifBadge}>
-                    <Text style={styles.notifBadgeText}>
-                      {unreadNotifsCount}
-                    </Text>
-                  </View>
-                )}
+                <Ionicons name="notifications-outline" size={22} color="#1E293B" />
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>7</Text>
+                </View>
               </TouchableOpacity>
 
-              {/* Logout Button */}
+              {/* Avatar Button */}
               <TouchableOpacity
-                style={[styles.headerBtn, styles.logoutBtn]}
-                onPress={logout}
+                style={styles.avatarTouch}
+                onPress={() => setAvatarMenuOpen(!avatarMenuOpen)}
+                activeOpacity={0.8}
               >
-                <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+                <Image
+                  source={getAvatarSource(user?.avatarUrl, user?.gender, user?.name)}
+                  style={styles.headerAvatar}
+                />
+                {!isStudent && isEnterprise && (
+                  <View style={styles.crownBadge}>
+                    <Text style={styles.crownIcon}>👑</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -174,50 +134,78 @@ function MainAppShell() {
           {/* Avatar Dropdown Menu */}
           {avatarMenuOpen && (
             <View style={styles.dropdownMenu}>
-              <Text style={styles.dropdownUser}>
-                {user?.name || (isStudent ? "Sinh viên" : "Chủ quán")}
-              </Text>
-              <Text style={styles.dropdownEmail}>{user?.email}</Text>
-              <View style={styles.dropdownDivider} />
+              {/* Close Button */}
+              <TouchableOpacity
+                style={styles.closeDropdownBtn}
+                onPress={() => setAvatarMenuOpen(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeDropdownText}>✕</Text>
+              </TouchableOpacity>
 
-              <View style={styles.dropdownStatusRow}>
-                <Text style={styles.dropdownStatusLabel}>
-                  {isStudent ? "Vai trò:" : "Gói dịch vụ:"}
+              {/* Section 1: Current Plan */}
+              <View style={styles.dropdownSection1}>
+                <Text style={styles.dropdownStoreName}>
+                  {isStudent ? (user?.name || "Sinh viên") : "DN Test ProxiJob"}
                 </Text>
-                <Text
-                  style={[
-                    styles.dropdownStatusValue,
-                    !isStudent && isEnterprise && { color: "#0A58CA", fontWeight: "800" },
-                  ]}
-                >
-                  {isStudent ? "Student" : (user?.subscriptionTier || "Free")}
+                <Text style={styles.dropdownEmail}>
+                  {isStudent ? (user?.email || "student@proxijob.test") : "business@proxijob.test"}
                 </Text>
+                <View style={styles.planRow}>
+                  <Text style={styles.planLabel}>
+                    {isStudent ? "Vai trò:" : "Gói dịch vụ:"}
+                  </Text>
+                  <View style={isStudent ? styles.studentPill : styles.enterprisePill}>
+                    <Text style={isStudent ? styles.studentPillText : styles.enterprisePillText}>
+                      {isStudent ? "Student" : "Enterprise"}
+                    </Text>
+                  </View>
+                </View>
               </View>
 
+              {/* Section 2: All Packages */}
               {!isStudent && (
                 <TouchableOpacity
                   style={styles.dropdownItem}
+                  activeOpacity={0.6}
                   onPress={() => {
                     setAvatarMenuOpen(false);
                     navigateTo("upgrade_package");
                   }}
                 >
-                  <Text style={styles.dropdownItemText}>
-                    📋 Xem các gói dịch vụ
-                  </Text>
+                  <Ionicons name="grid-outline" size={18} color="#64748B" style={styles.dropdownItemIcon} />
+                  <Text style={styles.dropdownItemText}>Xem các gói dịch vụ</Text>
                 </TouchableOpacity>
               )}
 
+              {/* Section 3: Store Profile */}
+              {!isStudent && (
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  activeOpacity={0.6}
+                  onPress={() => {
+                    setAvatarMenuOpen(false);
+                    showToast("Profile quán đang được thiết lập", "info");
+                  }}
+                >
+                  <Ionicons name="storefront-outline" size={18} color="#64748B" style={styles.dropdownItemIcon} />
+                  <Text style={styles.dropdownItemText}>Profile của quán</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Section 4: Sign Out */}
+              <View style={styles.dropdownDivider} />
+
               <TouchableOpacity
-                style={[styles.dropdownItem, { borderBottomWidth: 0 }]}
+                style={[styles.dropdownItem, { paddingBottom: 2 }]}
+                activeOpacity={0.6}
                 onPress={() => {
                   setAvatarMenuOpen(false);
                   logout();
                 }}
               >
-                <Text style={[styles.dropdownItemText, { color: "#EF4444" }]}>
-                  🚪 Đăng xuất
-                </Text>
+                <Ionicons name="log-out-outline" size={18} color="#EF4444" style={styles.dropdownItemIcon} />
+                <Text style={[styles.dropdownItemText, { color: "#EF4444" }]}>Đăng xuất</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -295,111 +283,78 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "android" ? 25 : 0,
   },
   header: {
-    height: 56,
-    backgroundColor: theme.colors.white,
+    height: 70,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: "#E2E8F0",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: 16,
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
   },
-  logoText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: theme.colors.text,
-    letterSpacing: 0.5,
+  headerLogo: {
+    width: 42,
+    height: 42,
+    marginRight: 12,
   },
-  roleBadge: {
-    marginLeft: theme.spacing.sm,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: theme.borderRadius.full,
-  },
-  roleBadgeText: {
-    fontSize: 9,
-    fontWeight: "bold",
+  headerBrandText: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#FF6B00",
+    letterSpacing: -0.5,
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
   },
-  headerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: theme.colors.surfaceSecondary,
+  bellButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
     position: "relative",
+    marginRight: 10,
   },
-  btnIcon: {
-    fontSize: 16,
-  },
-  notifBadge: {
+  bellBadge: {
     position: "absolute",
     top: -2,
     right: -2,
-    backgroundColor: theme.colors.danger,
+    backgroundColor: "#EF4444", // vibrant red
     borderRadius: 8,
-    width: 16,
-    height: 16,
+    minWidth: 14,
+    height: 14,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: theme.colors.white,
-  },
-  notifBadgeText: {
-    color: theme.colors.white,
-    fontSize: 8,
-    fontWeight: "bold",
-  },
-  logoutBtn: {
-    width: "auto",
-    paddingHorizontal: 12,
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: theme.borderRadius.sm,
-  },
-  logoutBtnText: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: theme.colors.textMuted,
-  },
-  avatarWrapper: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    overflow: "hidden",
+    paddingHorizontal: 3,
     borderWidth: 1,
-    borderColor: "#E2BFB0",
-    marginRight: 8,
+    borderColor: "#FFFFFF",
   },
-  avatarImage: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    resizeMode: "cover",
-  },
-  brandTitle: {
-    fontSize: 16,
+  bellBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 8,
     fontWeight: "800",
-    color: "#FF6B00",
-    lineHeight: 18,
   },
-  brandSubtitle: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#5A4136",
-    opacity: 0.7,
+  avatarTouch: {
+    position: "relative",
+    shadowColor: "rgba(0, 0, 0, 0.08)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  headerLeftBtn: {
-    flexDirection: "row",
-    alignItems: "center",
+  headerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    resizeMode: "cover",
   },
   crownBadge: {
     position: "absolute",
@@ -417,18 +372,6 @@ const styles = StyleSheet.create({
   crownIcon: {
     fontSize: 8,
     lineHeight: 10,
-  },
-  activePill: {
-    backgroundColor: "#0A58CA1F",
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 8,
-    marginLeft: 6,
-  },
-  activePillText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#0A58CA",
   },
 
   modalOverlay: {
@@ -508,64 +451,98 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: "absolute",
-    top: 56,
-    left: 16,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    top: 64,
+    right: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderRadius: 24, // rounded-3xl
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    padding: 16,
-    width: 220,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 9999,
+    borderColor: "rgba(255, 255, 255, 0.6)",
+    padding: 18, // p-4.5
+    width: 272, // w-68
+    ...Platform.select({
+      web: {
+        backdropFilter: "blur(20px)",
+      },
+    }),
+    shadowColor: "rgba(0, 0, 0, 0.1)",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 40,
+    elevation: 8,
+    zIndex: 99999,
   },
-  dropdownUser: {
+  dropdownSection1: {
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+  },
+  dropdownStoreName: {
     fontSize: 14,
-    fontWeight: "800",
-    color: "#1F2937",
+    fontWeight: "700",
+    color: "#1E293B", // deep graphite slate-800
   },
   dropdownEmail: {
     fontSize: 11,
-    color: "#6B7280",
+    color: "#64748B", // muted slate-500
     marginTop: 2,
   },
-  dropdownDivider: {
-    height: 1,
-    backgroundColor: "#E5E7EB",
-    marginVertical: 8,
-  },
-  dropdownStatusRow: {
+  planRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
-    backgroundColor: "#F3F4F6",
-    padding: 8,
-    borderRadius: 8,
+    marginTop: 10,
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
   },
-  dropdownStatusLabel: {
+  planLabel: {
     fontSize: 11,
-    color: "#4B5563",
+    color: "#475569", // slate-600
     fontWeight: "600",
   },
-  dropdownStatusValue: {
+  enterprisePill: {
+    backgroundColor: "#EFF6FF", // blue-50/80
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  enterprisePillText: {
     fontSize: 11,
-    color: "#1F2937",
-    fontWeight: "700",
+    fontWeight: "800",
+    color: "#2563EB", // blue-600
+  },
+  studentPill: {
+    backgroundColor: "#FFF7ED", // orange-50/80
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  studentPillText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#EA580C", // orange-600
+  },
+  dropdownDivider: {
+    height: 1,
+    backgroundColor: "#E2E8F0",
+    marginVertical: 10,
+    marginHorizontal: 10,
   },
   dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#F3F4F6",
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  dropdownItemIcon: {
+    marginRight: 10,
   },
   dropdownItemText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#374151",
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155", // slate-700
   },
   backdrop: {
     position: "absolute",
@@ -575,5 +552,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "transparent",
     zIndex: 998,
+  },
+  closeDropdownBtn: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    padding: 6,
+    zIndex: 10,
+  },
+  closeDropdownText: {
+    fontSize: 16,
+    color: "#64748B",
+    fontWeight: "bold",
   },
 });

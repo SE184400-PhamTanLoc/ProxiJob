@@ -34,15 +34,7 @@ const getInitials = (name) => {
   return name.substring(0, 2).toUpperCase();
 };
 
-const isValidAvatar = (url) => {
-  if (!url) return false;
-  if (typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (trimmed.toLowerCase() === 'string' || trimmed.toLowerCase() === 'null' || trimmed === '') {
-    return false;
-  }
-  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/');
-};
+import { getAvatarSource, isValidAvatar } from '../../utils/avatarHelper';
 
 const formatDateToInput = (isoString) => {
   if (!isoString) return '';
@@ -247,7 +239,11 @@ export default function StudentPortfolio() {
       }
 
       // Update the global user context so it updates the header immediately!
-      const updatedUser = { ...user, avatarUrl: `${publicUrl.split('?')[0]}?t=${Date.now()}` };
+      const updatedUser = { 
+        ...user, 
+        avatarUrl: `${publicUrl.split('?')[0]}?t=${Date.now()}`,
+        gender: updatedProfileData.gender 
+      };
       if (setUser) {
         setUser(updatedUser);
         const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
@@ -377,23 +373,25 @@ export default function StudentPortfolio() {
         if (data.avatarUrl) {
           if (isValidAvatar(data.avatarUrl)) {
             data.avatarUrl = `${data.avatarUrl.split('?')[0]}?t=${Date.now()}`;
-            // Synchronize with global user context if they differ
-            if (user && user.avatarUrl !== data.avatarUrl) {
-              const updatedUser = { ...user, avatarUrl: data.avatarUrl };
-              setUser(updatedUser);
-              try {
-                const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
-                const token = await getStoredToken();
-                const refreshToken = await getStoredRefreshToken();
-                await saveAuthSession(token, refreshToken, updatedUser);
-              } catch (e) {
-                console.log('[StudentPortfolio] error saving auth session during sync:', e);
-              }
-            }
           } else {
             data.avatarUrl = '';
           }
         }
+        
+        // Sync with global user context
+        if (user && (user.avatarUrl !== (data.avatarUrl || '') || user.gender !== data.gender)) {
+          const updatedUser = { ...user, avatarUrl: data.avatarUrl || '', gender: data.gender };
+          setUser(updatedUser);
+          try {
+            const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
+            const token = await getStoredToken();
+            const refreshToken = await getStoredRefreshToken();
+            await saveAuthSession(token, refreshToken, updatedUser);
+          } catch (e) {
+            console.log('[StudentPortfolio] error saving auth session during sync:', e);
+          }
+        }
+
          console.log('[StudentPortfolio] profile data loaded:', data);
          if (data.latitude && data.longitude) {
            const coords = { latitude: data.latitude, longitude: data.longitude };
@@ -640,14 +638,11 @@ export default function StudentPortfolio() {
               <View style={[styles.avatarCircle, { justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="small" color={theme.colors.student} />
               </View>
-            ) : isValidAvatar(user?.avatarUrl) ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-            ) : isValidAvatar(profile?.avatarUrl) ? (
-              <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
             ) : (
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{getInitials(profile?.fullName || user?.name)}</Text>
-              </View>
+              <Image 
+                source={getAvatarSource(user?.avatarUrl || profile?.avatarUrl, profile?.gender || user?.gender, profile?.fullName || user?.name)} 
+                style={styles.avatarImage} 
+              />
             )}
             <View style={styles.verifiedBadge}>
               <Text style={styles.verifiedText}>✓</Text>
@@ -1298,13 +1293,11 @@ export default function StudentPortfolio() {
           >
             <Text style={styles.closeFullscreenText}>✕ Đóng</Text>
           </TouchableOpacity>
-          {(isValidAvatar(user?.avatarUrl) || isValidAvatar(profile?.avatarUrl)) && (
-            <Image
-              source={{ uri: isValidAvatar(user?.avatarUrl) ? user.avatarUrl : profile.avatarUrl }}
-              style={styles.fullscreenImage}
-              resizeMode="contain"
-            />
-          )}
+          <Image
+            source={getAvatarSource(user?.avatarUrl || profile?.avatarUrl, profile?.gender || user?.gender, profile?.fullName || user?.name)}
+            style={styles.fullscreenImage}
+            resizeMode="contain"
+          />
         </View>
       </Modal>
     </SafeAreaView>

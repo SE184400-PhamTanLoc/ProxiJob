@@ -135,6 +135,8 @@ export const AppProvider = ({ children }) => {
         checkOutShift: shiftsState.checkOutShift,
         createEmergencyShift: shiftsState.createEmergencyShift,
         createJobPostWizard: shiftsState.createJobPostWizard,
+        updateJobPostWizard: shiftsState.updateJobPostWizard,
+        deleteJobPost: shiftsState.deleteJobPost,
         approveStudentApplication: shiftsState.approveStudentApplication,
         rejectStudentApplication: shiftsState.rejectStudentApplication,
 

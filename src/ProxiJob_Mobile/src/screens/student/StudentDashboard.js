@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 export default function StudentDashboard() {
-  const { shifts, studentCoords, getDistanceInMeters, navigateTo, loadShifts, user, STUDENT_MOCK_GPS, setStudentCoords } = useContext(AppContext);
+  const { shifts, studentCoords, getDistanceInMeters, navigateTo, loadShifts, user, setUser, STUDENT_MOCK_GPS, setStudentCoords } = useContext(AppContext);
 
   const [radius, setRadius] = useState(5.0); // 5km radius default
   const [profileAddress, setProfileAddress] = useState('');
@@ -45,6 +45,21 @@ export default function StudentDashboard() {
             await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
             if (setStudentCoords) {
               setStudentCoords(coords);
+            }
+          }
+          
+          // Sync gender and avatarUrl into user context
+          const cleanAvatar = profileData.avatarUrl && profileData.avatarUrl !== 'string' && profileData.avatarUrl !== 'null' ? profileData.avatarUrl : '';
+          if (user && setUser && (user.avatarUrl !== cleanAvatar || user.gender !== profileData.gender)) {
+            const updatedUser = { ...user, avatarUrl: cleanAvatar, gender: profileData.gender };
+            setUser(updatedUser);
+            try {
+              const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
+              const token = await getStoredToken();
+              const refreshToken = await getStoredRefreshToken();
+              await saveAuthSession(token, refreshToken, updatedUser);
+            } catch (err) {
+              console.log('[StudentDashboard] Error saving session during background profile sync:', err);
             }
           }
         }

@@ -12,6 +12,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { getAvatarSource } from '../../utils/avatarHelper';
 
 // Pure JS Haversine formula
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -83,7 +84,7 @@ export default function EmployerMonitor() {
         latitude: lat,
         longitude: lng,
         gpsStatus: isSuspicious ? 'Suspicious' : 'Valid',
-        photo: log.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+        photo: log.photo || null
       };
     });
 
@@ -268,7 +269,7 @@ export default function EmployerMonitor() {
               >
                 {/* Left: Square-rounded avatar */}
                 <Image 
-                  source={{ uri: person.photo }} 
+                  source={getAvatarSource(person.photo, null, person.name)} 
                   style={styles.staffAvatar} 
                 />
 

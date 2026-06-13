@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { getAvatarSource } from '../../utils/avatarHelper';
 
 export default function PayrollSettlementScreen() {
   const { attendanceLogs, shifts, goBack, showToast, payrolls, runCalculatePayroll, runApprovePayroll, loadPayrolls } = useContext(AppContext);
@@ -45,7 +46,7 @@ export default function PayrollSettlementScreen() {
       date: '04/06/2026',
       hours: 5,
       wages: 160000,
-      photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80'
+      photo: null
     },
     {
       id: 202,
@@ -58,7 +59,7 @@ export default function PayrollSettlementScreen() {
       date: '04/06/2026',
       hours: 8,
       wages: 384000,
-      photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80'
+      photo: null
     }
   ];
 
@@ -79,7 +80,7 @@ export default function PayrollSettlementScreen() {
       date: log.date,
       hours,
       wages: rate * hours,
-      photo: log.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+      photo: log.photo || null
     };
   });
 
@@ -148,7 +149,7 @@ export default function PayrollSettlementScreen() {
               <View key={log.id} style={[styles.payrollBentoCard, isSettled && styles.settledBentoCard]}>
                 {/* Card Top: Avatar & Info */}
                 <View style={styles.cardHeader}>
-                  <Image source={{ uri: log.photo }} style={styles.staffAvatar} />
+                  <Image source={getAvatarSource(log.photo, null, log.studentName)} style={styles.staffAvatar} />
                   <View style={styles.staffMeta}>
                     <Text style={styles.studentName}>{log.studentName}</Text>
                     <Text style={styles.jobTitle}>{log.jobTitle} • {log.shopName.split(' - ')[0]}</Text>

@@ -5,9 +5,9 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
@@ -30,19 +30,16 @@ export default function JobDetailScreen() {
     );
   }
 
-  const handleApply = () => {
+  const handleApply = async () => {
     setApplying(true);
-    // Simulate API calling delay
-    setTimeout(() => {
-      applyToShift(shift.id);
-      setApplying(false);
+    const ok = await applyToShift(shift.id);
+    setApplying(false);
+    if (ok) {
       setSuccess(true);
-      
-      // Auto redirect after showing success
       setTimeout(() => {
         navigateTo('student_calendar');
       }, 1500);
-    }, 1000);
+    }
   };
 
   const isApplied = shift.status === 'applied';

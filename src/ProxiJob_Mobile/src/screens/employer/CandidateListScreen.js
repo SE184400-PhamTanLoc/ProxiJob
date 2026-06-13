@@ -12,6 +12,7 @@ import {
 import { AppContext } from '../../context/AppContext';
 import * as Font from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAvatarSource } from '../../utils/avatarHelper';
 
 export default function CandidateListScreen() {
   const { shifts, approveStudentApplication, rejectStudentApplication, navigationParams, goBack, navigateTo } = useContext(AppContext);
@@ -22,8 +23,8 @@ export default function CandidateListScreen() {
   const shiftId = navigationParams?.shiftId;
   const shift = shifts.find((s) => s.id === shiftId);
 
-  // Filter if the shift has a student application
-  const hasApplicant = shift && shift.status === 'applied';
+  // Filter if the shift has a student application (pending or approved)
+  const hasApplicant = shift && (shift.status === 'applied' || shift.status === 'approved');
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -140,18 +141,18 @@ export default function CandidateListScreen() {
             {/* Applicant Profile */}
             <View style={styles.applicantHeader}>
               <Image 
-                source={{ uri: `https://i.pravatar.cc/150?u=${encodeURIComponent(shift.applicantName || 'NguyenVanA')}` }} 
+                source={getAvatarSource(shift.applicantAvatar, null, shift.applicantName)} 
                 style={styles.avatar} 
               />
               <View style={styles.applicantInfo}>
-                <Text style={styles.applicantName}>Nguyễn Văn A</Text>
+                <Text style={styles.applicantName}>{shift.applicantName || 'Nguyễn Văn A'}</Text>
                 <View style={styles.schoolBadge}>
-                  <Text style={styles.schoolBadgeText}>🎓 Đại Học Quốc Gia TP.HCM</Text>
+                  <Text style={styles.schoolBadgeText}>🎓 {shift.applicantSchool || 'Đại Học Quốc Gia TP.HCM'}</Text>
                 </View>
                 <View style={styles.statsRow}>
-                  <Text style={styles.ratingText}>★ 4.9</Text>
+                  <Text style={styles.ratingText}>★ {shift.applicantRating ? shift.applicantRating.toFixed(1) : '5.0'}</Text>
                   <View style={styles.statsDivider} />
-                  <Text style={styles.shiftsCompleted}>12 ca làm</Text>
+                  <Text style={styles.shiftsCompleted}>{shift.applicantShiftsCount || 0} ca làm</Text>
                 </View>
               </View>
             </View>
@@ -162,55 +163,105 @@ export default function CandidateListScreen() {
             <View style={styles.ePortfolioBox}>
               <Text style={styles.portfolioTitle}>⚡ HỒ SƠ E-PORTFOLIO (BẢO CHỨNG GPS)</Text>
               
-              <View style={styles.portfolioRow}>
-                <Text style={styles.portfolioDot}>•</Text>
-                <Text style={styles.portfolioText}>
-                  Tỷ lệ đúng giờ: <Text style={styles.portfolioHighlight}>98%</Text>
-                </Text>
-              </View>
-              
-              <View style={styles.portfolioRow}>
-                <Text style={styles.portfolioDot}>•</Text>
-                <Text style={styles.portfolioText}>
-                  Đánh giá từ các cửa hàng: <Text style={styles.portfolioHighlight}>5.0 ★</Text> (Highlands, Katinat, Circle K)
-                </Text>
-              </View>
+              {shift.applicantShiftsCount > 0 ? (
+                <>
+                  <View style={styles.portfolioRow}>
+                    <Text style={styles.portfolioDot}>•</Text>
+                    <Text style={styles.portfolioText}>
+                      Tỷ lệ đúng giờ: <Text style={styles.portfolioHighlight}>98%</Text>
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.portfolioRow}>
+                    <Text style={styles.portfolioDot}>•</Text>
+                    <Text style={styles.portfolioText}>
+                      Đánh giá từ các cửa hàng: <Text style={styles.portfolioHighlight}>{shift.applicantRating ? shift.applicantRating.toFixed(1) : '5.0'} ★</Text> (Highlands, Katinat, Circle K)
+                    </Text>
+                  </View>
 
-              <View style={styles.portfolioRow}>
-                <Text style={styles.portfolioDot}>•</Text>
-                <Text style={styles.portfolioText}>
-                  Quãng đường làm việc TB: <Text style={styles.portfolioHighlight}>2.8 km</Text> (Bán kính an toàn)
-                </Text>
-              </View>
+                  <View style={styles.portfolioRow}>
+                    <Text style={styles.portfolioDot}>•</Text>
+                    <Text style={styles.portfolioText}>
+                      Quãng đường làm việc TB: <Text style={styles.portfolioHighlight}>2.8 km</Text> (Bán kính an toàn)
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.portfolioRow}>
+                  <Text style={styles.portfolioDot}>•</Text>
+                  <Text style={[styles.portfolioText, { fontStyle: 'italic', color: '#94A3B8' }]}>
+                    Sinh viên mới, chưa phát sinh lịch sử làm việc & dữ liệu GPS bảo chứng.
+                  </Text>
+                </View>
+              )}
             </View>
+
+            {/* Academic & Intro info */}
+            {(shift.applicantMajor || shift.applicantBio || shift.applicantSkills) ? (
+              <View style={[styles.ePortfolioBox, { marginTop: 0, marginBottom: 20, borderColor: '#E5E9EB', backgroundColor: '#FFFFFF' }]}>
+                <Text style={[styles.portfolioTitle, { color: '#5B00DF' }]}>📝 HỒ SƠ CÁ NHÂN CHI TIẾT</Text>
+                {shift.applicantMajor ? (
+                  <View style={styles.portfolioRow}>
+                    <Text style={styles.portfolioDot}>•</Text>
+                    <Text style={styles.portfolioText}>
+                      Chuyên ngành: <Text style={styles.portfolioHighlight}>{shift.applicantMajor}</Text> (Năm {shift.applicantYearOfStudy || 1})
+                    </Text>
+                  </View>
+                ) : null}
+                {shift.applicantSkills ? (
+                  <View style={styles.portfolioRow}>
+                    <Text style={styles.portfolioDot}>•</Text>
+                    <Text style={styles.portfolioText}>
+                      Kỹ năng: <Text style={styles.portfolioHighlight}>{shift.applicantSkills}</Text>
+                    </Text>
+                  </View>
+                ) : null}
+                {shift.applicantBio ? (
+                  <View style={styles.portfolioRow}>
+                    <Text style={styles.portfolioDot}>•</Text>
+                    <Text style={styles.portfolioText}>
+                      Giới thiệu: <Text style={[styles.portfolioHighlight, { fontWeight: '400', fontStyle: 'italic' }]}>"{shift.applicantBio}"</Text>
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
             {/* Actions */}
             <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.rejectBtn]}
-                disabled={processingId !== null}
-                onPress={handleReject}
-                activeOpacity={0.8}
-              >
-                {processingId === 'reject' ? (
-                  <ActivityIndicator size="small" color="#EF4444" />
-                ) : (
-                  <Text style={styles.rejectBtnText}>Từ chối</Text>
-                )}
-              </TouchableOpacity>
+              {shift.status === 'approved' ? (
+                <View style={[styles.actionBtn, styles.approveBtn, { backgroundColor: '#10B981', flex: 1, height: 46, borderRadius: 9999, justifyContent: 'center', alignItems: 'center' }]}>
+                  <Text style={{ fontFamily: FONT_BOLD, color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>✓ Đã duyệt nhận việc</Text>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.rejectBtn]}
+                    disabled={processingId !== null}
+                    onPress={handleReject}
+                    activeOpacity={0.8}
+                  >
+                    {processingId === 'reject' ? (
+                      <ActivityIndicator size="small" color="#EF4444" />
+                    ) : (
+                      <Text style={styles.rejectBtnText}>Từ chối</Text>
+                    )}
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.approveBtn]}
-                disabled={processingId !== null}
-                onPress={handleApprove}
-                activeOpacity={0.85}
-              >
-                {processingId === 'approve' ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.approveBtnText}>Duyệt nhận việc</Text>
-                )}
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    disabled={processingId !== null}
+                    onPress={handleApprove}
+                    activeOpacity={0.85}
+                  >
+                    {processingId === 'approve' ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.approveBtnText}>Duyệt nhận việc</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
         )}

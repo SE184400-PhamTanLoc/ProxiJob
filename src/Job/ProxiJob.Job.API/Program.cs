@@ -26,6 +26,16 @@ builder.Services.AddScoped<ProxiJob.Job.Application.Common.Interfaces.ICurrentUs
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ProxiJob.Job.Application.Features.Categories.Commands.CreateCategoryCommand).Assembly));
 // ------------------
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -61,6 +71,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+
+app.UseCors();
 
 if (!app.Environment.IsDevelopment())
 {

@@ -19,8 +19,15 @@ namespace ProxiJob.Job.API.Controllers
         public async Task<IActionResult> Apply(int shiftId, [FromBody] ApplyShiftCommand command)
         {
             if (shiftId != command.ShiftId) return BadRequest();
-            var result = await _mediator.Send(command);
-            return Ok(result);
+            try
+            {
+                var result = await _mediator.Send(command);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpDelete("api/applications/{id}/withdraw")]

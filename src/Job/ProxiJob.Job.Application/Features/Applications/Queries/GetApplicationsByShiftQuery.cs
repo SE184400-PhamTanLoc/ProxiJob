@@ -18,10 +18,12 @@ namespace ProxiJob.Job.Application.Features.Applications.Queries
     public class GetApplicationsByShiftQueryHandler : IRequestHandler<GetApplicationsByShiftQuery, PagedResult<ApplicationDto>>
     {
         private readonly IJobDbContext _context;
+        private readonly IIdentityGrpcClient _identityGrpc;
 
-        public GetApplicationsByShiftQueryHandler(IJobDbContext context)
+        public GetApplicationsByShiftQueryHandler(IJobDbContext context, IIdentityGrpcClient identityGrpc)
         {
             _context = context;
+            _identityGrpc = identityGrpc;
         }
 
         public async Task<PagedResult<ApplicationDto>> Handle(GetApplicationsByShiftQuery request, CancellationToken cancellationToken)
@@ -56,6 +58,7 @@ namespace ProxiJob.Job.Application.Features.Applications.Queries
                                    {
                                        Id = a.Id,
                                        ShiftId = a.JobShiftId,
+                                       StudentId = a.StudentId,
                                        ShiftStartTime = a.JobShift.StartTime,
                                        ShiftEndTime = a.JobShift.EndTime,
                                        Salary = a.JobShift.Salary,
@@ -64,6 +67,23 @@ namespace ProxiJob.Job.Application.Features.Applications.Queries
                                        CreatedAt = a.CreatedAt
                                    })
                                    .ToListAsync(cancellationToken);
+
+            foreach (var item in items)
+            {
+                var profile = await _identityGrpc.GetStudentProfileAsync(item.StudentId, cancellationToken);
+                if (profile != null)
+                {
+                    item.StudentName = profile.FullName;
+                    item.StudentSchool = profile.School;
+                    item.StudentAvatarUrl = profile.AvatarUrl;
+                    item.StudentReputationScore = profile.ReputationScore;
+                    item.StudentReviewCount = profile.ReviewCount;
+                    item.StudentMajor = profile.Major;
+                    item.StudentSkills = profile.Skills;
+                    item.StudentBio = profile.Bio;
+                    item.StudentYearOfStudy = profile.YearOfStudy;
+                }
+            }
 
             return new PagedResult<ApplicationDto>
             {

@@ -53,6 +53,16 @@ builder.Services.AddMassTransit(x =>
 
 builder.Services.AddHostedService<AutoAbsentJob>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services.AddAuthentication("GrpcAuthentication")
     .AddScheme<ProxiJob.Management.API.Middleware.GrpcAuthenticationOptions, ProxiJob.Management.API.Middleware.GrpcAuthenticationHandler>("GrpcAuthentication", null);
@@ -65,6 +75,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+
+app.UseCors();
 
 if (!app.Environment.IsDevelopment())
 {

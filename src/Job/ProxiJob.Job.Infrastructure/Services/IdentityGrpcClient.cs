@@ -92,5 +92,25 @@ public class IdentityGrpcClient : IIdentityGrpcClient, IDisposable
         }
     }
 
+    public async Task<StudentProfileGrpcDto?> GetStudentProfileAsync(int studentId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _client.GetStudentCvForApplicationAsync(
+                new GetStudentCvForApplicationRequest { StudentId = studentId },
+                cancellationToken: cancellationToken);
+
+            if (!response.Found || response.Profile == null)
+                return null;
+
+            return response.Profile;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GetStudentCvForApplication gRPC failed for student {StudentId} when fetching profile", studentId);
+            return null;
+        }
+    }
+
     public void Dispose() => _channel.Dispose();
 }

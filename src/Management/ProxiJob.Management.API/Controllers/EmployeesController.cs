@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ProxiJob.Management.Application.Features.Employees.Commands;
 using ProxiJob.Management.Application.Features.Employees.Queries;
 using ProxiJob.Management.Domain.Enums;
@@ -8,6 +9,7 @@ namespace ProxiJob.Management.API.Controllers;
 
 [ApiController]
 [Route("api/employees")]
+[Authorize(Roles = "Business")]
 public class EmployeesController : ApiControllerBase
 {
     private readonly IMediator _mediator;

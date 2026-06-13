@@ -39,7 +39,8 @@ export default function StudentCheckIn() {
     setStudentCoords,
     navigationParams,
     showToast,
-    STUDENT_MOCK_GPS
+    STUDENT_MOCK_GPS,
+    user
   } = useContext(AppContext);
 
   const [selectedShiftForCheckIn, setSelectedShiftForCheckIn] = useState(null);
@@ -147,7 +148,7 @@ export default function StudentCheckIn() {
         'default-qr-token',
         lat,
         lng,
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+        user?.avatarUrl || ''
       );
       setIsTimerRunning(true);
     }
@@ -161,7 +162,7 @@ export default function StudentCheckIn() {
         selectedShiftForCheckIn.id,
         lat,
         lng,
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+        user?.avatarUrl || ''
       );
       setIsTimerRunning(false);
       setTimerSeconds(0);

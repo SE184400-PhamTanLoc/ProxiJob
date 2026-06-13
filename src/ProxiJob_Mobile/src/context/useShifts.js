@@ -10,7 +10,9 @@ import {
   getApplicationsByShift,
   approveApplication,
   rejectApplication,
-  getJobPostsByBusiness
+  getJobPostsByBusiness,
+  updateJobPostApi,
+  deleteJobPostApi
 } from '../api/jobs';
 import {
   checkInShiftApi,
@@ -47,6 +49,8 @@ export const useShifts = ({
             allShifts.push({
               id: s.id,
               jobPostId: job.id,
+              startTime: s.startTime,
+              endTime: s.endTime,
               title: job.title,
               shopName: job.categoryName || 'Cửa hàng',
               hourlyRate: s.salary,
@@ -80,7 +84,7 @@ export const useShifts = ({
           const appsRes = await getMyApplications(user.id);
           const apps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.data?.items || []));
           baseShifts = baseShifts.map(shift => {
-            const app = apps.find(a => a.jobShiftId === shift.id);
+            const app = apps.find(a => a.shiftId === shift.id || a.jobShiftId === shift.id);
             if (app) {
               let status = 'applied';
               if (app.status === 'Approved') status = 'approved';
@@ -193,6 +197,42 @@ export const useShifts = ({
               console.log(`Error loading applications for shift ${s.id}:`, aErr);
             }
 
+            let applicantName = '';
+            let applicantSchool = '';
+            let applicantAvatar = '';
+            let applicantRating = 5.0;
+            let applicantShiftsCount = 0;
+            let applicationId = null;
+            let applicantMajor = '';
+            let applicantYearOfStudy = 1;
+            let applicantBio = '';
+            let applicantSkills = '';
+
+            try {
+              const appsRes = await getApplicationsByShift(s.id, user.id);
+              const appsList = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.data?.items || []));
+              const activeApps = appsList.filter(a => a.status !== 'Cancelled' && a.status !== 'CancelledApproved' && a.status !== 'CancelledRejected' && a.status !== 'Rejected');
+              if (activeApps.length > 0) {
+                const app = activeApps[0];
+                applicationId = app.id;
+                applicantName = app.studentName || '';
+                applicantSchool = app.studentSchool || '';
+                applicantAvatar = app.studentAvatarUrl || '';
+                applicantRating = app.studentReputationScore || 5.0;
+                applicantShiftsCount = app.studentReviewCount || 0;
+                applicantMajor = app.studentMajor || '';
+                applicantYearOfStudy = app.studentYearOfStudy || 1;
+                applicantBio = app.studentBio || '';
+                applicantSkills = app.studentSkills || '';
+
+                if (currentStatus === 'available') {
+                  currentStatus = 'applied';
+                }
+              }
+            } catch (err) {
+              console.log('Error populating applicant details:', err);
+            }
+
             allShifts.push({
               id: s.id,
               jobPostId: job.id,
@@ -210,6 +250,16 @@ export const useShifts = ({
               status: currentStatus,
               isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp'),
               applicantCount,
+              applicantName,
+              applicantSchool,
+              applicantAvatar,
+              applicantRating,
+              applicantShiftsCount,
+              applicationId,
+              applicantMajor,
+              applicantYearOfStudy,
+              applicantBio,
+              applicantSkills,
               auditFields: {
                 createdBy: 'System',
                 updatedBy: 'System',
@@ -249,7 +299,7 @@ export const useShifts = ({
         })
       );
 
-      await loadMyApplications(user.id);
+      loadMyApplications(user.id).catch(err => console.log('Background reload failed:', err));
       return true;
     } catch (err) {
       console.log('Error applying to shift:', err.message);
@@ -491,6 +541,60 @@ export const useShifts = ({
     }
   }, [user, STUDENT_MOCK_GPS, showToast, addNotification, loadEmployerJobs]);
 
+  const updateJobPostWizard = useCallback(async (jobPostId, data) => {
+    try {
+      if (!user) throw new Error('Vui lòng đăng nhập.');
+      const {
+        title,
+        description,
+        requirements,
+        categoryId,
+        address,
+        latitude,
+        longitude,
+        skillIds
+      } = data;
+
+      await updateJobPostApi(jobPostId, {
+        id: jobPostId,
+        businessId: user.id,
+        title,
+        description,
+        requirements,
+        categoryId: parseInt(categoryId, 10),
+        location: {
+          address,
+          latitude: parseFloat(latitude) || STUDENT_MOCK_GPS.latitude,
+          longitude: parseFloat(longitude) || STUDENT_MOCK_GPS.longitude
+        },
+        skillIds: skillIds.map(Number),
+        updatedBy: user.name
+      });
+
+      showToast('Cập nhật bài đăng thành công!', 'success');
+      await loadEmployerJobs();
+      return true;
+    } catch (err) {
+      console.log('Error updating job post:', err.message);
+      showToast('Cập nhật thất bại: ' + translateError(err), 'error');
+      return false;
+    }
+  }, [user, STUDENT_MOCK_GPS, showToast, loadEmployerJobs]);
+
+  const deleteJobPost = useCallback(async (jobPostId) => {
+    try {
+      if (!user) throw new Error('Vui lòng đăng nhập.');
+      await deleteJobPostApi(jobPostId, user.id, user.name);
+      showToast('Đã xóa bài đăng thành công!', 'info');
+      await loadEmployerJobs();
+      return true;
+    } catch (err) {
+      console.log('Error deleting job post:', err.message);
+      showToast('Xóa bài đăng thất bại: ' + translateError(err), 'error');
+      return false;
+    }
+  }, [user, showToast, loadEmployerJobs]);
+
   const approveStudentApplication = useCallback(async (applicationId) => {
     try {
       if (!user) throw new Error('Vui lòng đăng nhập.');
@@ -554,6 +658,8 @@ export const useShifts = ({
     checkOutShift,
     createEmergencyShift,
     createJobPostWizard,
+    updateJobPostWizard,
+    deleteJobPost,
     approveStudentApplication,
     rejectStudentApplication
   };

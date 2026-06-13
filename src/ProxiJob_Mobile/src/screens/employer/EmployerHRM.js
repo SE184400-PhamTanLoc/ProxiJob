@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { AppContext } from '../../context/AppContext';
 import * as Font from 'expo-font';
+import { getAvatarSource } from '../../utils/avatarHelper';
 
 export default function EmployerHRM() {
   const {
@@ -106,7 +107,7 @@ export default function EmployerHRM() {
     const isFirst = index === 0;
     const isExpanded = !!expandedIds[staff.id];
     // Premium Bento Avatar Image
-    const avatarUrl = `https://i.pravatar.cc/150?u=${encodeURIComponent(staff.name || 'internal' + index)}`;
+    const avatarSource = getAvatarSource(null, staff.gender, staff.name);
 
     return (
       <TouchableOpacity
@@ -127,7 +128,7 @@ export default function EmployerHRM() {
           <View style={styles.headerLeft}>
             {/* Avatar Image */}
             <View style={styles.avatarWrapper}>
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              <Image source={avatarSource} style={styles.avatarImage} />
             </View>
 
             {/* Info Column */}
@@ -272,7 +273,7 @@ export default function EmployerHRM() {
     ];
     const shiftState = shiftStates[index % shiftStates.length];
     const isCompleted = index % 3 === 2; // Third card has reduced opacity
-    const avatarUrl = `https://i.pravatar.cc/150?u=${encodeURIComponent(staff.name || 'external' + index)}`;
+    const avatarSource = getAvatarSource(null, staff.gender, staff.name);
 
     return (
       <TouchableOpacity
@@ -297,7 +298,7 @@ export default function EmployerHRM() {
           <View style={styles.headerLeft}>
             {/* Avatar Image */}
             <View style={styles.avatarWrapper}>
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              <Image source={avatarSource} style={styles.avatarImage} />
             </View>
 
             {/* Info Column */}

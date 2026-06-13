@@ -40,7 +40,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
 
             if (jobPost == null) throw new Exception("JobPost not found or you don't have permission.");
 
-            if (jobPost.Status != "Draft") throw new Exception("Only Draft job posts can be updated.");
+            if (jobPost.Status != "Draft" && jobPost.Status != "Published") throw new Exception("Only Draft or Published job posts can be updated.");
 
             var categoryExists = await _context.JobCategories.AnyAsync(c => c.Id == request.CategoryId, cancellationToken);
             if (!categoryExists) throw new Exception("Category does not exist.");

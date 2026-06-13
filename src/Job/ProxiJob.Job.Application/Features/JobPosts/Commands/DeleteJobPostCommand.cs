@@ -26,7 +26,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
 
             if (jobPost == null) throw new Exception("JobPost not found or you don't have permission.");
 
-            if (jobPost.Status != "Draft") throw new Exception("Only Draft job posts can be deleted.");
+            if (jobPost.Status != "Draft" && jobPost.Status != "Published") throw new Exception("Only Draft or Published job posts can be deleted.");
 
             jobPost.IsDeleted = true;
             jobPost.DeletedBy = request.DeletedBy;
