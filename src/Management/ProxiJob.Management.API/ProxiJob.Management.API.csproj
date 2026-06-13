@@ -7,7 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ProxiJob.Management.Application\ProxiJob.Management.Application.csproj" />
+    <ProjectReference Include="..\ProxiJob.Management.Infrastructure\ProxiJob.Management.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.4" />
+    <PackageReference Include="MassTransit" Version="8.2.2" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.2.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

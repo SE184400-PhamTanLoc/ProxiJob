@@ -1,4 +1,4 @@
-﻿namespace ProxiJob.Shared.Kernel
+namespace ProxiJob.Shared.Kernel
 {
     public abstract class BaseEntity
     {
@@ -8,5 +8,7 @@
         public DateTime? UpdatedAt { get; set; }
         public string? UpdatedBy { get; set; }
         public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+        public string? DeletedBy { get; set; }
     }
 }

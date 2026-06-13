@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\common\ProxiJob.Shared.Kernel\ProxiJob.Shared.Kernel.csproj" />
+  </ItemGroup>
+
 </Project>

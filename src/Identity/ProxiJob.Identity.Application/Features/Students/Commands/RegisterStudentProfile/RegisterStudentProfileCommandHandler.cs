@@ -63,7 +63,7 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.RegisterStude
             StudentProfileMapper.ApplyFull(
                 user, profile,
                 request.PhoneNumber, request.AvatarUrl, request.DateOfBirth, request.Gender,
-                request.Address, request.City, request.School, request.Major,
+                request.Address, request.City, request.Latitude, request.Longitude, request.School, request.Major,
                 request.YearOfStudy, request.Bio, request.Skills);
 
             profile.UpdatedAt = DateTime.UtcNow;

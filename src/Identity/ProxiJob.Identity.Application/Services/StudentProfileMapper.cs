@@ -20,6 +20,8 @@ namespace ProxiJob.Identity.Application.Services
                 Gender = profile.Gender,
                 Address = profile.Address,
                 City = profile.City,
+                Latitude = profile.Latitude,
+                Longitude = profile.Longitude,
                 School = profile.School,
                 Major = profile.Major,
                 YearOfStudy = profile.YearOfStudy,
@@ -42,6 +44,8 @@ namespace ProxiJob.Identity.Application.Services
             string? gender,
             string address,
             string city,
+            double? latitude,
+            double? longitude,
             string school,
             string major,
             int yearOfStudy,
@@ -54,6 +58,8 @@ namespace ProxiJob.Identity.Application.Services
             profile.Gender = string.IsNullOrWhiteSpace(gender) ? null : gender.Trim();
             profile.Address = address.Trim();
             profile.City = city.Trim();
+            profile.Latitude = latitude;
+            profile.Longitude = longitude;
             profile.School = school.Trim();
             profile.Major = major.Trim();
             profile.YearOfStudy = yearOfStudy;

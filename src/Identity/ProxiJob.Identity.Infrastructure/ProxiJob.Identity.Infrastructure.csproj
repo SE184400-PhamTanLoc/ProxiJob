@@ -9,6 +9,11 @@
   <ItemGroup>
     <ProjectReference Include="..\ProxiJob.Identity.Application\ProxiJob.Identity.Application.csproj" />
     <ProjectReference Include="..\ProxiJob.Identity.Domain\ProxiJob.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\common\ProxiJob.Shared.Contract\ProxiJob.Shared.Contract.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" Version="2.62.0" />
   </ItemGroup>
 
   <ItemGroup>

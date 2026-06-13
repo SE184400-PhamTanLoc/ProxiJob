@@ -10,6 +10,8 @@ namespace ProxiJob.Identity.Application.Features.Students.Commands.UpdateMyStude
         string? Gender,
         string? Address,
         string? City,
+        double? Latitude,
+        double? Longitude,
         string? School,
         string? Major,
         int? YearOfStudy,
