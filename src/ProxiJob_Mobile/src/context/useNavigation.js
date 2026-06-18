@@ -13,10 +13,12 @@ export const useNavigation = (isEnterprise, showToast) => {
       'student_calendar',
       'student_checkin',
       'student_portfolio',
+      'student_chat',
       'employer_approvals',
       'employer_hrm',
       'employer_scheduling',
       'employer_monitor',
+      'employer_chat',
       'payroll_settlement'
     ];
     if (currentScreen === screenName && tabScreens.includes(screenName)) {

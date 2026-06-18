@@ -17,6 +17,7 @@ import JobDetailScreen from '../screens/student/JobDetailScreen';
 import StudentCalendar from '../screens/student/StudentCalendar';
 import StudentCheckIn from '../screens/student/StudentCheckIn';
 import StudentPortfolio from '../screens/student/StudentPortfolio';
+import StudentChat from '../screens/student/StudentChat';
 
 // Employer Screens
 import EmployerApprovals from '../screens/employer/EmployerApprovals';
@@ -28,6 +29,7 @@ import EmployerScheduling from '../screens/employer/EmployerScheduling';
 import EmployerMonitor from '../screens/employer/EmployerMonitor';
 import PayrollSettlementScreen from '../screens/employer/PayrollSettlementScreen';
 import PaymentQRScreen from '../screens/employer/PaymentQRScreen';
+import EmployerChat from '../screens/employer/EmployerChat';
 
 export default function MainTabNavigator({ isStudent }) {
   const { currentScreen, navigateTo } = useContext(AppContext);
@@ -51,6 +53,8 @@ export default function MainTabNavigator({ isStudent }) {
         return <StudentCalendar />;
       case 'student_checkin':
         return <StudentCheckIn />;
+      case 'student_chat':
+        return <StudentChat />;
       case 'student_portfolio':
         return <StudentPortfolio />;
       default:
@@ -75,6 +79,8 @@ export default function MainTabNavigator({ isStudent }) {
         return <EmployerScheduling />;
       case 'employer_monitor':
         return <EmployerMonitor />;
+      case 'employer_chat':
+        return <EmployerChat />;
       case 'payroll_settlement':
         return <PayrollSettlementScreen />;
       case 'payment_qr':
@@ -134,6 +140,18 @@ export default function MainTabNavigator({ isStudent }) {
               color={currentScreen === 'student_checkin' ? '#FF6B00' : '#9CA3AF'}
             />
             <Text style={[styles.tabLabel, currentScreen === 'student_checkin' && styles.activeTabLabelStudent]}>Điểm Danh</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabItem, currentScreen === 'student_chat' && styles.activeTabItemStudent]}
+            onPress={() => navigateTo('student_chat')}
+          >
+            <Ionicons
+              name={currentScreen === 'student_chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+              size={20}
+              color={currentScreen === 'student_chat' ? '#FF6B00' : '#9CA3AF'}
+            />
+            <Text style={[styles.tabLabel, currentScreen === 'student_chat' && styles.activeTabLabelStudent]}>Trò Chuyện</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -210,6 +228,24 @@ export default function MainTabNavigator({ isStudent }) {
           <TouchableOpacity
             style={[
               styles.tabItem,
+              currentScreen === 'employer_chat' && styles.activeTabItemEmployer
+            ]}
+            onPress={() => navigateTo('employer_chat')}
+          >
+            <Ionicons
+              name={currentScreen === 'employer_chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+              size={20}
+              color={currentScreen === 'employer_chat' ? '#0A58CA' : '#9CA3AF'}
+            />
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'employer_chat' && styles.activeTabLabelEmployer
+            ]}>Trò Chuyện</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabItem,
               (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabItemEmployer
             ]}
             onPress={() => navigateTo('payroll_settlement')}
@@ -266,7 +302,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 8,
     borderRadius: 14,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     marginVertical: 4,
     height: 56,
   },

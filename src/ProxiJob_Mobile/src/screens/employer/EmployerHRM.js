@@ -14,6 +14,7 @@ import {
 import { AppContext } from '../../context/AppContext';
 import * as Font from 'expo-font';
 import { getAvatarSource } from '../../utils/avatarHelper';
+import { handleCallUser } from '../../utils/callHelper';
 
 export default function EmployerHRM() {
   const {
@@ -21,7 +22,8 @@ export default function EmployerHRM() {
     addStaffMember,
     removeStaffMember,
     loadStaffList,
-    user
+    user,
+    navigateTo
   } = useContext(AppContext);
 
   const [activeTab, setActiveTab] = useState('internal'); // 'internal' | 'single'
@@ -155,6 +157,7 @@ export default function EmployerHRM() {
                 activeOpacity={0.7}
                 onPress={(e) => {
                   e.stopPropagation();
+                  handleCallUser(staff.phone);
                 }}
               >
                 <Text style={[styles.actionBtnText, { color: '#FF6B00' }]}>📞</Text>
@@ -164,6 +167,16 @@ export default function EmployerHRM() {
                 activeOpacity={0.7}
                 onPress={(e) => {
                   e.stopPropagation();
+                  if (staff.userId) {
+                    navigateTo('employer_chat', {
+                      partnerId: staff.userId,
+                      partnerName: staff.name,
+                      partnerPhone: staff.phone,
+                      partnerGender: staff.gender
+                    });
+                  } else {
+                    navigateTo('employer_chat');
+                  }
                 }}
               >
                 <Text style={[styles.actionBtnText, { color: '#FF6B00' }]}>💬</Text>
@@ -325,6 +338,7 @@ export default function EmployerHRM() {
                 activeOpacity={0.7}
                 onPress={(e) => {
                   e.stopPropagation();
+                  handleCallUser(staff.phone);
                 }}
               >
                 <Text style={[styles.actionBtnText, { color: '#5B00DF' }]}>📞</Text>
@@ -334,6 +348,16 @@ export default function EmployerHRM() {
                 activeOpacity={0.7}
                 onPress={(e) => {
                   e.stopPropagation();
+                  if (staff.userId) {
+                    navigateTo('employer_chat', {
+                      partnerId: staff.userId,
+                      partnerName: staff.name,
+                      partnerPhone: staff.phone,
+                      partnerGender: staff.gender
+                    });
+                  } else {
+                    navigateTo('employer_chat');
+                  }
                 }}
               >
                 <Text style={[styles.actionBtnText, { color: '#5B00DF' }]}>💬</Text>
