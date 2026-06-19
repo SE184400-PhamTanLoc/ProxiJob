@@ -7,6 +7,7 @@ public class EmployeeSummaryDto
     public int Id { get; set; }
     public int? UserId { get; set; }
     public string FullName { get; set; } = default!;
+    public string? PhoneNumber { get; set; }
     public string? Position { get; set; }
     public EmployeeStatus Status { get; set; }
     public bool IsExternal { get; set; }
@@ -17,7 +18,6 @@ public class EmployeeSummaryDto
 
 public class EmployeeDetailDto : EmployeeSummaryDto
 {
-    public string? PhoneNumber { get; set; }
     public decimal? MonthlySalary { get; set; }
     public List<UpcomingWorkScheduleDto> UpcomingSchedules { get; set; } = new();
 }

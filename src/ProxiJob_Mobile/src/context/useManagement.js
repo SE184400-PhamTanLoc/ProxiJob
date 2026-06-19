@@ -32,6 +32,7 @@ export const useManagement = ({
       const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
       const formattedList = list.map(emp => ({
         id: emp.id,
+        userId: emp.userId,
         name: emp.fullName,
         role: emp.position || 'Nhân viên',
         phone: emp.phoneNumber || 'Không có',

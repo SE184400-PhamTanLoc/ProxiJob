@@ -5,6 +5,7 @@ using ProxiJob.Identity.Application;
 using ProxiJob.Identity.Infrastructure;
 using ProxiJob.Identity.Infrastructure.Data;
 using ProxiJob.Identity.Infrastructure.Services;
+using ProxiJob.Identity.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +37,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddGrpc();
+builder.Services.AddSignalR();
 
 builder.Services.AddControllers(options =>
     options.Filters.Add<ForbiddenAccessExceptionFilter>());
@@ -101,6 +103,7 @@ await IdentityDatabaseInitializer.InitializeAsync(
 
 app.MapControllers();
 app.MapGrpcService<IdentityGrpcServiceImpl>();
+app.MapHub<ChatHub>("/hub/chat");
 
 Console.WriteLine("\n--> Click to open Swagger: http://localhost:5231/swagger\n");
 

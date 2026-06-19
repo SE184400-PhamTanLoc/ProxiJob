@@ -4,6 +4,23 @@ Tài liệu bàn giao cho Hội đồng Giám khảo môn học **EXE201 - Đạ
 
 ---
 
+## Giới thiệu Dự án (Project Introduction)
+
+Trong kỷ nguyên số hóa và sự phát triển mạnh mẽ của nền kinh tế tự do (Gig Economy), nhu cầu về lực lượng lao động linh hoạt ngày càng trở nên cấp thiết. Dự án **ProxiJob** được ra đời nhằm giải quyết khoảng trống lớn trong thị trường tuyển dụng bán thời gian dành cho sinh viên tại Việt Nam, đặc biệt là thế hệ sinh viên Gen-Z năng động, tự chủ tài chính nhưng gặp nhiều rào cản về thời gian di chuyển và phương tiện đi lại.
+
+### 1. Bối cảnh ra đời
+Hiện nay, sinh viên có nhu cầu làm việc bán thời gian rất cao để tích lũy kinh nghiệm thực tế và tự chủ tài chính trang trải cuộc sống. Tuy nhiên, việc tìm việc qua các hội nhóm mạng xã hội hoặc website truyền thống gặp nhiều bất cập: thông tin không kiểm chứng, lừa đảo, khoảng cách di chuyển quá xa và thời gian chờ nhận lương kéo dài từ 2 đến 4 tuần. Ở chiều ngược lại, các chủ cửa hàng (F&B, bán lẻ, dịch vụ) liên tục đối mặt với bài toán thiếu hụt nhân sự đột xuất trong giờ cao điểm hoặc các ca trực lẻ lẻ tẻ, gây gián đoạn vận hành và tổn thất doanh thu.
+
+### 2. Định vị của ProxiJob
+ProxiJob không chỉ đơn thuần là một trang tin tuyển dụng, mà là **Nền tảng kết nối nhân sự bán thời gian tức thời dựa trên vị trí siêu cục bộ (Hyper-local Part-Time Job Matching Platform)**. Ứng dụng công nghệ định vị GPS thời gian thực và vùng an toàn Geofencing, ProxiJob tạo ra sự liên kết tức thì giữa người lao động vãng lai (on-demand workers) và chủ cửa hàng trong bán kính an toàn dưới 100m, mang đến trải nghiệm thực tế "Tìm việc siêu gần - Nhận lương liền ca".
+
+### 3. Mục tiêu & Ý nghĩa chiến lược
+* **Đối với Sinh viên (Gen-Z)**: Tối ưu hóa thời gian di chuyển học tập, đảm bảo an toàn tài chính nhờ cơ chế quyết toán lương tức thì qua ví điện tử liên kết ngay sau khi hoàn thành check-out ca trực.
+* **Đối với Nhà tuyển dụng (Chủ cửa hàng)**: Giải quyết tức thời bài toán thiếu hụt nhân sự ca gãy đột xuất, tối ưu hóa chi phí vận hành thông qua việc thuê nhân sự vãng lai đúng lúc, đúng chỗ và quản lý đồng bộ với nhân sự cố định nội bộ trên cùng một Dashboard.
+* **Đối với Môn học EXE201**: Là một dự án khởi nghiệp công nghệ toàn diện, chứng minh khả năng thương mại hóa thực tế, giải quyết nỗi đau thị trường sâu sắc và tích hợp sâu các tiêu chuẩn công nghệ hiện đại.
+
+---
+
 ## I. Tổng quan Dự án & Sứ mệnh (Project Identity & Mission)
 
 * **Tên Dự án**: **ProxiJob** - Nền tảng kết nối công việc bán thời gian tức thời dựa trên vị trí siêu cục bộ dành cho sinh viên Gen-Z (*The Ultimate Hyper-Local Part-Time Job Matching Platform for Gen-Z Students*).
