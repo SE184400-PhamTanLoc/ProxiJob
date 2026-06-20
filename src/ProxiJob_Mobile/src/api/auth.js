@@ -205,7 +205,20 @@ export async function checkAuthApi(token) {
       avatarUrl: avatarUrl,
     };
   } catch (error) {
-    console.log('[ProxiJob API] checkAuthApi failed. Falling back to local cache:', error.message);
+    console.log('[ProxiJob API] checkAuthApi failed:', error.message);
+    // If the token is expired, do NOT fall back to cached user.
+    // Let the error propagate so useAuth can attempt a token refresh.
+    const isExpired = error.message && (
+      error.message.includes('hết hạn') || 
+      error.message.includes('expired') ||
+      error.message.includes('không hợp lệ') ||
+      error.message.includes('invalid')
+    );
+    if (isExpired) {
+      throw error;
+    }
+    // For other errors (network, decode issues), fall back to cached user
+    console.log('[ProxiJob API] Falling back to local cache for non-expiration error');
     const storedUser = await getStoredUser();
     if (storedUser) {
       return storedUser;
@@ -286,13 +299,19 @@ export async function getStoredUser() {
  */
 export async function refreshTokensApi(refreshToken) {
   try {
+    // Add timeout to prevent hanging when backend is unreachable
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ refreshToken }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error('Yêu cầu cấp lại Access Token thất bại.');

@@ -185,7 +185,7 @@ export const useAuth = ({
                 await clearAuthSession();
               }
             } else {
-              console.log('[ProxiJob Auth] Stored session invalid, clearing:', apiError.message);
+              console.log('[ProxiJob Auth] No valid refresh token, clearing session:', apiError.message);
               await clearAuthSession();
             }
           }
@@ -197,7 +197,22 @@ export const useAuth = ({
         setAuthLoading(false);
       }
     }
-    restoreSession();
+
+    // Add overall timeout to prevent app from hanging on black screen
+    let didFinish = false;
+    const timeoutId = setTimeout(() => {
+      if (!didFinish) {
+        console.log('[ProxiJob Auth] Session restore timed out, showing login screen.');
+        clearAuthSession().catch(() => {});
+        setIsRestoringSession(false);
+        setAuthLoading(false);
+      }
+    }, 8000);
+
+    restoreSession().finally(() => {
+      didFinish = true;
+      clearTimeout(timeoutId);
+    });
   }, []);
 
   return {
