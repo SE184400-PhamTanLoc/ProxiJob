@@ -50,6 +50,7 @@ public class GetEmployeesByBusinessQueryHandler : IRequestHandler<GetEmployeesBy
                 Id = e.Id,
                 UserId = e.UserId,
                 FullName = e.FullName,
+                PhoneNumber = e.PhoneNumber,
                 Position = e.Position,
                 Status = e.Status,
                 IsExternal = e.IsExternal,

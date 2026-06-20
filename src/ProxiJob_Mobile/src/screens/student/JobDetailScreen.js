@@ -5,9 +5,11 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 
@@ -50,99 +52,147 @@ export default function JobDetailScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBackBtn} onPress={goBack}>
-          <Text style={styles.backArrow}>←</Text>
+          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chi Tiết Công Việc</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {shift.isEmergency && (
           <View style={styles.emergencyHeader}>
-            <Text style={styles.emergencyHeaderText}>🔥 TUYỂN GẤP (+30% LƯƠNG TRỰC TIẾP)</Text>
+            <Ionicons name="flash" size={16} color={theme.colors.danger} style={{ marginRight: 6 }} />
+            <Text style={styles.emergencyHeaderText}>TUYỂN GẤP (+30% LƯƠNG TRỰC TIẾP)</Text>
           </View>
         )}
 
         <View style={styles.cardHeader}>
-          <Text style={styles.shopName}>{shift.shopName}</Text>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>{shift.shopName || 'Cửa hàng'}</Text>
+          </View>
           <Text style={styles.jobTitle}>{shift.title}</Text>
           
           <View style={styles.wageBox}>
-            <Text style={styles.wageLabel}>Mức lương thực nhận:</Text>
-            <Text style={styles.wageValue}>{(shift.hourlyRate).toLocaleString('vi-VN')} đ / giờ</Text>
+            <View>
+              <Text style={styles.wageLabel}>Mức lương thực nhận</Text>
+              <Text style={styles.wageValue}>
+                {(shift.hourlyRate).toLocaleString('vi-VN')} <Text style={styles.wageUnit}>đ/giờ</Text>
+              </Text>
+            </View>
+            <View style={styles.instantPayBadge}>
+              <Ionicons name="flash-sharp" size={12} color="#10B981" style={{ marginRight: 2 }} />
+              <Text style={styles.instantPayText}>Liền ca</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thông tin ca làm</Text>
+          <View style={styles.sectionHeaderContainer}>
+            <View style={styles.sectionIndicator} />
+            <Text style={styles.sectionTitle}>Thông tin ca làm</Text>
+          </View>
+
           <View style={styles.infoRow}>
-            <Text style={styles.infoIcon}>📅</Text>
-            <View>
+            <View style={styles.iconContainer}>
+              <Ionicons name="calendar-outline" size={18} color="#FF6B00" />
+            </View>
+            <View style={styles.infoMeta}>
               <Text style={styles.infoLabel}>Ngày làm việc</Text>
               <Text style={styles.infoText}>{shift.date}</Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoIcon}>⏰</Text>
-            <View>
+            <View style={styles.iconContainer}>
+              <Ionicons name="time-outline" size={18} color="#FF6B00" />
+            </View>
+            <View style={styles.infoMeta}>
               <Text style={styles.infoLabel}>Thời gian ca làm</Text>
               <Text style={styles.infoText}>{shift.time} (4 giờ)</Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoIcon}>📍</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Địa điểm</Text>
-              <Text style={styles.infoText}>{shift.address || 'Chưa có địa chỉ'}</Text>
-              {(() => {
-                const hasGps = shift.latitude && shift.longitude && !(shift.latitude === 0 && shift.longitude === 0);
-                let distanceText = 'Chưa định vị';
-                if (hasGps && studentCoords) {
-                  const distMeters = getDistanceInMeters(
-                    studentCoords.latitude,
-                    studentCoords.longitude,
-                    shift.latitude,
-                    shift.longitude
+            <View style={styles.iconContainer}>
+              <Ionicons name="location-outline" size={18} color="#FF6B00" />
+            </View>
+            <View style={[styles.infoMeta, { flex: 1 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={styles.infoLabel}>Địa điểm</Text>
+                {(() => {
+                  const hasGps = shift.latitude && shift.longitude && !(shift.latitude === 0 && shift.longitude === 0);
+                  let distanceText = 'Chưa định vị';
+                  if (hasGps && studentCoords) {
+                    const distMeters = getDistanceInMeters(
+                      studentCoords.latitude,
+                      studentCoords.longitude,
+                      shift.latitude,
+                      shift.longitude
+                    );
+                    const distKm = (distMeters / 1000).toFixed(1);
+                    distanceText = `${distKm} km`;
+                  }
+                  return (
+                    <View style={styles.distanceBadge}>
+                      <Text style={styles.distanceBadgeText}>Cách bạn: {distanceText}</Text>
+                    </View>
                   );
-                  const distKm = (distMeters / 1000).toFixed(1);
-                  distanceText = `${distKm} km`;
-                }
-                return (
-                  <Text style={[styles.infoLabel, { marginTop: 2 }]}>Cách bạn: {distanceText}</Text>
-                );
-              })()}
+                })()}
+              </View>
+              <Text style={styles.infoText} numberOfLines={2}>{shift.address || 'Chưa có địa chỉ'}</Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoIcon}>⭐</Text>
-            <View>
+            <View style={styles.iconContainer}>
+              <Ionicons name="star-outline" size={18} color="#FF6B00" />
+            </View>
+            <View style={styles.infoMeta}>
               <Text style={styles.infoLabel}>Đánh giá nơi làm việc</Text>
-              <Text style={styles.infoText}>{shift.rating} / 5.0 ({shift.reviewsCount || 10} đánh giá)</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                <Ionicons name="star" size={14} color="#F59E0B" style={{ marginRight: 4 }} />
+                <Text style={styles.infoText}>{shift.rating} / 5.0</Text>
+                <Text style={styles.reviewsCountText}> ({shift.reviewsCount || 10} đánh giá)</Text>
+              </View>
             </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mô tả công việc</Text>
+          <View style={styles.sectionHeaderContainer}>
+            <View style={styles.sectionIndicator} />
+            <Text style={styles.sectionTitle}>Mô tả công việc</Text>
+          </View>
           <Text style={styles.bodyText}>{shift.description}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Yêu cầu công việc</Text>
-          <Text style={styles.bodyText}>• {shift.requirements}</Text>
-          <Text style={styles.bodyText}>• Có mặt trước giờ nhận ca ít nhất 10 phút để quét camera và kiểm định GPS.</Text>
-          <Text style={styles.bodyText}>• Trang phục chỉnh tề, thái độ làm việc nhiệt tình.</Text>
+          <View style={styles.sectionHeaderContainer}>
+            <View style={styles.sectionIndicator} />
+            <Text style={styles.sectionTitle}>Yêu cầu công việc</Text>
+          </View>
+          
+          <View style={styles.requirementItem}>
+            <Ionicons name="checkmark-circle-outline" size={16} color="#FF6B00" style={styles.bulletIcon} />
+            <Text style={styles.requirementText}>{shift.requirements}</Text>
+          </View>
+          <View style={styles.requirementItem}>
+            <Ionicons name="checkmark-circle-outline" size={16} color="#FF6B00" style={styles.bulletIcon} />
+            <Text style={styles.requirementText}>Có mặt trước giờ nhận ca ít nhất 10 phút để quét camera và kiểm định GPS.</Text>
+          </View>
+          <View style={styles.requirementItem}>
+            <Ionicons name="checkmark-circle-outline" size={16} color="#FF6B00" style={styles.bulletIcon} />
+            <Text style={styles.requirementText}>Trang phục chỉnh tề, thái độ làm việc nhiệt tình.</Text>
+          </View>
         </View>
       </ScrollView>
 
       {/* Footer Action */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, theme.shadows.medium]}>
         {success ? (
           <View style={styles.successBtn}>
-            <Text style={styles.successBtnText}>⚡ ỨNG TUYỂN THÀNH CÔNG!</Text>
+            <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} style={{ marginRight: 6 }} />
+            <Text style={styles.successBtnText}>ỨNG TUYỂN THÀNH CÔNG!</Text>
           </View>
         ) : (
           <TouchableOpacity
@@ -152,6 +202,7 @@ export default function JobDetailScreen() {
             ]}
             disabled={isApplied || isApproved || applying}
             onPress={handleApply}
+            activeOpacity={0.8}
           >
             {applying ? (
               <ActivityIndicator color={theme.colors.white} />
@@ -171,185 +222,310 @@ export default function JobDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#FFFFFF',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#FFFFFF',
   },
   errorText: {
-    fontSize: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 15,
     color: theme.colors.textMuted,
     marginBottom: theme.spacing.md,
   },
   backBtn: {
     backgroundColor: theme.colors.student,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: theme.borderRadius.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
   },
   backBtnText: {
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
     color: theme.colors.white,
     fontWeight: 'bold',
   },
   header: {
-    height: 56,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
+    borderBottomColor: '#F1F5F9',
   },
   headerBackBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backArrow: {
-    fontSize: 22,
-    color: theme.colors.text,
-    fontWeight: 'bold',
-  },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
   },
   scrollContent: {
-    padding: theme.spacing.md,
-    paddingBottom: 40,
+    padding: 20,
+    paddingBottom: 140,
   },
   emergencyHeader: {
-    backgroundColor: theme.colors.danger + '1A',
-    borderColor: theme.colors.danger + '33',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
     borderWidth: 1,
-    padding: 10,
-    borderRadius: theme.borderRadius.sm,
-    marginBottom: theme.spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 20,
   },
   emergencyHeaderText: {
     color: theme.colors.danger,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
     fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: '800',
   },
   cardHeader: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     borderWidth: 1,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    borderColor: '#E2E8F0',
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 1,
   },
-  shopName: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
+  categoryBadge: {
+    backgroundColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+    marginBottom: 8,
+  },
+  categoryText: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   jobTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginTop: 4,
-    marginBottom: theme.spacing.md,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E293B',
+    lineHeight: 28,
+    marginBottom: 16,
   },
   wageBox: {
-    backgroundColor: theme.colors.success + '0D',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.success + '22',
+    borderColor: '#D1FAE5',
   },
   wageLabel: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 11,
-    color: theme.colors.textMuted,
+    fontWeight: '600',
+    color: '#065F46',
   },
   wageValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.success,
-    marginTop: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#059669',
+    marginTop: 2,
+  },
+  wageUnit: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  instantPayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  instantPayText: {
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#065F46',
+    textTransform: 'uppercase',
   },
   section: {
-    marginBottom: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    paddingBottom: theme.spacing.md,
+    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+  },
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionIndicator: {
+    width: 3,
+    height: 16,
+    backgroundColor: '#FF6B00',
+    borderRadius: 2,
+    marginRight: 8,
   },
   sectionTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
     fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
+    fontWeight: '800',
+    color: '#1E293B',
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: theme.spacing.xs,
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
   },
-  infoIcon: {
-    fontSize: 20,
-    width: 32,
-    textAlign: 'center',
-    marginRight: theme.spacing.sm,
-  },
-  infoLabel: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-  },
-  infoText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  bodyText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    lineHeight: 20,
-    marginVertical: 2,
-  },
-  footer: {
-    padding: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-  },
-  applyBtn: {
-    backgroundColor: theme.colors.student,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FF6B000F',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  infoMeta: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  infoLabel: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  infoText: {
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    lineHeight: 18,
+  },
+  distanceBadge: {
+    backgroundColor: '#FF6B0014',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 99,
+  },
+  distanceBadgeText: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FF6B00',
+  },
+  reviewsCountText: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  bodyText: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 22,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 6,
+  },
+  bulletIcon: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  requirementText: {
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 20,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  applyBtn: {
+    backgroundColor: '#FF6B00',
+    height: 52,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
   },
   disabledBtn: {
-    backgroundColor: theme.colors.textLight,
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   applyBtnText: {
-    color: theme.colors.white,
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   successBtn: {
-    backgroundColor: theme.colors.success,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
+    flexDirection: 'row',
+    backgroundColor: '#10B981',
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   successBtnText: {
-    color: theme.colors.white,
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   applyTip: {
+    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 10,
-    color: theme.colors.textMuted,
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 8,
+    lineHeight: 14,
   }
 });
