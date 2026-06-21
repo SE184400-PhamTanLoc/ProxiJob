@@ -41,10 +41,6 @@ export const AppProvider = ({ children }) => {
   // Static review state for backward compatibility
   const [reviews, setReviews] = useState([]);
 
-  // --- Temporary dummy fallback variables for Employer screens to prevent crashes ---
-  const dummyFn = async () => {};
-  const dummySyncFn = () => {};
-
   return (
     <AppContext.Provider
       value={{
@@ -102,45 +98,6 @@ export const AppProvider = ({ children }) => {
         // Reviews (backward-compatible mock state)
         reviews,
         setReviews,
-
-        // --- Employer fallback dummies ---
-        shifts: [],
-        setShifts: dummySyncFn,
-        employerJobs: [],
-        setEmployerJobs: dummySyncFn,
-        leaveRequests: [],
-        setLeaveRequests: dummySyncFn,
-        loadShifts: dummyFn,
-        loadMyApplications: dummyFn,
-        loadEmployerJobs: dummyFn,
-        applyToShift: dummyFn,
-        checkInShift: dummyFn,
-        checkOutShift: dummyFn,
-        createEmergencyShift: dummyFn,
-        createJobPostWizard: dummyFn,
-        updateJobPostWizard: dummyFn,
-        deleteJobPost: dummyFn,
-        approveStudentApplication: dummyFn,
-        rejectStudentApplication: dummyFn,
-        staffList: [],
-        loadStaffList: dummyFn,
-        addStaffMember: dummyFn,
-        removeStaffMember: dummyFn,
-        hrmSingleApplicants: [],
-        setHrmSingleApplicants: dummySyncFn,
-        attendanceLogs: [],
-        setAttendanceLogs: dummySyncFn,
-        loadAttendanceLogs: dummyFn,
-        payrolls: [],
-        loadPayrolls: dummyFn,
-        runCalculatePayroll: dummyFn,
-        runApprovePayroll: dummyFn,
-        schedulesList: [],
-        loadSchedules: dummyFn,
-        addEmployeeSchedule: dummyFn,
-        removeEmployeeSchedule: dummyFn,
-        deleteSchedule: dummyFn,
-        handleLeaveRequest: dummyFn,
       }}
     >
       {children}

@@ -19,9 +19,13 @@ import { IDENTITY_API_BASE_URL, MANAGEMENT_API_BASE_URL } from '../../api/apiCon
 import { getStoredToken } from '../../api/auth';
 import { handleCallUser } from '../../utils/callHelper';
 import { getAvatarSource } from '../../utils/avatarHelper';
+import { useConversationsQuery } from '../../hooks/queries';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function EmployerChat() {
   const { user, navigationParams, setNavigationParams } = useContext(AppContext);
+  const insets = useSafeAreaInsets();
+  const { data: dbConversations = [], refetch: refetchConversations } = useConversationsQuery(user);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeChat, setActiveChat] = useState(null);
   const [inputText, setInputText] = useState('');
@@ -72,7 +76,7 @@ export default function EmployerChat() {
         const resData = await response.json();
         const list = resData.data !== undefined ? resData.data : resData;
         const items = Array.isArray(list) ? list : (list.items || []);
-        
+
         // Filter out employees without a userId (they must have an account to chat)
         const mapped = items.filter(emp => emp.userId).map(emp => ({
           id: emp.id.toString(),
@@ -115,42 +119,25 @@ export default function EmployerChat() {
     loadMessages(pId);
   };
 
+  useEffect(() => {
+    if (dbConversations && dbConversations.length > 0) {
+      setConversations(prev => {
+        const merged = [...dbConversations];
+        prev.forEach(p => {
+          if (!merged.find(m => m.id === p.id)) {
+            merged.push(p);
+          }
+        });
+        return merged;
+      });
+    } else if (dbConversations) {
+      setConversations([]);
+    }
+  }, [dbConversations]);
+
   // Load conversations list from backend API
   const loadConversations = async () => {
-    try {
-      const token = await getStoredToken();
-      if (!token) return;
-
-      const response = await fetch(`${IDENTITY_API_BASE_URL}/messages/conversations`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data) {
-          const mapped = data.map(c => ({
-            id: c.userId.toString(),
-            name: c.name,
-            avatar: c.avatar,
-            lastMessage: c.lastMessage,
-            time: c.time,
-            unread: c.unread,
-            phone: c.phone || '0901234567',
-            isMock: false,
-            messages: []
-          }));
-          setConversations(mapped);
-        } else {
-          setConversations([]);
-        }
-      } else {
-        setConversations([]);
-      }
-    } catch (err) {
-      console.log('[EmployerChat API] Error loading conversations:', err);
-    }
+    refetchConversations();
   };
 
   // Load database messages for specific partner user ID
@@ -212,7 +199,7 @@ export default function EmployerChat() {
 
         connection.on("ReceiveMessage", (senderId, messageContent) => {
           console.log('[EmployerChat SignalR] Received message:', senderId, messageContent);
-          
+
           if (active) {
             // Use ref to get latest activeChat without needing it in dependency array
             const currentChat = activeChatRef.current;
@@ -254,7 +241,7 @@ export default function EmployerChat() {
     if (navigationParams && navigationParams.partnerId) {
       const pId = navigationParams.partnerId.toString();
       const activeConvo = conversations.find(c => c.id === pId);
-      
+
       const tempChat = {
         id: pId,
         name: navigationParams.partnerName || (activeConvo ? activeConvo.name : 'Sinh viên'),
@@ -349,7 +336,7 @@ export default function EmployerChat() {
       {activeChat ? (
         <View style={styles.chatContainer}>
           {/* Chat Room Header (Moved outside KeyboardAvoidingView so it never moves or disappears!) */}
-          <View style={styles.chatHeader}>
+          <View style={[styles.chatHeader, { paddingTop: Math.max(12, insets.top) }]}>
             <TouchableOpacity style={styles.backBtn} onPress={() => { setActiveChat(null); Keyboard.dismiss(); }}>
               <Ionicons name="chevron-back" size={24} color="#1E293B" />
             </TouchableOpacity>
@@ -358,7 +345,7 @@ export default function EmployerChat() {
               source={getAvatarSource(activeChat.avatar, activeChat.gender, activeChat.name)}
               style={styles.chatHeaderAvatar}
             />
-            
+
             <View style={styles.chatHeaderInfo}>
               <Text style={styles.chatHeaderName} numberOfLines={1}>{activeChat.name}</Text>
               <Text style={styles.chatHeaderStatus}>Sinh viên</Text>
@@ -377,7 +364,7 @@ export default function EmployerChat() {
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
           >
             {/* Messages List */}
             <ScrollView
@@ -408,6 +395,7 @@ export default function EmployerChat() {
             {/* Input Bar */}
             <View style={[
               styles.inputBar,
+              { paddingBottom: Math.max(12, insets.bottom) },
               Platform.OS === 'android' && keyboardHeight > 0 && {
                 paddingBottom: Math.max(20, androidKeyboardPadding + 24),
               }
@@ -429,14 +417,8 @@ export default function EmployerChat() {
         </View>
       ) : (
         <View style={styles.listContainer}>
-          {/* List Screen Header */}
-          <View style={styles.mainHeader}>
-            <Text style={styles.mainHeaderTitle}>Trò Chuyện</Text>
-            <Text style={styles.mainHeaderSubtitle}>Trao đổi trực tiếp với nhân viên và ứng viên</Text>
-          </View>
-
           {/* Search Box */}
-          <View style={styles.searchContainer}>
+          <View style={[styles.searchContainer, { marginTop: 16 }]}>
             <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
@@ -741,11 +723,17 @@ const styles = StyleSheet.create({
   },
   myBubble: {
     backgroundColor: '#0A58CA',
-    borderTopRightRadius: 4,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 4,
   },
   otherBubble: {
     backgroundColor: '#F1F5F9',
-    borderTopLeftRadius: 4,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 16,
   },
   messageText: {
     fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',

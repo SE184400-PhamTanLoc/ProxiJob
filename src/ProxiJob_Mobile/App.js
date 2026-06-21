@@ -39,6 +39,24 @@ function MainAppShell() {
     showToast,
     goBack,
   } = useContext(AppContext);
+
+  const getHeaderTitle = (screen) => {
+    switch (screen) {
+      case "employer_chat":
+      case "student_chat":
+        return "Trò Chuyện";
+      case "employer_hrm":
+        return "Nhân Sự";
+      case "employer_scheduling":
+        return "Xếp Lịch";
+      case "employer_monitor":
+        return "GPS Live";
+      case "payroll_settlement":
+        return "Quyết Toán";
+      default:
+        return null;
+    }
+  };
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
 
@@ -72,7 +90,7 @@ function MainAppShell() {
   const unreadNotifsCount = user ? notifications.filter((n) => !n.read).length : 0;
   const isStudent = !user || user.role === "student";
 
-  const hideHeaderScreens = ["candidate_list"];
+  const hideHeaderScreens = ["candidate_list", "payment_qr", "upgrade_package", "employer_emergency_post"];
   const showHeader = !hideHeaderScreens.includes(currentScreen);
 
   return (
@@ -97,7 +115,7 @@ function MainAppShell() {
           {/* Universal Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              {currentScreen === "job_detail" && (
+              {(currentScreen === "job_detail" || currentScreen === "upgrade_package" || currentScreen === "payment_qr") && (
                 <TouchableOpacity
                   style={{ marginRight: 8, paddingVertical: 4, paddingRight: 4 }}
                   onPress={goBack}
@@ -106,12 +124,18 @@ function MainAppShell() {
                   <Ionicons name="arrow-back" size={24} color="#FF6B00" />
                 </TouchableOpacity>
               )}
-              <Image
-                source={require("./src/img/proxijob logo.png")}
-                style={styles.headerLogo}
-                resizeMode="contain"
-              />
-              <Text style={styles.headerBrandText}>ProxiJob</Text>
+              {getHeaderTitle(currentScreen) ? (
+                <Text style={styles.headerTitleText}>{getHeaderTitle(currentScreen)}</Text>
+              ) : (
+                <>
+                  <Image
+                    source={require("./src/img/proxijob logo.png")}
+                    style={styles.headerLogo}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.headerBrandText}>ProxiJob</Text>
+                </>
+              )}
             </View>
 
             <View style={styles.headerRight}>
@@ -337,6 +361,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "900",
     color: "#FF6B00",
+    letterSpacing: -0.5,
+  },
+  headerTitleText: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#1E293B",
     letterSpacing: -0.5,
   },
   headerRight: {

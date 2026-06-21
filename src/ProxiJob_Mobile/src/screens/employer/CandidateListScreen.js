@@ -165,68 +165,49 @@ export default function CandidateListScreen() {
   const renderCandidateCard = (cand, index) => {
     const isFirst = index === 0;
     const isExpanded = !!expandedIds[`candidate_${cand.userId}`];
-    const avatarSource = getAvatarSource(null, cand.gender, cand.fullName);
+    const avatarSource = getAvatarSource(cand.avatarUrl || cand.AvatarUrl, cand.gender, cand.fullName);
     
     const skillList = cand.skills 
       ? cand.skills.split(',').map(s => s.trim()).filter(Boolean) 
       : [];
 
+    const expText = cand.reviewCount && cand.reviewCount > 0
+      ? `${Math.max(1, Math.min(5, Math.ceil(cand.reviewCount / 3)))} năm kinh nghiệm`
+      : '1 năm kinh nghiệm';
+
+    const cornerColor = isExpanded ? '#FF6B00' : '#5B00DF';
     return (
-      <TouchableOpacity
-        key={`candidate_${cand.userId}`}
-        activeOpacity={0.9}
-        onPress={() => toggleExpand(`candidate_${cand.userId}`)}
-        style={[
-          styles.accordionItem,
-          isExpanded && styles.accordionItemActive
-        ]}
-      >
-        {isFirst && (
-          <>
-            <View style={styles.viewfinderTL} />
-            <View style={styles.viewfinderBR} />
-          </>
-        )}
+      <View key={`candidate_${cand.userId}`} style={[styles.premiumAppCard, isExpanded && styles.premiumAppCardActive]}>
+        {/* Viewfinder/Bracket Corners */}
+        <View style={[styles.cornerTL, { borderColor: cornerColor }]} />
+        <View style={[styles.cornerTR, { borderColor: cornerColor }]} />
+        <View style={[styles.cornerBL, { borderColor: cornerColor }]} />
+        <View style={[styles.cornerBR, { borderColor: cornerColor }]} />
 
-        <View style={styles.accordionHeader}>
-          <View style={styles.headerLeft}>
-            <View style={styles.avatarWrapper}>
-              <Image source={avatarSource} style={styles.avatarImage} />
-            </View>
-
-            <View style={styles.infoColumn}>
-              <View style={styles.badgeRow}>
-                <View style={[styles.badgeItem, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                  <Text style={[styles.badgeText, { color: '#10B981' }]}>ONLINE</Text>
-                </View>
-                <View style={[styles.badgeItem, { backgroundColor: '#EBEEF0' }]}>
-                  <Text style={[styles.badgeText, { color: '#5A4136' }]}>
-                    {cand.distanceKm === Infinity ? 'Không rõ vị trí' : `${cand.distanceKm} km`}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.staffNameText} numberOfLines={1}>
-                {cand.fullName}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.headerRight}>
-            <View style={styles.actionsRow}>
+        {/* Clickable Area for Accordion */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => toggleExpand(`candidate_${cand.userId}`)}
+        >
+          {/* Top Row: Avatar on left, Chat/Call Actions on right */}
+          <View style={styles.premiumCardTopRow}>
+            <Image source={avatarSource} style={styles.premiumCardAvatar} />
+            
+            <View style={styles.premiumActionsRow}>
               {cand.phoneNumber ? (
                 <TouchableOpacity
-                  style={[styles.actionBtnCall, { marginRight: 8 }]}
+                  style={[styles.premiumCircleBtn, { marginRight: 8 }]}
                   activeOpacity={0.7}
                   onPress={(e) => {
                     e.stopPropagation();
                     handleCallUser(cand.phoneNumber);
                   }}
                 >
-                  <Text style={styles.actionBtnCallText}>📞</Text>
+                  <Text style={{ fontSize: 14 }}>📞</Text>
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
-                style={styles.actionBtnChat}
+                style={styles.premiumCircleBtn}
                 activeOpacity={0.7}
                 onPress={(e) => {
                   e.stopPropagation();
@@ -238,77 +219,79 @@ export default function CandidateListScreen() {
                   });
                 }}
               >
-                <Text style={styles.actionBtnChatText}>💬</Text>
+                <Text style={{ fontSize: 14 }}>💬</Text>
               </TouchableOpacity>
             </View>
-            <Text style={[styles.chevronIcon, isExpanded && styles.chevronIconRotated]}>
-              ▼
-            </Text>
           </View>
-        </View>
 
-        {isExpanded && (
-          <View style={styles.accordionContentContainer}>
-            <View style={styles.accordionInnerCard}>
-              <View style={styles.grid2Col}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.metaLabelText}>TRƯỜNG HỌC</Text>
-                  <Text style={styles.metaValueText} numberOfLines={1}>
-                    {cand.school || 'Chưa cập nhật'}
-                  </Text>
+          {/* Name */}
+          <Text style={styles.premiumCardName}>{cand.fullName}</Text>
+
+          {/* Subtitle: Distance & Experience & Online */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 4, marginBottom: 12 }}>
+            <Text style={styles.premiumCardSubtitle} numberOfLines={1}>
+              {cand.major || 'Sinh viên'} • {expText} • {cand.distanceKm === Infinity ? 'Không rõ vị trí' : `${cand.distanceKm} km`}
+            </Text>
+            <View style={[styles.premiumStatusBadge, { marginLeft: 8 }]}>
+              <Text style={styles.premiumStatusText}>ONLINE</Text>
+            </View>
+          </View>
+
+          {/* Skill Tags */}
+          <View style={styles.premiumSkillsRow}>
+            {skillList.slice(0, 3).map((skill, idx) => (
+              <View key={idx} style={styles.premiumSkillPill}>
+                <Text style={styles.premiumSkillText}>{skill}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Expanded Accordion Details */}
+          {isExpanded && (
+            <View style={styles.premiumExpandedContent}>
+              <View style={styles.premiumDivider} />
+              
+              <View style={styles.premiumGrid}>
+                <View style={styles.premiumCol}>
+                  <Text style={styles.premiumLabel}>TRƯỜNG HỌC</Text>
+                  <Text style={styles.premiumValue}>{cand.school || 'Chưa cập nhật'}</Text>
                 </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.metaLabelText}>CHUYÊN NGÀNH</Text>
-                  <Text style={styles.metaValueText} numberOfLines={1}>
-                    {cand.major || 'Chưa cập nhật'}
-                  </Text>
+                <View style={styles.premiumCol}>
+                  <Text style={styles.premiumLabel}>CHUYÊN NGÀNH</Text>
+                  <Text style={styles.premiumValue}>{cand.major || 'Chưa cập nhật'}</Text>
                 </View>
               </View>
 
-              <View style={[styles.grid2Col, { marginTop: 8 }]}>
-                <View style={styles.gridCol}>
-                  <Text style={styles.metaLabelText}>ĐIỂM UY TÍN</Text>
-                  <View style={styles.ratingWrapper}>
-                    <Text style={styles.metaValueText}>
+              <View style={[styles.premiumGrid, { marginTop: 12 }]}>
+                <View style={styles.premiumCol}>
+                  <Text style={styles.premiumLabel}>ĐIỂM UY TÍN</Text>
+                  <View style={styles.premiumRatingRow}>
+                    <Text style={styles.premiumValue}>
                       {cand.reputationScore ? parseFloat(cand.reputationScore).toFixed(1) : '5.0'}
                     </Text>
-                    <Text style={styles.starIconYellow}>★</Text>
-                    <Text style={[styles.detailsBodyText, { marginBottom: 0, marginLeft: 4, fontSize: 11, color: '#64748B' }]}>
-                      ({cand.reviewCount || 0} lượt)
-                    </Text>
+                    <Text style={styles.premiumStarIcon}>★</Text>
+                    <Text style={styles.premiumReviewCount}>({cand.reviewCount || 0} lượt)</Text>
                   </View>
                 </View>
-                <View style={styles.gridCol}>
-                  <Text style={styles.metaLabelText}>SỐ ĐIỆN THOẠI</Text>
-                  <Text style={styles.metaValueText}>{cand.phoneNumber || 'Không hiển thị'}</Text>
+                <View style={styles.premiumCol}>
+                  <Text style={styles.premiumLabel}>SỐ ĐIỆN THOẠI</Text>
+                  <Text style={styles.premiumValue}>{cand.phoneNumber || 'Không hiển thị'}</Text>
                 </View>
               </View>
 
               {cand.bio ? (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.metaLabelText}>GIỚI THIỆU BẢN THÂN</Text>
-                  <Text style={styles.detailsBodyText}>{cand.bio}</Text>
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.premiumLabel}>GIỚI THIỆU BẢN THÂN</Text>
+                  <Text style={styles.premiumBioText}>{cand.bio}</Text>
                 </View>
               ) : null}
-
-              {skillList.length > 0 && (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.metaLabelText}>KỸ NĂNG NỔI BẬT</Text>
-                  <View style={styles.skillsBadgeRow}>
-                    {skillList.map((skill, sIdx) => (
-                      <View key={sIdx} style={styles.skillBadge}>
-                        <Text style={styles.skillBadgeText}>{skill}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
             </View>
-          </View>
-        )}
-      </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+      </View>
     );
   };
+
 
   const handleApprove = (appId) => {
     if (!appId) return;
@@ -413,13 +396,6 @@ export default function CandidateListScreen() {
                 <ActivityIndicator size="large" color="#FF6B00" />
                 <Text style={styles.loadingText}>Đang tải danh sách đơn ứng tuyển...</Text>
               </View>
-            ) : errorApplications ? (
-              <View style={styles.centerLoading}>
-                <Text style={styles.errorText}>{errorApplications}</Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={loadApplications}>
-                  <Text style={styles.retryBtnText}>Thử lại</Text>
-                </TouchableOpacity>
-              </View>
             ) : applications.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyEmoji}>📬</Text>
@@ -427,139 +403,152 @@ export default function CandidateListScreen() {
                 <Text style={styles.emptySub}>Khi có sinh viên ứng tuyển, thông tin và hồ sơ bảo chứng GPS sẽ xuất hiện tại đây.</Text>
               </View>
             ) : (
-              applications.map((app) => (
-                <View key={`app_${app.id}`} style={[styles.applicantCard, { marginBottom: 16 }]}>
-                  {/* Viewfinder Accent Brackets */}
-                  <View style={styles.viewfinderTL} />
-                  <View style={styles.viewfinderBR} />
+              applications.map((app) => {
+                const isExpanded = !!expandedIds[`app_${app.id}`];
+                const matchPercentage = Math.round((app.studentReputationScore || 5.0) * 18 + 8);
+                const skillList = app.studentSkills
+                  ? app.studentSkills.split(',').map(s => s.trim()).filter(Boolean)
+                  : ['Chăm chỉ', 'Đúng giờ', 'Nhiệt tình'];
 
-                  {/* Applicant Profile */}
-                  <View style={styles.applicantHeader}>
-                    <Image 
-                      source={getAvatarSource(app.studentAvatarUrl, null, app.studentName)} 
-                      style={styles.avatar} 
-                    />
-                    <View style={styles.applicantInfo}>
-                      <Text style={styles.applicantName}>{app.studentName || 'Nguyễn Văn A'}</Text>
-                      <View style={styles.schoolBadge}>
-                        <Text style={styles.schoolBadgeText}>🎓 {app.studentSchool || 'Đại Học Quốc Gia TP.HCM'}</Text>
+                const isHighMatch = matchPercentage >= 95;
+                const matchIcon = isHighMatch ? '✓' : '★';
+                const experienceYears = app.studentReviewCount && app.studentReviewCount > 0 
+                  ? Math.max(1, Math.min(5, Math.ceil(app.studentReviewCount / 3)))
+                  : 1;
+                const expText = `${experienceYears} năm kinh nghiệm`;
+
+                const cornerColor = isExpanded ? '#FF6B00' : '#5B00DF';
+                return (
+                  <View key={`app_${app.id}`} style={[styles.premiumAppCard, isExpanded && styles.premiumAppCardActive]}>
+                    {/* Viewfinder/Bracket Corners */}
+                    <View style={[styles.cornerTL, { borderColor: cornerColor }]} />
+                    <View style={[styles.cornerTR, { borderColor: cornerColor }]} />
+                    <View style={[styles.cornerBL, { borderColor: cornerColor }]} />
+                    <View style={[styles.cornerBR, { borderColor: cornerColor }]} />
+
+                    {/* Clickable Area for Accordion */}
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => toggleExpand(`app_${app.id}`)}
+                    >
+                      {/* Top Row: Avatar & Match Badge */}
+                      <View style={styles.premiumCardTopRow}>
+                        <Image
+                          source={getAvatarSource(app.studentAvatarUrl || app.StudentAvatarUrl, null, app.studentName)}
+                          style={styles.premiumCardAvatar}
+                        />
+                        <View style={[styles.premiumMatchBadge, { backgroundColor: isHighMatch ? '#300066' : '#5B00DF' }]}>
+                          <Text style={styles.premiumMatchBadgeText}>{matchIcon} {matchPercentage}% Phù hợp</Text>
+                        </View>
                       </View>
-                      <View style={styles.statsRow}>
-                        <Text style={styles.ratingText}>★ {app.studentReputationScore ? app.studentReputationScore.toFixed(1) : '5.0'}</Text>
-                        <View style={styles.statsDivider} />
-                        <Text style={styles.shiftsCompleted}>{app.studentReviewCount || 0} ca làm</Text>
+
+                      {/* Name */}
+                      <Text style={styles.premiumCardName}>{app.studentName}</Text>
+
+                      {/* Subtitle: Job role / Major & Experience */}
+                      <Text style={styles.premiumCardSubtitle}>
+                        {app.studentMajor || 'Sinh viên'} • {expText}
+                      </Text>
+
+                      {/* Skills Tags */}
+                      <View style={styles.premiumSkillsRow}>
+                        {skillList.slice(0, 3).map((skill, sIdx) => (
+                          <View key={sIdx} style={styles.premiumSkillPill}>
+                            <Text style={styles.premiumSkillText}>{skill}</Text>
+                          </View>
+                        ))}
                       </View>
+
+                      {/* Expanded Section */}
+                      {isExpanded && (
+                        <View style={styles.premiumExpandedContent}>
+                          <View style={styles.premiumDivider} />
+                          
+                          <View style={styles.premiumGrid}>
+                            <View style={styles.premiumCol}>
+                              <Text style={styles.premiumLabel}>TRƯỜNG HỌC</Text>
+                              <Text style={styles.premiumValue} numberOfLines={2}>
+                                {app.studentSchool || 'Chưa cập nhật'}
+                              </Text>
+                            </View>
+                            <View style={styles.premiumCol}>
+                              <Text style={styles.premiumLabel}>CHUYÊN NGÀNH</Text>
+                              <Text style={styles.premiumValue} numberOfLines={2}>
+                                {app.studentMajor || 'Chưa cập nhật'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={[styles.premiumGrid, { marginTop: 12 }]}>
+                            <View style={styles.premiumCol}>
+                              <Text style={styles.premiumLabel}>ĐIỂM UY TÍN</Text>
+                              <View style={styles.premiumRatingRow}>
+                                <Text style={styles.premiumValue}>
+                                  {app.studentReputationScore ? parseFloat(app.studentReputationScore).toFixed(1) : '5.0'}
+                                </Text>
+                                <Text style={styles.premiumStarIcon}>★</Text>
+                                <Text style={styles.premiumReviewCount}>
+                                  ({app.studentReviewCount || 0} lượt)
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.premiumCol}>
+                              <Text style={styles.premiumLabel}>NĂM HỌC</Text>
+                              <Text style={styles.premiumValue}>
+                                {app.studentYearOfStudy ? `Sinh viên năm ${app.studentYearOfStudy}` : 'Chưa cập nhật'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {app.studentBio ? (
+                            <View style={{ marginTop: 12 }}>
+                              <Text style={styles.premiumLabel}>GIỚI THIỆU BẢN THÂN</Text>
+                              <Text style={styles.premiumBioText}>{app.studentBio}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Actions (Always visible at the bottom of the card) */}
+                    <View style={styles.premiumActionRow}>
+                      {app.status === 'Approved' || app.status === 'CheckedIn' || app.status === 'CheckIn' || app.status === 'Completed' ? (
+                        <View style={[styles.premiumActionBtn, { backgroundColor: '#10B981', flex: 1, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center' }]}>
+                          <Text style={{ fontFamily: FONT_BOLD, color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>✓ Đã duyệt nhận việc</Text>
+                        </View>
+                      ) : (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.premiumActionBtn, styles.premiumRejectBtn]}
+                            disabled={processingId !== null}
+                            onPress={() => handleReject(app.id)}
+                            activeOpacity={0.8}
+                          >
+                            {processingId === `reject_${app.id}` ? (
+                              <ActivityIndicator size="small" color="#4B5563" />
+                            ) : (
+                              <Text style={styles.premiumRejectBtnText}>Từ chối</Text>
+                            )}
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.premiumActionBtn, styles.premiumApproveBtn]}
+                            disabled={processingId !== null}
+                            onPress={() => handleApprove(app.id)}
+                            activeOpacity={0.85}
+                          >
+                            {processingId === `approve_${app.id}` ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <Text style={styles.premiumApproveBtnText}>Duyệt nhận việc</Text>
+                            )}
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </View>
                   </View>
-
-                  <View style={styles.divider} />
-
-                  {/* Resume/E-Portfolio link preview */}
-                  <View style={styles.ePortfolioBox}>
-                    <Text style={styles.portfolioTitle}>⚡ HỒ SƠ E-PORTFOLIO (BẢO CHỨNG GPS)</Text>
-                    
-                    {app.studentReviewCount > 0 ? (
-                      <>
-                        <View style={styles.portfolioRow}>
-                          <Text style={styles.portfolioDot}>•</Text>
-                          <Text style={styles.portfolioText}>
-                            Tỷ lệ đúng giờ: <Text style={styles.portfolioHighlight}>98%</Text>
-                          </Text>
-                        </View>
-                        
-                        <View style={styles.portfolioRow}>
-                          <Text style={styles.portfolioDot}>•</Text>
-                          <Text style={styles.portfolioText}>
-                            Đánh giá từ các cửa hàng: <Text style={styles.portfolioHighlight}>{app.studentReputationScore ? app.studentReputationScore.toFixed(1) : '5.0'} ★</Text> (Highlands, Katinat, Circle K)
-                          </Text>
-                        </View>
-
-                        <View style={styles.portfolioRow}>
-                          <Text style={styles.portfolioDot}>•</Text>
-                          <Text style={styles.portfolioText}>
-                            Quãng đường làm việc TB: <Text style={styles.portfolioHighlight}>2.8 km</Text> (Bán kính an toàn)
-                          </Text>
-                        </View>
-                      </>
-                    ) : (
-                      <View style={styles.portfolioRow}>
-                        <Text style={styles.portfolioDot}>•</Text>
-                        <Text style={[styles.portfolioText, { fontStyle: 'italic', color: '#94A3B8' }]}>
-                          Sinh viên mới, chưa phát sinh lịch sử làm việc & dữ liệu GPS bảo chứng.
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Academic & Intro info */}
-                  {(app.studentMajor || app.studentBio || app.studentSkills) ? (
-                    <View style={[styles.ePortfolioBox, { marginTop: 0, marginBottom: 20, borderColor: '#E5E9EB', backgroundColor: '#FFFFFF' }]}>
-                      <Text style={[styles.portfolioTitle, { color: '#5B00DF' }]}>📝 HỒ SƠ CÁ NHÂN CHI TIẾT</Text>
-                      {app.studentMajor ? (
-                        <View style={styles.portfolioRow}>
-                          <Text style={styles.portfolioDot}>•</Text>
-                          <Text style={styles.portfolioText}>
-                            Chuyên ngành: <Text style={styles.portfolioHighlight}>{app.studentMajor}</Text> (Năm {app.studentYearOfStudy || 1})
-                          </Text>
-                        </View>
-                      ) : null}
-                      {app.studentSkills ? (
-                        <View style={styles.portfolioRow}>
-                          <Text style={styles.portfolioDot}>•</Text>
-                          <Text style={styles.portfolioText}>
-                            Kỹ năng: <Text style={styles.portfolioHighlight}>{app.studentSkills}</Text>
-                          </Text>
-                        </View>
-                      ) : null}
-                      {app.studentBio ? (
-                        <View style={styles.portfolioRow}>
-                          <Text style={styles.portfolioDot}>•</Text>
-                          <Text style={styles.portfolioText}>
-                            Giới thiệu: <Text style={[styles.portfolioHighlight, { fontWeight: '400', fontStyle: 'italic' }]}>"{app.studentBio}"</Text>
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
-
-                  {/* Actions */}
-                  <View style={styles.actionRow}>
-                    {app.status === 'Approved' || app.status === 'CheckedIn' || app.status === 'CheckIn' || app.status === 'Completed' ? (
-                      <View style={[styles.actionBtn, styles.approveBtn, { backgroundColor: '#10B981', flex: 1, height: 46, borderRadius: 9999, justifyContent: 'center', alignItems: 'center' }]}>
-                        <Text style={{ fontFamily: FONT_BOLD, color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>✓ Đã duyệt nhận việc</Text>
-                      </View>
-                    ) : (
-                      <>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.rejectBtn]}
-                          disabled={processingId !== null}
-                          onPress={() => handleReject(app.id)}
-                          activeOpacity={0.8}
-                        >
-                          {processingId === `reject_${app.id}` ? (
-                            <ActivityIndicator size="small" color="#EF4444" />
-                          ) : (
-                            <Text style={styles.rejectBtnText}>Từ chối</Text>
-                          )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.approveBtn]}
-                          disabled={processingId !== null}
-                          onPress={() => handleApprove(app.id)}
-                          activeOpacity={0.85}
-                        >
-                          {processingId === `approve_${app.id}` ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                          ) : (
-                            <Text style={styles.approveBtnText}>Duyệt nhận việc</Text>
-                          )}
-                        </TouchableOpacity>
-                      </>
-                    )}
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </>
         ) : (
@@ -917,13 +906,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rejectBtn: {
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E9EB',
+    backgroundColor: '#EEF2F6',
+    borderWidth: 0,
   },
   approveBtn: {
-    backgroundColor: '#5B00DF',
-    shadowColor: '#5B00DF',
+    backgroundColor: '#FF6B00',
+    shadowColor: '#FF6B00',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -931,7 +919,7 @@ const styles = StyleSheet.create({
   },
   rejectBtnText: {
     fontFamily: FONT_BOLD,
-    color: '#DC2626',
+    color: '#4B5563',
     fontSize: 13,
     fontWeight: getFontWeight('700'),
   },
@@ -940,6 +928,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: getFontWeight('700'),
+  },
+  applicantSubtitleText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  matchBadge: {
+    backgroundColor: '#5B00DF',
+    borderRadius: 24,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  matchBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  skillsTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  skillTagPill: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 99,
+  },
+  skillTagText: {
+    fontFamily: FONT_BOLD,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#7E22CE',
   },
   
   // ─── Empty State ──────────────────────────
@@ -1293,5 +1319,232 @@ const styles = StyleSheet.create({
     fontFamily: FONT_REGULAR,
     fontSize: 10,
     color: '#64748B',
+  },
+  
+  // ─── Premium Card Styles ───────────────────
+  premiumAppCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 16,
+    shadowColor: '#5B00DF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 2,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  premiumAppCardActive: {
+    shadowOpacity: 0.08,
+  },
+  cornerTL: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 20,
+    height: 20,
+    borderTopWidth: 2.5,
+    borderLeftWidth: 2.5,
+    borderTopLeftRadius: 24,
+    zIndex: 10,
+  },
+  cornerTR: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderTopWidth: 2.5,
+    borderRightWidth: 2.5,
+    borderTopRightRadius: 24,
+    zIndex: 10,
+  },
+  cornerBL: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 20,
+    height: 20,
+    borderBottomWidth: 2.5,
+    borderLeftWidth: 2.5,
+    borderBottomLeftRadius: 24,
+    zIndex: 10,
+  },
+  cornerBR: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderBottomWidth: 2.5,
+    borderRightWidth: 2.5,
+    borderBottomRightRadius: 24,
+    zIndex: 10,
+  },
+  premiumCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  premiumCardAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: '#F1F4F6',
+  },
+  premiumMatchBadge: {
+    borderRadius: 24,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  premiumMatchBadgeText: {
+    fontFamily: FONT_BOLD,
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  premiumCardName: {
+    fontFamily: FONT_EXTRABOLD,
+    fontSize: 22,
+    fontWeight: getFontWeight('800'),
+    color: '#1E293B',
+    marginTop: 16,
+  },
+  premiumCardSubtitle: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    color: '#475569',
+  },
+  premiumStatusBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  premiumStatusText: {
+    fontFamily: FONT_BOLD,
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  premiumSkillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  premiumSkillPill: {
+    backgroundColor: '#F3E8FF', // Lavender background
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 0,
+  },
+  premiumSkillText: {
+    fontFamily: FONT_BOLD,
+    fontSize: 11,
+    color: '#7E22CE', // Dark purple text
+    fontWeight: '700',
+  },
+  premiumExpandedContent: {
+    marginTop: 12,
+  },
+  premiumDivider: {
+    height: 1,
+    backgroundColor: '#EEF2F6',
+    marginVertical: 12,
+  },
+  premiumGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  premiumCol: {
+    flex: 1,
+  },
+  premiumLabel: {
+    fontFamily: FONT_EXTRABOLD,
+    fontSize: 9,
+    fontWeight: getFontWeight('800'),
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  premiumValue: {
+    fontFamily: FONT_BOLD,
+    fontSize: 12,
+    fontWeight: getFontWeight('700'),
+    color: '#1E293B',
+  },
+  premiumRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumStarIcon: {
+    color: '#FFB800',
+    fontSize: 13,
+    marginLeft: 3,
+  },
+  premiumReviewCount: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 11,
+    color: '#64748B',
+    marginLeft: 4,
+  },
+  premiumBioText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  premiumActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  premiumCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EEF2F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  premiumActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  premiumActionBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  premiumRejectBtn: {
+    backgroundColor: '#EEF2F6',
+  },
+  premiumApproveBtn: {
+    backgroundColor: '#FF6B00',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  premiumRejectBtnText: {
+    fontFamily: FONT_BOLD,
+    color: '#4B5563',
+    fontSize: 14,
+    fontWeight: getFontWeight('700'),
+  },
+  premiumApproveBtnText: {
+    fontFamily: FONT_BOLD,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: getFontWeight('700'),
   },
 });

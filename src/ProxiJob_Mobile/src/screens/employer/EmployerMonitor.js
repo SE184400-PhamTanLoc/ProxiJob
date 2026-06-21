@@ -13,6 +13,7 @@ import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getAvatarSource } from '../../utils/avatarHelper';
+import { useAttendanceLogsQuery, useStaffListQuery } from '../../hooks/queries';
 
 // Pure JS Haversine formula
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -31,25 +32,19 @@ const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
 
 export default function EmployerMonitor() {
   const { 
-    shifts, 
-    staffList, 
-    loadStaffList, 
-    loadEmployerJobs, 
-    loadAttendanceLogs, 
-    studentCoords, 
-    attendanceLogs 
+    user,
+    studentCoords
   } = useContext(AppContext);
+
+  const { data: attendanceLogs = [], refetch: refetchAttendanceLogs } = useAttendanceLogsQuery(user);
+  const { data: staffList = [] } = useStaffListQuery(user);
 
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   React.useEffect(() => {
-    loadStaffList();
-    loadEmployerJobs();
-    loadAttendanceLogs();
-    
     // Set up polling to update logs from database every 5 seconds
     const interval = setInterval(() => {
-      loadAttendanceLogs();
+      refetchAttendanceLogs();
     }, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -182,14 +177,8 @@ export default function EmployerMonitor() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header Section */}
-      <View style={styles.radarHeader}>
-        <Text style={styles.headerTitle}>GIÁM SÁT GPS LIVE</Text>
-        <Text style={styles.headerSubtitle}>Theo dõi vị trí nhân sự thực tế trong bán kính an toàn của cửa hàng.</Text>
-      </View>
-
       <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 16 }]}
         scrollEnabled={!isMapExpanded}
       >
         {/* Bento-style Interactive Map Card */}

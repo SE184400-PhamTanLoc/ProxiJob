@@ -16,9 +16,39 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getCategoriesApi, getSkillsApi, getJobPostById } from '../../api/jobs';
 import { useEmployerJobsQuery, useDeleteJobPostMutation, useUpdateJobPostWizardMutation, useHandleLeaveRequestMutation } from '../../hooks/queries';
+import { Ionicons } from '@expo/vector-icons';
+
+const getLeftBorderColor = (index) => {
+  const colors = ['#8B5CF6', '#C2410C', '#0D9488', '#2563EB', '#EC4899'];
+  return colors[index % colors.length];
+};
+
+const getShopBgColor = (shopName) => {
+  if (!shopName) return '#EFF6FF';
+  const charCode = shopName.charCodeAt(0) || 0;
+  const colors = ['#FFE4E6', '#FEF3C7', '#ECFDF5', '#EFF6FF', '#F5F3FF', '#FFF7ED'];
+  return colors[charCode % colors.length];
+};
+
+const getShopTextColor = (shopName) => {
+  if (!shopName) return '#475569';
+  const charCode = shopName.charCodeAt(0) || 0;
+  const colors = ['#E11D48', '#D97706', '#059669', '#2563EB', '#7C3AED', '#EA580C'];
+  return colors[charCode % colors.length];
+};
+
+const getShopInitials = (shopName) => {
+  if (!shopName) return 'PJ';
+  const cleanName = shopName.replace(/(Coffee|Tea|Restaurant|Store|Shop|Quán|Café)/gi, '').trim();
+  const parts = cleanName.split(' ');
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return cleanName.substring(0, 2).toUpperCase();
+};
 
 export default function EmployerApprovals() {
-  const { 
+  const {
     navigateTo,
     showToast,
     user
@@ -118,21 +148,21 @@ export default function EmployerApprovals() {
         showToast('Không tìm thấy thông tin bài đăng gốc.', 'error');
         return;
       }
-      
+
       setEditingJobId(originalJob.id);
       setEditTitle(originalJob.title || '');
       setEditDescription(originalJob.description || '');
       setEditRequirements(originalJob.requirements || '');
-      
+
       const cat = categories.find(c => c.name === originalJob.categoryName);
       setEditCategoryId(cat ? String(cat.id) : '6');
-      
+
       setEditAddress(originalJob.location?.address || '');
       setEditLatitude(String(originalJob.location?.latitude || ''));
       setEditLongitude(String(originalJob.location?.longitude || ''));
-      
-      const skillIds = Array.isArray(originalJob.skills) 
-        ? originalJob.skills.map(s => s.id) 
+
+      const skillIds = Array.isArray(originalJob.skills)
+        ? originalJob.skills.map(s => s.id)
         : [];
       setEditSelectedSkills(skillIds);
     } catch (err) {
@@ -218,9 +248,9 @@ export default function EmployerApprovals() {
         </View>
 
         {/* Bento Stats Bar */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.statsContainer}
         >
           <View style={[styles.statsBadge, { borderLeftColor: theme.colors.primary }]}>
@@ -262,99 +292,100 @@ export default function EmployerApprovals() {
         {activeSegment === 'job_posts' ? (
           /* Job Posts Management Tab */
           <View style={styles.cardsWrapper}>
-            {shifts.map((shift) => {
+            {shifts.map((shift, index) => {
               const applicantCount = shift.applicantCount !== undefined ? shift.applicantCount : (shift.status === 'applied' ? 1 : 0);
               const hasApplicants = applicantCount > 0;
+              const leftBorderColor = getLeftBorderColor(index);
+              const cardViews = (shift.applicantCount || 0) * 15 + 120;
+              
               return (
-                <View key={shift.id} style={styles.approvalCard}>
-                  {/* Futuristic Viewfinder Bracket Accents */}
-                  <View style={styles.viewfinderCornerTL} />
-                  <View style={styles.viewfinderCornerBR} />
-
-                  <View style={styles.jobHeaderRow}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <Text style={styles.jobShopName}>{shift.shopName.toUpperCase()}</Text>
-                      <Text style={styles.jobTitleText}>{shift.title}</Text>
-                    </View>
-                    <View style={styles.headerRightContainer}>
-                      <View style={[
-                        styles.candidateBadge,
-                        hasApplicants ? styles.candidateBadgeActive : styles.candidateBadgeInactive,
-                        { marginBottom: 6 }
-                      ]}>
-                        <Text style={[
-                          styles.candidateBadgeText,
-                          hasApplicants ? styles.candidateBadgeTextActive : styles.candidateBadgeTextInactive
-                        ]}>
-                          Ứng viên: {applicantCount}
-                        </Text>
+                <TouchableOpacity
+                  key={shift.id}
+                  style={styles.cardShadowContainer}
+                  activeOpacity={0.9}
+                  onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
+                >
+                  <View style={[
+                    styles.cardContent,
+                    { borderLeftColor: leftBorderColor, borderLeftWidth: 6 }
+                  ]}>
+                    <View style={styles.cardTopRow}>
+                      <View style={styles.logoAndName}>
+                        <View style={[styles.shopLogoCircle, { backgroundColor: getShopBgColor(shift.shopName) }]}>
+                          <Text style={[styles.shopLogoText, { color: getShopTextColor(shift.shopName) }]}>
+                            {getShopInitials(shift.shopName)}
+                          </Text>
+                        </View>
+                        <View style={styles.viewCountRow}>
+                          <Ionicons name="eye-outline" size={13} color="#64748B" style={{ marginRight: 2 }} />
+                          <Text style={styles.viewCountText}>
+                            {cardViews >= 1000 ? (cardViews / 1000).toFixed(1) + 'k' : cardViews} lượt xem
+                          </Text>
+                        </View>
                       </View>
+
                       <View style={styles.cardActionsRow}>
-                        <TouchableOpacity 
-                          style={[styles.cardActionBtn, { marginRight: 8 }]} 
+                        <TouchableOpacity
+                          style={[styles.cardActionBtn, { marginRight: 8 }]}
                           onPress={() => handleEditPress(shift)}
                         >
                           <Text style={styles.cardActionIcon}>✏️</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[styles.cardActionBtn, styles.cardActionBtnDelete]} 
+                        <TouchableOpacity
+                          style={[styles.cardActionBtn, styles.cardActionBtnDelete]}
                           onPress={() => handleDeletePress(shift)}
                         >
                           <Text style={styles.cardActionIcon}>🗑️</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
-                  </View>
 
-                  {/* Info Tags */}
-                  <View style={styles.infoRow}>
-                    <View style={styles.infoTag}>
-                      <Text style={styles.infoTagIcon}>📅</Text>
-                      <Text style={styles.infoTagText}>{shift.date}</Text>
-                    </View>
-                    <View style={styles.infoTag}>
-                      <Text style={styles.infoTagIcon}>⏰</Text>
-                      <Text style={styles.infoTagText}>{shift.time}</Text>
-                    </View>
-                  </View>
+                    <Text style={styles.jobTitleText} numberOfLines={2}>{shift.title}</Text>
+                    <Text style={styles.shopSubtitleText} numberOfLines={1}>{shift.shopName}</Text>
 
-                  <View style={styles.divider} />
-
-                  {/* Footer Rate & Action */}
-                  <View style={styles.postFooter}>
-                    <View style={styles.rateContainer}>
-                      <Text style={styles.jobHourlyRate}>
-                        {(shift.hourlyRate).toLocaleString('vi-VN')} đ/h
-                      </Text>
-                      <Text style={[
-                        styles.statusValue, 
-                        shift.status === 'completed' && { color: theme.colors.textMuted },
-                        shift.status === 'checkin_active' && { color: theme.colors.success },
-                        shift.status === 'approved' && { color: theme.colors.secondary }
-                      ]}>
-                        • {shift.status === 'completed' 
-                          ? 'Đã hoàn thành' 
-                          : shift.status === 'checkin_active' 
-                            ? 'Sinh viên đang làm' 
-                            : shift.status === 'approved' 
-                              ? 'Đã duyệt hồ sơ' 
-                              : 'Đang hiển thị'}
-                      </Text>
+                    <View style={styles.timeInfoRow}>
+                      <Ionicons name="calendar-outline" size={13} color="#64748B" style={{ marginRight: 4 }} />
+                      <Text style={styles.timeInfoText}>{shift.date} • {shift.time}</Text>
                     </View>
 
-                    <TouchableOpacity
-                      style={styles.actionLinkBtn}
-                      onPress={() => navigateTo('candidate_list', { shiftId: shift.id })}
-                    >
-                      <Text style={styles.actionLinkText}>
-                        {hasApplicants ? `Xem ứng viên (${applicantCount})` : 'Tìm lân cận'}
-                      </Text>
-                      <Text style={styles.actionLinkChevron}>
-                        {hasApplicants ? ' ➔' : ' 🔍'}
-                      </Text>
-                    </TouchableOpacity>
+                    <View style={styles.cardFooterRow}>
+                      <View style={styles.salaryAndStatus}>
+                        <Text style={styles.salaryText}>
+                          {(shift.hourlyRate).toLocaleString('vi-VN')} đ/h
+                        </Text>
+                        <Text style={[
+                          styles.statusText,
+                          shift.status === 'completed' && { color: '#64748B' },
+                          shift.status === 'checkin_active' && { color: '#10B981' },
+                          shift.status === 'approved' && { color: '#0A58CA' }
+                        ]}>
+                          • {shift.status === 'completed'
+                            ? 'Đã hoàn thành'
+                            : shift.status === 'checkin_active'
+                              ? 'Sinh viên đang làm'
+                              : shift.status === 'approved'
+                                ? 'Đã duyệt hồ sơ'
+                                : 'Đang hiển thị'}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.viewCandidatesBtn}
+                        onPress={() => navigateTo('candidate_list', { shiftId: shift.id })}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.viewCandidatesBtnText}>
+                          {hasApplicants ? `Xem ứng viên (${applicantCount})` : 'Tìm lân cận'}
+                        </Text>
+                        {hasApplicants ? (
+                          <Ionicons name="chevron-forward" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                        ) : (
+                          <Ionicons name="search" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -398,10 +429,10 @@ export default function EmployerApprovals() {
                 const borderLeftColor = isSwap ? '#FF6B00' : '#EF4444';
 
                 return (
-                  <View 
-                    key={request.id} 
+                  <View
+                    key={request.id}
                     style={[
-                      styles.approvalCard, 
+                      styles.approvalCard,
                       !isPending && { opacity: 0.7, borderStyle: 'dashed', borderColor: '#8E7164' }
                     ]}
                   >
@@ -484,7 +515,7 @@ export default function EmployerApprovals() {
       </ScrollView>
 
       {/* Floating Action Button (FAB) */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.floatingFab}
         onPress={() => navigateTo('employer_emergency_post')}
         activeOpacity={0.8}
@@ -824,152 +855,148 @@ const styles = StyleSheet.create({
   cardsWrapper: {
     width: '100%',
   },
-  approvalCard: {
-    position: 'relative', // Necessary for viewfinder corners placement
+  cardShadowContainer: {
+    backgroundColor: 'transparent',
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 3,
+  },
+  cardContent: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    padding: 20,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  logoAndName: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shopLogoCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.02)',
+  },
+  shopLogoText: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  viewCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  viewCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+  },
+  cardActionBtn: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
+    backgroundColor: '#EEF1F3',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E9EB',
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 15,
-    elevation: 2,
   },
-  viewfinderCornerTL: {
-    position: 'absolute',
-    top: -1,
-    left: -1,
-    width: 12,
-    height: 12,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    borderColor: '#FF6B00',
-    borderTopLeftRadius: 6,
+  cardActionBtnDelete: {
+    backgroundColor: '#FFDAD6',
+    borderColor: '#FFDAD6',
   },
-  viewfinderCornerBR: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 12,
-    height: 12,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    borderColor: '#FF6B00',
-    borderBottomRightRadius: 6,
-  },
-  jobHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  jobShopName: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#5B00DF', // Soft Electric Violet brand color
-    letterSpacing: 0.5,
+  cardActionIcon: {
+    fontSize: 14,
   },
   jobTitleText: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#181C1E',
-    marginTop: 2,
+    color: '#0F172A',
+    lineHeight: 26,
+    marginBottom: 6,
   },
-  candidateBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 9999,
-  },
-  candidateBadgeActive: {
-    backgroundColor: '#FFDBCC',
-  },
-  candidateBadgeInactive: {
-    backgroundColor: '#EEF1F3',
-    opacity: 0.6,
-  },
-  candidateBadgeText: {
-    fontSize: 11,
+  shopSubtitleText: {
+    fontSize: 13,
     fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  candidateBadgeTextActive: {
-    color: '#7A3000',
-  },
-  candidateBadgeTextInactive: {
-    color: '#5A4136',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  infoTag: {
+  timeInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
-    marginBottom: 4,
+    marginBottom: 14,
   },
-  infoTagIcon: {
+  timeInfoText: {
     fontSize: 13,
-    marginRight: 4,
+    color: '#64748B',
+    fontWeight: '500',
   },
-  infoTagText: {
-    fontSize: 13,
-    color: '#5A4136',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E9EB',
-    opacity: 0.6,
-    marginBottom: 12,
-  },
-  postFooter: {
+  cardFooterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-  rateContainer: {
+  salaryAndStatus: {
     flexDirection: 'column',
   },
-  jobHourlyRate: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#00A86B',
+  salaryText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FF6B00',
   },
-  statusValue: {
+  statusText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#5A4136',
-    marginTop: 1,
+    color: '#FF6B00',
+    marginTop: 2,
   },
-  actionLinkBtn: {
+  viewCandidatesBtn: {
+    backgroundColor: '#0A58CA',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    shadowColor: '#0A58CA',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  actionLinkText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FF6B00',
-  },
-  actionLinkTextDisabled: {
-    color: '#5A4136',
-    opacity: 0.4,
-  },
-  actionLinkChevron: {
-    fontSize: 11,
+  viewCandidatesBtnText: {
+    fontSize: 12,
     fontWeight: '800',
-    color: '#FF6B00',
-  },
-  actionLinkChevronDisabled: {
-    color: '#5A4136',
-    opacity: 0.4,
+    color: '#FFFFFF',
   },
   floatingFab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 110,
     right: 24,
     width: 56,
     height: 56,

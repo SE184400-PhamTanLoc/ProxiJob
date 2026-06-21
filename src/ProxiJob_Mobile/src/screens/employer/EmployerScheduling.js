@@ -15,26 +15,32 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getAvatarSource } from '../../utils/avatarHelper';
+import {
+  useSchedulesQuery,
+  useAddEmployeeScheduleMutation,
+  useRemoveEmployeeScheduleMutation,
+  useStaffListQuery
+} from '../../hooks/queries';
 
 function getCurrentWeekDays() {
   const today = new Date();
   const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
   const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
-  
+
   const monday = new Date(today);
   monday.setDate(today.getDate() + distanceToMonday);
-  
+
   const days = [];
   const dayNames = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-  
+
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    
+
     const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
     const apiDateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
     const isToday = d.toDateString() === today.toDateString();
-    
+
     days.push({
       name: dayNames[i],
       date: dateStr,
@@ -50,18 +56,20 @@ function getCurrentWeekDays() {
 export default function EmployerScheduling() {
   const {
     user,
-    staffList,
-    loadStaffList,
-    schedulesList,
-    loadSchedules,
-    addEmployeeSchedule,
-    removeEmployeeSchedule,
-    deleteSchedule,
     showToast
   } = useContext(AppContext);
 
+  const { data: staffList = [] } = useStaffListQuery(user);
+
   const [weekDays, setWeekDays] = useState([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+
+  const activeDateStr = weekDays[selectedDayIndex]?.apiDateStr;
+  const { data: schedulesList = [] } = useSchedulesQuery(activeDateStr);
+
+  const addEmployeeScheduleMutation = useAddEmployeeScheduleMutation(user, showToast);
+  const removeEmployeeScheduleMutation = useRemoveEmployeeScheduleMutation(user, showToast);
+
   const [assigningShift, setAssigningShift] = useState(null); // { slotId }
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,7 +90,6 @@ export default function EmployerScheduling() {
   const [newShiftIcon, setNewShiftIcon] = useState('☀️');
 
   React.useEffect(() => {
-    loadStaffList();
     const days = getCurrentWeekDays();
     setWeekDays(days);
     const todayIdx = days.findIndex(d => d.isToday);
@@ -107,13 +114,6 @@ export default function EmployerScheduling() {
   }, [user]);
 
   React.useEffect(() => {
-    if (weekDays.length > 0 && weekDays[selectedDayIndex]) {
-      const activeDateStr = weekDays[selectedDayIndex].apiDateStr;
-      loadSchedules(activeDateStr);
-    }
-  }, [selectedDayIndex, weekDays]);
-
-  React.useEffect(() => {
     setLocalSchedules(schedulesList || []);
   }, [schedulesList]);
 
@@ -130,7 +130,7 @@ export default function EmployerScheduling() {
     if (assigningShift && weekDays[selectedDayIndex]) {
       const activeDate = weekDays[selectedDayIndex];
       const activeDateStr = activeDate.apiDateStr;
-      
+
       const targetSlot = shiftSlots.find(s => s.id === assigningShift.slotId);
       if (!targetSlot) return;
 
@@ -192,26 +192,20 @@ export default function EmployerScheduling() {
           // 1. Delete existing schedule for this slot if there is one in the backup
           const existingSchedule = backupSchedules.find(s => s.note === assigningShift.slotId);
           if (existingSchedule && existingSchedule.id && !existingSchedule.id.toString().startsWith('temp_')) {
-            await deleteSchedule(existingSchedule.id);
+            await removeEmployeeScheduleMutation.mutateAsync({ scheduleId: existingSchedule.id, dateStr: activeDateStr });
           }
 
           // 2. Add the new schedule
-          const success = await addEmployeeSchedule(
-            staffId,
-            activeDateStr,
-            assigningShift.slotId,
+          await addEmployeeScheduleMutation.mutateAsync({
+            employeeId: staffId,
+            dateStr: activeDateStr,
+            slotId: assigningShift.slotId,
             startTimeStr,
             endTimeStr
-          );
-
-          if (!success) {
-            // Revert state if creation failed
-            setLocalSchedules(backupSchedules);
-          }
+          });
         } catch (err) {
           console.log('Failed to perform background scheduling:', err);
           setLocalSchedules(backupSchedules);
-          showToast('Không thể kết nối máy chủ để cập nhật lịch!', 'error');
         }
       })();
     }
@@ -220,7 +214,7 @@ export default function EmployerScheduling() {
   const handleUnassignStaff = async () => {
     if (assigningShift && weekDays[selectedDayIndex]) {
       const activeDateStr = weekDays[selectedDayIndex].apiDateStr;
-      
+
       const backupSchedules = [...localSchedules];
 
       // Optimistic update: filter out this slot's schedule
@@ -235,14 +229,10 @@ export default function EmployerScheduling() {
       if (slotSchedule && slotSchedule.id && !slotSchedule.id.toString().startsWith('temp_')) {
         (async () => {
           try {
-            const success = await removeEmployeeSchedule(slotSchedule.id, activeDateStr);
-            if (!success) {
-              setLocalSchedules(backupSchedules);
-            }
+            await removeEmployeeScheduleMutation.mutateAsync({ scheduleId: slotSchedule.id, dateStr: activeDateStr });
           } catch (err) {
             console.log('Failed to perform background unassign:', err);
             setLocalSchedules(backupSchedules);
-            showToast('Không thể kết nối máy chủ để gỡ nhân viên!', 'error');
           }
         })();
       }
@@ -364,9 +354,9 @@ export default function EmployerScheduling() {
 
             const staff = slotSchedule ? staffList.find(s => s.id === slotSchedule.employeeId) : null;
             const assignedStaffName = staff ? staff.name : (slotSchedule ? 'Nhân viên' : 'Chưa xếp');
-            
+
             const role = staff ? staff.role : (slot.id === 'evening' ? 'Quản lý' : 'Pha chế');
-            
+
             let rate = '28.000 đ/h';
             if (staff && staff.hourlyRate) {
               rate = `${Number(staff.hourlyRate).toLocaleString('vi-VN')} đ/h`;
@@ -473,11 +463,11 @@ export default function EmployerScheduling() {
             }
           })}
         </View>
-        
+
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>💡 Hướng dẫn xếp ca nhanh</Text>
           <Text style={styles.infoBody}>
-            Nhấn vào nút <Text style={{fontWeight: 'bold'}}>Gán Nhân Sự</Text> hoặc hộp thoại thông tin nhân viên trên bất kỳ ca làm nào để mở danh sách nhân sự nội bộ và phân công làm việc.
+            Nhấn vào nút <Text style={{ fontWeight: 'bold' }}>Gán Nhân Sự</Text> hoặc hộp thoại thông tin nhân viên trên bất kỳ ca làm nào để mở danh sách nhân sự nội bộ và phân công làm việc.
           </Text>
         </View>
       </ScrollView>
@@ -812,7 +802,7 @@ const styles = StyleSheet.create({
   },
   floatingFab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 110,
     right: 24,
     width: 56,
     height: 56,

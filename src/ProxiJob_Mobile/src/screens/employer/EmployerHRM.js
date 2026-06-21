@@ -15,16 +15,18 @@ import { AppContext } from '../../context/AppContext';
 import * as Font from 'expo-font';
 import { getAvatarSource } from '../../utils/avatarHelper';
 import { handleCallUser } from '../../utils/callHelper';
+import { useStaffListQuery, useAddStaffMemberMutation, useRemoveStaffMemberMutation } from '../../hooks/queries';
 
 export default function EmployerHRM() {
   const {
-    staffList,
-    addStaffMember,
-    removeStaffMember,
-    loadStaffList,
     user,
-    navigateTo
+    navigateTo,
+    showToast
   } = useContext(AppContext);
+
+  const { data: staffList = [], isLoading: loadingStaff, refetch: loadStaffList } = useStaffListQuery(user);
+  const addStaffMutation = useAddStaffMemberMutation(user, showToast);
+  const removeStaffMutation = useRemoveStaffMemberMutation(user, showToast);
 
   const [activeTab, setActiveTab] = useState('internal'); // 'internal' | 'single'
   const [modalVisible, setModalVisible] = useState(false);
@@ -75,19 +77,33 @@ export default function EmployerHRM() {
   const handleAddStaff = async () => {
     if (newStaffName.trim() && newStaffRole.trim() && newStaffPhone.trim()) {
       setIsAdding(true);
-      await addStaffMember(newStaffName, newStaffRole, newStaffPhone);
-      setNewStaffName('');
-      setNewStaffRole('');
-      setNewStaffPhone('');
-      setModalVisible(false);
-      setIsAdding(false);
+      try {
+        await addStaffMutation.mutateAsync({
+          name: newStaffName,
+          role: newStaffRole,
+          phone: newStaffPhone
+        });
+        setNewStaffName('');
+        setNewStaffRole('');
+        setNewStaffPhone('');
+        setModalVisible(false);
+      } catch (err) {
+        console.log('Error adding staff:', err);
+      } finally {
+        setIsAdding(false);
+      }
     }
   };
 
   const handleDelete = async (id) => {
     setDeletingId(id);
-    await removeStaffMember(id);
-    setDeletingId(null);
+    try {
+      await removeStaffMutation.mutateAsync(id);
+    } catch (err) {
+      console.log('Error deleting staff:', err);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const getInitials = (name) => {
@@ -437,7 +453,7 @@ export default function EmployerHRM() {
     </View>
   );
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || loadingStaff) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F7FAFC' }}>
         <ActivityIndicator size="large" color="#FF6B00" />
@@ -448,14 +464,8 @@ export default function EmployerHRM() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Big Title & Description */}
-        <View style={styles.headerSection}>
-          <Text style={styles.heroTitleCentered}>QUẢN LÝ NHÂN VIÊN</Text>
-          <Text style={styles.heroSubtitle}>Theo dõi ca làm, thông tin liên lạc và phê duyệt lịch đổi ca của nhân viên nội bộ & vãng lai</Text>
-        </View>
-
         {/* Capsule Tab Selector - 2 tabs */}
-        <View style={styles.tabContainer}>
+        <View style={[styles.tabContainer, { marginTop: 16 }]}>
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'internal' && styles.tabBtnActive]}
             onPress={() => setActiveTab('internal')}
@@ -1077,8 +1087,8 @@ const styles = StyleSheet.create({
   // ─── FAB ──────────────────────────────────
   fab: {
     position: 'absolute',
-    bottom: 28,
-    right: 20,
+    bottom: 110,
+    right: 24,
     width: 56,
     height: 56,
     borderRadius: 28,

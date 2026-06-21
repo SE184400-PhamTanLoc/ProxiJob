@@ -191,9 +191,6 @@ export default function StudentDashboard() {
     setRefreshing(false);
   }, [loadShifts]);
 
-  useEffect(() => {
-    loadShifts();
-  }, []);
 
   useEffect(() => {
     const loadAddressAndProfile = async () => {

@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { IDENTITY_API_BASE_URL } from '../api/apiConfig';
+import { getStoredToken, getStoredUser, checkAuthApi } from '../api/auth';
 import {
   getPublishedJobs,
   getJobPostShifts,
@@ -109,6 +111,8 @@ export const useShiftsQuery = (user, studentCoords) => {
       }
     },
     enabled: true,
+    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection time
   });
 };
 
@@ -285,6 +289,8 @@ export const useEmployerJobsQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
+    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection time
   });
 };
 
@@ -867,5 +873,55 @@ export const useHandleLeaveRequestMutation = (user, showToast) => {
       console.log('Error handling leave request:', err);
       showToast('Xử lý yêu cầu thất bại: ' + translateError(err), 'error');
     }
+  });
+};
+
+export const useCurrentUserQuery = () => {
+  return useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const token = await getStoredToken();
+      if (!token) return null;
+      try {
+        return await checkAuthApi(token);
+      } catch (err) {
+        console.log('[useCurrentUserQuery] Check auth failed, returning stored user:', err.message);
+        return await getStoredUser();
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useConversationsQuery = (user) => {
+  return useQuery({
+    queryKey: ['conversations', user?.id],
+    queryFn: async () => {
+      const token = await getStoredToken();
+      if (!token) return [];
+      const response = await fetch(`${IDENTITY_API_BASE_URL}/messages/conversations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to load conversations: ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data) return [];
+      return data.map(c => ({
+        id: c.userId.toString(),
+        name: c.name,
+        avatar: c.avatar,
+        lastMessage: c.lastMessage,
+        time: c.time,
+        unread: c.unread,
+        phone: c.phone || '0901234567',
+        isMock: false,
+        messages: []
+      }));
+    },
+    enabled: !!user?.id,
+    staleTime: 10 * 1000,
   });
 };

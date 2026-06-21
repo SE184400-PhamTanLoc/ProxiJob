@@ -81,6 +81,8 @@ export default function MainTabNavigator({ isStudent }) {
         return <EmployerMonitor />;
       case 'employer_chat':
         return <EmployerChat />;
+      case 'job_detail':
+        return <JobDetailScreen />;
       case 'payroll_settlement':
         return <PayrollSettlementScreen />;
       case 'payment_qr':

@@ -18,9 +18,98 @@ import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getCategoriesApi, getSkillsApi } from '../../api/jobs';
+import { Ionicons } from '@expo/vector-icons';
+
+// ĐIỀN API KEY GOOGLE MAPS CỦA BẠN VÀO ĐÂY ĐỂ BẬT TỰ ĐỘNG GỢI Ý & TÌM KIẾM ĐỊA CHỈ GOOGLE MAPS
+const GOOGLE_MAPS_API_KEY = 'CvNapWs3C3Vt7ZTRZf0uZliN9v3q8TBJKxd2CEcW';
+
+const cleanAddress = (rawAddress) => {
+  if (!rawAddress) return '';
+  // Remove trailing country suffix
+  let cleaned = rawAddress.replace(/,\s*(Việt Nam|Vietnam)\s*$/i, '');
+  // Remove postal codes (5-6 digit values preceded by comma and space)
+  cleaned = cleaned.replace(/,\s*\d{5,6}\b/g, '');
+  return cleaned.trim();
+};
+
+const fetchGeocode = async (q) => {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+      { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+  } catch (err) {
+    console.log('fetchGeocode error:', err);
+  }
+  return null;
+};
+
+const geocodeAddressWithFallback = async (queryText) => {
+  // 1. Nếu có Google Key, thử geocode bằng dịch vụ thông minh trước
+  if (GOOGLE_MAPS_API_KEY) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(queryText)}&key=${GOOGLE_MAPS_API_KEY}&language=vi`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          const loc = data.results[0].geometry.location;
+          return {
+            data: [{
+              lat: loc.lat,
+              lon: loc.lng,
+              display_name: data.results[0].formatted_address
+            }],
+            isFallback: false
+          };
+        }
+      }
+    } catch (e) {
+      console.log('Smart geocoding API error:', e);
+    }
+  }
+
+  // 2. Dự phòng (OSM): Tìm kiếm trực tiếp chuỗi ban đầu
+  let data = await fetchGeocode(queryText);
+  if (data && data.length > 0) {
+    return { data, isFallback: false };
+  }
+
+  // Dự phòng (OSM) Fallback 1: Lược bỏ số nhà, hẻm, khu phố để tìm kiếm tên đường lớn
+  let simplified = queryText
+    .replace(/^\s*(số|so)?\s*\d+(\/\d+)*\s*/i, '') // Loại bỏ số nhà dạng "50/19" ở đầu
+    .replace(/,\s*(khu phố|kp|tổ|to|hẻm|hem)\s*\d+/gi, '') // Loại bỏ ", khu phố 32"
+    .replace(/,\s*(khu phố|kp|tổ|to|hẻm|hem)\s+[a-zA-Z0-9_.-]+/gi, '');
+
+  simplified = simplified.trim();
+  if (simplified && simplified !== queryText) {
+    data = await fetchGeocode(simplified);
+    if (data && data.length > 0) {
+      return { data, isFallback: true, fallbackText: simplified };
+    }
+  }
+
+  // Dự phòng (OSM) Fallback 2: Cắt bớt phần tử đầu tiên sau dấu phẩy và tìm kiếm tiếp
+  const parts = queryText.split(',').map(p => p.trim()).filter(Boolean);
+  for (let i = 1; i < parts.length; i++) {
+    const fallbackQuery = parts.slice(i).join(', ');
+    if (fallbackQuery.length > 5) {
+      data = await fetchGeocode(fallbackQuery);
+      if (data && data.length > 0) {
+        return { data, isFallback: true, fallbackText: fallbackQuery };
+      }
+    }
+  }
+
+  return null;
+};
 
 export default function EmployerEmergencyPost() {
-  const { createJobPostWizard, showToast, navigateTo, user } = useContext(AppContext);
+  const { createJobPostWizard, showToast, navigateTo, user, goBack } = useContext(AppContext);
 
   // Categories & Skills local states
   const [categories, setCategories] = useState([
@@ -50,7 +139,7 @@ export default function EmployerEmergencyPost() {
   const [categoryId, setCategoryId] = useState('5'); // Default 'Phục vụ'
   const [description, setDescription] = useState('Thực hiện order nước, bưng bê đồ uống cho khách hàng và dọn dẹp bàn ghế sạch sẽ.');
   const [requirements, setRequirements] = useState('Nhanh nhẹn, chăm chỉ, có thái độ làm việc tốt. Ưu tiên có kinh nghiệm.');
-  
+
   const [salary, setSalary] = useState('35000');
   const [selectedSkills, setSelectedSkills] = useState([1]); // Default 'Giao tiếp'
 
@@ -61,6 +150,19 @@ export default function EmployerEmergencyPost() {
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [selectedLat, setSelectedLat] = useState(10.7769);
   const [selectedLng, setSelectedLng] = useState(106.7009);
+  const [mapInitLat, setMapInitLat] = useState(10.7769);
+  const [mapInitLng, setMapInitLng] = useState(106.7009);
+
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const webviewRef = React.useRef(null);
+
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
+  const [mapSuggestions, setMapSuggestions] = useState([]);
+  const [showMapSuggestions, setShowMapSuggestions] = useState(false);
 
   // Lắng nghe postMessage trên web (nếu có preview/web environment)
   useEffect(() => {
@@ -86,6 +188,8 @@ export default function EmployerEmergencyPost() {
     const initialLng = parseFloat(longitude) || 106.7009;
     setSelectedLat(initialLat);
     setSelectedLng(initialLng);
+    setMapInitLat(initialLat);
+    setMapInitLng(initialLng);
     setMapModalVisible(true);
   };
 
@@ -101,15 +205,16 @@ export default function EmployerEmergencyPost() {
       );
       if (response.ok) {
         const data = await response.json();
-        const road = data.address?.road || '';
-        const suburb = data.address?.suburb || data.address?.quarter || '';
-        const city = data.address?.city || data.address?.town || data.address?.state || '';
-        const displayAddress = [road, suburb, city].filter(Boolean).join(', ');
-        if (displayAddress) {
-          setAddress(displayAddress);
+        let displayAddress = '';
+        if (data.display_name) {
+          displayAddress = cleanAddress(data.display_name);
         } else {
-          setAddress(data.display_name || `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
+          const road = data.address?.road || '';
+          const suburb = data.address?.suburb || data.address?.quarter || '';
+          const city = data.address?.city || data.address?.town || data.address?.state || '';
+          displayAddress = [road, suburb, city].filter(Boolean).join(', ');
         }
+        setAddress(displayAddress || `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
       } else {
         setAddress(`Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
       }
@@ -121,7 +226,269 @@ export default function EmployerEmergencyPost() {
       setMapModalVisible(false);
     }
   };
-  
+
+  const handleMapSearch = async () => {
+    if (!mapSearchQuery.trim()) {
+      showToast('Vui lòng nhập địa chỉ cần tìm!', 'warning');
+      return;
+    }
+    try {
+      setSearchLoading(true);
+      const result = await geocodeAddressWithFallback(mapSearchQuery);
+      if (result && result.data && result.data.length > 0) {
+        const lat = parseFloat(result.data[0].lat);
+        const lon = parseFloat(result.data[0].lon);
+        setSelectedLat(lat);
+        setSelectedLng(lon);
+
+        // Smoothly update native map webview
+        const jsCode = `
+          if (typeof map !== 'undefined' && typeof marker !== 'undefined') {
+            map.setView([${lat}, ${lon}], 15);
+            marker.setLatLng([${lat}, ${lon}]);
+          }
+          true;
+        `;
+        if (webviewRef.current) {
+          webviewRef.current.injectJavaScript(jsCode);
+        }
+
+        if (result.isFallback) {
+          showToast(`Định vị theo khu vực: ${result.fallbackText}. Hãy kéo ghim bản đồ về số nhà cụ thể!`, 'info');
+        } else {
+          showToast('Đã định vị đến địa chỉ tìm kiếm!', 'success');
+        }
+      } else {
+        showToast('Không tìm thấy địa chỉ này. Hãy thử lược bỏ bớt ngõ/hẻm hoặc số nhà.', 'warning');
+      }
+    } catch (e) {
+      console.log('Forward geocoding error:', e);
+      showToast('Lỗi kết nối khi tìm kiếm địa chỉ.', 'error');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const geocodeTypedAddress = async () => {
+    if (!address.trim()) {
+      showToast('Vui lòng nhập địa chỉ để tìm tọa độ!', 'warning');
+      return;
+    }
+    try {
+      setGpsLoading(true);
+      const result = await geocodeAddressWithFallback(address);
+      if (result && result.data && result.data.length > 0) {
+        const lat = parseFloat(result.data[0].lat);
+        const lon = parseFloat(result.data[0].lon);
+        setLatitude(lat.toString());
+        setLongitude(lon.toString());
+        setSelectedLat(lat);
+        setSelectedLng(lon);
+
+        if (result.data[0].display_name && !result.isFallback) {
+          setAddress(cleanAddress(result.data[0].display_name));
+        }
+
+        if (result.isFallback) {
+          showToast(`Tìm thấy tọa độ khu vực lân cận! Hãy mở Bản đồ để kéo ghim vào đúng vị trí số nhà.`, 'info');
+        } else {
+          showToast('Đã xác thực địa chỉ & lấy tọa độ thành công!', 'success');
+        }
+      } else {
+        showToast('Không tìm thấy tọa độ. Hãy thử lược bỏ bớt số nhà/hẻm hoặc mở Bản đồ để chọn.', 'warning');
+      }
+    } catch (e) {
+      console.log('Geocoding error:', e);
+      showToast('Lỗi kết nối khi xác thực địa chỉ.', 'error');
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const handleAddressChange = async (text) => {
+    setAddress(text);
+    if (text.length < 4) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      setSuggestionsLoading(true);
+      if (GOOGLE_MAPS_API_KEY) {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK' && data.predictions) {
+            const formatted = data.predictions.map(item => ({
+              display_name: item.description,
+              place_id: item.place_id,
+              isGoogle: true
+            }));
+            setAddressSuggestions(formatted);
+            setShowSuggestions(formatted.length > 0);
+          }
+        }
+      } else {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5`,
+          { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const formatted = data.map(item => ({
+            display_name: cleanAddress(item.display_name),
+            lat: parseFloat(item.lat),
+            lon: parseFloat(item.lon)
+          }));
+          setAddressSuggestions(formatted);
+          setShowSuggestions(formatted.length > 0);
+        }
+      }
+    } catch (e) {
+      console.log('Suggestions fetch error:', e);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  const handleSelectSuggestion = async (suggestion) => {
+    setAddress(suggestion.display_name);
+    setShowSuggestions(false);
+
+    try {
+      setGpsLoading(true);
+      let lat = 0;
+      let lon = 0;
+      if (suggestion.isGoogle) {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK' && data.result?.geometry?.location) {
+            lat = data.result.geometry.location.lat;
+            lon = data.result.geometry.location.lng;
+          }
+        }
+      } else {
+        lat = suggestion.lat;
+        lon = suggestion.lon;
+      }
+
+      if (lat && lon) {
+        setLatitude(lat.toString());
+        setLongitude(lon.toString());
+        setSelectedLat(lat);
+        setSelectedLng(lon);
+        showToast('Đã chọn địa chỉ & lấy tọa độ thành công!', 'success');
+      } else {
+        showToast('Không lấy được tọa độ cho vị trí này.', 'warning');
+      }
+    } catch (err) {
+      console.log('Select suggestion error:', err);
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const handleMapSearchChange = async (text) => {
+    setMapSearchQuery(text);
+    if (text.length < 4) {
+      setMapSuggestions([]);
+      setShowMapSuggestions(false);
+      return;
+    }
+    try {
+      if (GOOGLE_MAPS_API_KEY) {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK' && data.predictions) {
+            const formatted = data.predictions.map(item => ({
+              display_name: item.description,
+              place_id: item.place_id,
+              isGoogle: true
+            }));
+            setMapSuggestions(formatted);
+            setShowMapSuggestions(formatted.length > 0);
+          }
+        }
+      } else {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5`,
+          { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const formatted = data.map(item => ({
+            display_name: cleanAddress(item.display_name),
+            lat: parseFloat(item.lat),
+            lon: parseFloat(item.lon)
+          }));
+          setMapSuggestions(formatted);
+          setShowMapSuggestions(formatted.length > 0);
+        }
+      }
+    } catch (e) {
+      console.log('Map suggestions fetch error:', e);
+    }
+  };
+
+  const handleSelectMapSuggestion = async (suggestion) => {
+    setMapSearchQuery(suggestion.display_name);
+    setShowMapSuggestions(false);
+
+    try {
+      setSearchLoading(true);
+      let lat = 0;
+      let lon = 0;
+      if (suggestion.isGoogle) {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK' && data.result?.geometry?.location) {
+            lat = data.result.geometry.location.lat;
+            lon = data.result.geometry.location.lng;
+          }
+        }
+      } else {
+        lat = suggestion.lat;
+        lon = suggestion.lon;
+      }
+
+      if (lat && lon) {
+        setSelectedLat(lat);
+        setSelectedLng(lon);
+
+        // Smoothly update native map webview
+        const jsCode = `
+          if (typeof map !== 'undefined' && typeof marker !== 'undefined') {
+            map.setView([${lat}, ${lon}], 15);
+            marker.setLatLng([${lat}, ${lon}]);
+          }
+          true;
+        `;
+        if (webviewRef.current) {
+          webviewRef.current.injectJavaScript(jsCode);
+        }
+        showToast('Đã định vị đến địa chỉ đã chọn!', 'success');
+      } else {
+        showToast('Không lấy được tọa độ cho địa điểm này.', 'warning');
+      }
+    } catch (err) {
+      console.log('Select map suggestion error:', err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
   // Date and Time states
   const getTodayDateString = () => {
     const today = new Date();
@@ -194,10 +561,15 @@ export default function EmployerEmergencyPost() {
         );
         if (response.ok) {
           const data = await response.json();
-          const road = data.address?.road || '';
-          const suburb = data.address?.suburb || data.address?.quarter || '';
-          const city = data.address?.city || data.address?.town || data.address?.state || '';
-          const displayAddress = [road, suburb, city].filter(Boolean).join(', ');
+          let displayAddress = '';
+          if (data.display_name) {
+            displayAddress = cleanAddress(data.display_name);
+          } else {
+            const road = data.address?.road || '';
+            const suburb = data.address?.suburb || data.address?.quarter || '';
+            const city = data.address?.city || data.address?.town || data.address?.state || '';
+            displayAddress = [road, suburb, city].filter(Boolean).join(', ');
+          }
           if (displayAddress) {
             setAddress(displayAddress);
           }
@@ -308,290 +680,357 @@ export default function EmployerEmergencyPost() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.hBack} onPress={goBack}>
+          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+        </TouchableOpacity>
+        <Text style={styles.hTitle}>Đăng tin tuyển dụng mới</Text>
+        <View style={{ width: 44 }} />
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Title & Page Header */}
         <View style={styles.pageHeader}>
-          <Text style={styles.pageTitle}>Đăng tin{'\n'}tuyển dụng mới</Text>
+          <Text style={styles.pageTitle}>Đăng tin tuyển dụng mới</Text>
           <Text style={styles.pageSubtitle}>Kết nối với những ứng viên tiềm năng xung quanh bạn ngay lập tức.</Text>
         </View>
 
-        {/* Progress Indicator */}
-        <View style={styles.progressSection}>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressBar, step >= 1 ? styles.progressActive : null]} />
-            <View style={[styles.progressBar, step >= 2 ? styles.progressActive : null]} />
-            <View style={[styles.progressBar, step >= 3 ? styles.progressActive : null]} />
+        <View style={[styles.mainFormCard, theme.shadows.light]}>
+          {/* Progress Indicator */}
+          <View style={styles.progressSection}>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressBar, step >= 1 ? styles.progressActive : null]} />
+              <View style={[styles.progressBar, step >= 2 ? styles.progressActive : null]} />
+              <View style={[styles.progressBar, step >= 3 ? styles.progressActive : null]} />
+            </View>
+            <View style={styles.stepLabels}>
+              <Text style={[styles.stepLabel, step >= 1 && styles.stepLabelActive]}>Bước 1</Text>
+              <Text style={[styles.stepLabel, step >= 2 && styles.stepLabelActive]}>Bước 2</Text>
+              <Text style={[styles.stepLabel, step >= 3 && styles.stepLabelActive]}>Bước 3</Text>
+            </View>
           </View>
-          <View style={styles.stepLabels}>
-            <Text style={[styles.stepLabel, step >= 1 && styles.stepLabelActive]}>Bước 1</Text>
-            <Text style={[styles.stepLabel, step >= 2 && styles.stepLabelActive]}>Bước 2</Text>
-            <Text style={[styles.stepLabel, step >= 3 && styles.stepLabelActive]}>Bước 3</Text>
-          </View>
-        </View>
 
-        {dataLoading ? (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={styles.loaderText}>Đang tải danh mục dữ liệu...</Text>
-          </View>
-        ) : (
-          <View>
-            {/* Step 1: NỘI DUNG CA LÀM */}
-            {step === 1 && (
-              <View style={[styles.bentoCard, theme.shadows.light]}>
-                <Text style={styles.sectionHeader}>NỘI DUNG CA LÀM</Text>
-                
-                <Text style={styles.inputLabel}>Tiêu đề công việc</Text>
-                <TextInput
-                  style={styles.premiumInput}
-                  placeholder="Ví dụ: Cần nhân viên phục vụ khẩn cấp..."
-                  placeholderTextColor={theme.colors.textLight}
-                  value={title}
-                  onChangeText={setTitle}
-                />
+          <View style={styles.divider} />
 
-                <Text style={styles.inputLabel}>Danh mục công việc</Text>
-                <View style={styles.categoryGrid}>
-                  {categories.map((cat) => {
-                    const isSelected = categoryId === cat.id.toString();
-                    return (
-                      <TouchableOpacity
-                        key={cat.id}
-                        style={[
-                          styles.categoryPill,
-                          isSelected && styles.categoryPillActive
-                        ]}
-                        onPress={() => setCategoryId(cat.id.toString())}
-                      >
-                        <Text style={[
-                          styles.categoryPillText,
-                          isSelected && styles.categoryPillTextActive
-                        ]}>
-                          {cat.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+          {dataLoading ? (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={styles.loaderText}>Đang tải danh mục dữ liệu...</Text>
+            </View>
+          ) : (
+            <View>
+              {/* Step 1: NỘI DUNG CA LÀM */}
+              {step === 1 && (
+                <View style={styles.bentoCard}>
+                  <Text style={styles.sectionHeader}>NỘI DUNG CA LÀM</Text>
 
-                <Text style={styles.inputLabel}>Mô tả công việc</Text>
-                <TextInput
-                  style={[styles.premiumInput, styles.textArea]}
-                  placeholder="Mô tả chi tiết các yêu cầu và quyền lợi..."
-                  placeholderTextColor={theme.colors.textLight}
-                  multiline
-                  numberOfLines={4}
-                  value={description}
-                  onChangeText={setDescription}
-                />
-
-                <Text style={styles.inputLabel}>Yêu cầu đối với ứng viên</Text>
-                <TextInput
-                  style={[styles.premiumInput, styles.textArea, { height: 80 }]}
-                  placeholder="Ví dụ: Chăm chỉ, trung thực, có kinh nghiệm pha chế..."
-                  placeholderTextColor={theme.colors.textLight}
-                  multiline
-                  numberOfLines={3}
-                  value={requirements}
-                  onChangeText={setRequirements}
-                />
-              </View>
-            )}
-
-            {/* Step 2: QUYỀN LỢI & KỸ NĂNG */}
-            {step === 2 && (
-              <View style={[styles.bentoCard, theme.shadows.light]}>
-                <Text style={styles.sectionHeader}>QUYỀN LỢI & KỸ NĂNG</Text>
-
-                <Text style={styles.inputLabel}>Mức lương đề xuất (VND/giờ)</Text>
-                <View style={styles.salaryInputContainer}>
+                  <Text style={styles.inputLabel}>Tiêu đề công việc</Text>
                   <TextInput
-                    style={[styles.premiumInput, styles.salaryInput]}
-                    placeholder="50,000"
+                    style={styles.premiumInput}
+                    placeholder="Ví dụ: Cần nhân viên phục vụ khẩn cấp..."
                     placeholderTextColor={theme.colors.textLight}
-                    keyboardType="numeric"
-                    value={salary}
-                    onChangeText={setSalary}
+                    value={title}
+                    onChangeText={setTitle}
                   />
-                  <Text style={styles.salaryCurrency}>VND</Text>
+
+                  <Text style={styles.inputLabel}>Danh mục công việc</Text>
+                  <View style={styles.categoryGrid}>
+                    {categories.map((cat) => {
+                      const isSelected = categoryId === cat.id.toString();
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={[
+                            styles.categoryPill,
+                            isSelected && styles.categoryPillActive
+                          ]}
+                          onPress={() => setCategoryId(cat.id.toString())}
+                        >
+                          <Text style={[
+                            styles.categoryPillText,
+                            isSelected && styles.categoryPillTextActive
+                          ]}>
+                            {cat.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={styles.inputLabel}>Mô tả công việc</Text>
+                  <TextInput
+                    style={[styles.premiumInput, styles.textArea]}
+                    placeholder="Mô tả chi tiết các yêu cầu và quyền lợi..."
+                    placeholderTextColor={theme.colors.textLight}
+                    multiline
+                    numberOfLines={4}
+                    value={description}
+                    onChangeText={setDescription}
+                  />
+
+                  <Text style={styles.inputLabel}>Yêu cầu đối với ứng viên</Text>
+                  <TextInput
+                    style={[styles.premiumInput, styles.textArea, { height: 80 }]}
+                    placeholder="Ví dụ: Chăm chỉ, trung thực, có kinh nghiệm pha chế..."
+                    placeholderTextColor={theme.colors.textLight}
+                    multiline
+                    numberOfLines={3}
+                    value={requirements}
+                    onChangeText={setRequirements}
+                  />
                 </View>
+              )}
 
-                <Text style={styles.inputLabel}>Kỹ năng cần thiết</Text>
-                <View style={styles.skillsContainer}>
-                  {skillsList.map((skill) => {
-                    const isSelected = selectedSkills.includes(skill.id);
-                    return (
-                      <TouchableOpacity
-                        key={skill.id}
-                        style={[
-                          styles.skillPill,
-                          isSelected && styles.skillPillActive
-                        ]}
-                        onPress={() => handleSkillToggle(skill.id)}
-                      >
-                        <Text style={[
-                          styles.skillPillText,
-                          isSelected && styles.skillPillTextActive
-                        ]}>
-                          {isSelected ? '✓ ' : ''}{skill.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+              {/* Step 2: QUYỀN LỢI & KỸ NĂNG */}
+              {step === 2 && (
+                <View style={styles.bentoCard}>
+                  <Text style={styles.sectionHeader}>QUYỀN LỢI & KỸ NĂNG</Text>
 
-                <View style={styles.infoBox}>
-                  <Text style={styles.infoBoxText}>
-                    💡 Gợi ý: Hãy chọn những kỹ năng thực tế nhất để hệ thống Matching gợi ý đúng ứng viên F&B tiềm năng.
-                  </Text>
-                </View>
-              </View>
-            )}
+                  <Text style={styles.inputLabel}>Mức lương đề xuất (VND/giờ)</Text>
+                  <View style={styles.salaryInputContainer}>
+                    <TextInput
+                      style={[styles.premiumInput, styles.salaryInput]}
+                      placeholder="50,000"
+                      placeholderTextColor={theme.colors.textLight}
+                      keyboardType="numeric"
+                      value={salary}
+                      onChangeText={setSalary}
+                    />
+                    <Text style={styles.salaryCurrency}>VND</Text>
+                  </View>
 
-            {/* Step 3: ĐỊA ĐIỂM & THỜI GIAN */}
-            {step === 3 && (
-              <View style={[styles.bentoCard, theme.shadows.light]}>
-                <Text style={styles.sectionHeader}>ĐỊA ĐIỂM & THỜI GIAN</Text>
+                  <Text style={styles.inputLabel}>Kỹ năng cần thiết</Text>
+                  <View style={styles.skillsContainer}>
+                    {skillsList.map((skill) => {
+                      const isSelected = selectedSkills.includes(skill.id);
+                      return (
+                        <TouchableOpacity
+                          key={skill.id}
+                          style={[
+                            styles.skillPill,
+                            isSelected && styles.skillPillActive
+                          ]}
+                          onPress={() => handleSkillToggle(skill.id)}
+                        >
+                          <Text style={[
+                            styles.skillPillText,
+                            isSelected && styles.skillPillTextActive
+                          ]}>
+                            {isSelected ? '✓ ' : ''}{skill.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
 
-                {/* Emergency Toggle Switch */}
-                <View style={styles.emergencyCard}>
-                  <View style={styles.emergencyTextSection}>
-                    <Text style={styles.emergencyCardTitle}>🔥 CHẾ ĐỘ ĐĂNG CA GẤP (EMERGENCY)</Text>
-                    <Text style={styles.emergencyCardDesc}>
-                      Tự động nhân hệ số cấp bách (+30% lương cơ bản), đẩy tin tức thì qua thông báo tới các ứng viên trong bán kính 3km.
+                  <View style={styles.infoBox}>
+                    <Text style={styles.infoBoxText}>
+                      💡 Gợi ý: Hãy chọn những kỹ năng thực tế nhất để hệ thống Matching gợi ý đúng ứng viên F&B tiềm năng.
                     </Text>
                   </View>
-                  <Switch
-                    trackColor={{ false: '#767577', true: theme.colors.danger }}
-                    thumbColor={isEmergency ? '#FFFFFF' : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={toggleEmergency}
-                    value={isEmergency}
+                </View>
+              )}
+
+              {/* Step 3: ĐỊA ĐIỂM & THỜI GIAN */}
+              {step === 3 && (
+                <View style={styles.bentoCard}>
+                  <Text style={styles.sectionHeader}>ĐỊA ĐIỂM & THỜI GIAN</Text>
+
+                  {/* Emergency Toggle Switch */}
+                  <View style={styles.emergencyCard}>
+                    <View style={styles.emergencyTextSection}>
+                      <Text style={styles.emergencyCardTitle}>🔥 CHẾ ĐỘ ĐĂNG CA GẤP (EMERGENCY)</Text>
+                      <Text style={styles.emergencyCardDesc}>
+                        Tự động nhân hệ số cấp bách (+30% lương cơ bản), đẩy tin tức thì qua thông báo tới các ứng viên trong bán kính 3km.
+                      </Text>
+                    </View>
+                    <Switch
+                      trackColor={{ false: '#767577', true: theme.colors.danger }}
+                      thumbColor={isEmergency ? '#FFFFFF' : '#f4f3f4'}
+                      ios_backgroundColor="#3e3e3e"
+                      onValueChange={toggleEmergency}
+                      value={isEmergency}
+                    />
+                  </View>
+
+                  <Text style={styles.inputLabel}>Địa điểm làm việc</Text>
+                  <View style={{ position: 'relative', marginBottom: 16, zIndex: 10 }}>
+                    <TextInput
+                      style={[styles.premiumInput, { paddingRight: 105, marginBottom: 0 }]}
+                      placeholder="Nhập địa chỉ hoặc nhấn nút GPS bên dưới..."
+                      placeholderTextColor={theme.colors.textLight}
+                      value={address}
+                      onChangeText={handleAddressChange}
+                    />
+                    <TouchableOpacity
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: 7,
+                        backgroundColor: '#64748B',
+                        borderRadius: 10,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        height: 34,
+                        justifyContent: 'center',
+                      }}
+                      onPress={geocodeTypedAddress}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>Tìm Tọa Độ</Text>
+                    </TouchableOpacity>
+
+                    {showSuggestions && (
+                      <View style={{
+                        position: 'absolute',
+                        top: 52,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: '#E2E8F0',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 8,
+                        elevation: 4,
+                        maxHeight: 200,
+                        zIndex: 9999,
+                      }}>
+                        <ScrollView keyboardShouldPersistTaps="always">
+                          {addressSuggestions.map((item, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={{
+                                paddingVertical: 12,
+                                paddingHorizontal: 16,
+                                borderBottomWidth: index === addressSuggestions.length - 1 ? 0 : 1,
+                                borderBottomColor: '#F1F5F9',
+                              }}
+                              onPress={() => handleSelectSuggestion(item)}
+                            >
+                              <Text style={{ fontSize: 13, color: '#334155', fontWeight: '500' }}>{item.display_name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Location Buttons Row */}
+                  <View style={styles.locationButtonsRow}>
+                    <TouchableOpacity
+                      style={[styles.gpsButton, { flex: 1, marginRight: 8, marginBottom: 0 }]}
+                      onPress={getCurrentLocation}
+                      disabled={gpsLoading}
+                    >
+                      {gpsLoading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.gpsButtonText}>📍 GPS Hiện Tại</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.mapButton, { flex: 1 }]}
+                      onPress={handleOpenMapPicker}
+                    >
+                      <Text style={styles.mapButtonText}>🗺 Bản Đồ</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Coordinates */}
+                  {latitude && longitude ? (
+                    <View style={styles.coordsRow}>
+                      <View style={styles.coordBox}>
+                        <Text style={styles.coordLabel}>Lat: {parseFloat(latitude).toFixed(6)}</Text>
+                      </View>
+                      <View style={styles.coordBox}>
+                        <Text style={styles.coordLabel}>Long: {parseFloat(longitude).toFixed(6)}</Text>
+                      </View>
+                      <View style={[styles.coordBox, { backgroundColor: '#10B98120', borderColor: '#10B981' }]}>
+                        <Text style={[styles.coordLabel, { color: '#10B981' }]}>✓ GPS Đã kết nối</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.coordsRow}>
+                      <View style={[styles.coordBox, { backgroundColor: '#EF444420', borderColor: '#EF4444' }]}>
+                        <Text style={[styles.coordLabel, { color: '#EF4444' }]}>⚠ Chưa có tọa độ GPS</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* DateTime Inputs */}
+                  <Text style={[styles.inputLabel, { marginTop: 12 }]}>Ngày làm việc (YYYY-MM-DD)</Text>
+                  <TextInput
+                    style={styles.premiumInput}
+                    placeholder="2026-06-09"
+                    placeholderTextColor={theme.colors.textLight}
+                    value={date}
+                    onChangeText={setDate}
                   />
-                </View>
 
-                <Text style={styles.inputLabel}>Địa điểm làm việc</Text>
-                <TextInput
-                  style={styles.premiumInput}
-                  placeholder="Nhập địa chỉ hoặc nhấn nút GPS bên dưới..."
-                  placeholderTextColor={theme.colors.textLight}
-                  value={address}
-                  onChangeText={setAddress}
-                />
-
-                 {/* Location Buttons Row */}
-                 <View style={styles.locationButtonsRow}>
-                   <TouchableOpacity
-                     style={[styles.gpsButton, { flex: 1, marginRight: 8, marginBottom: 0 }]}
-                     onPress={getCurrentLocation}
-                     disabled={gpsLoading}
-                   >
-                     {gpsLoading ? (
-                       <ActivityIndicator size="small" color="#FFFFFF" />
-                     ) : (
-                       <Text style={styles.gpsButtonText}>📍 GPS Hiện Tại</Text>
-                     )}
-                   </TouchableOpacity>
-
-                   <TouchableOpacity
-                     style={[styles.mapButton, { flex: 1 }]}
-                     onPress={handleOpenMapPicker}
-                   >
-                     <Text style={styles.mapButtonText}>🗺 Bản Đồ</Text>
-                   </TouchableOpacity>
-                 </View>
-
-                {/* Coordinates */}
-                {latitude && longitude ? (
-                  <View style={styles.coordsRow}>
-                    <View style={styles.coordBox}>
-                      <Text style={styles.coordLabel}>Lat: {parseFloat(latitude).toFixed(6)}</Text>
+                  <View style={styles.timeRow}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.inputLabel}>Giờ bắt đầu (HH:MM)</Text>
+                      <TextInput
+                        style={styles.premiumInput}
+                        placeholder="08:00"
+                        placeholderTextColor={theme.colors.textLight}
+                        value={startTime}
+                        onChangeText={setStartTime}
+                      />
                     </View>
-                    <View style={styles.coordBox}>
-                      <Text style={styles.coordLabel}>Long: {parseFloat(longitude).toFixed(6)}</Text>
-                    </View>
-                    <View style={[styles.coordBox, { backgroundColor: '#10B98120', borderColor: '#10B981' }]}>
-                      <Text style={[styles.coordLabel, { color: '#10B981' }]}>✓ GPS Đã kết nối</Text>
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.inputLabel}>Giờ kết thúc (HH:MM)</Text>
+                      <TextInput
+                        style={styles.premiumInput}
+                        placeholder="17:00"
+                        placeholderTextColor={theme.colors.textLight}
+                        value={endTime}
+                        onChangeText={setEndTime}
+                      />
                     </View>
                   </View>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Wizard Actions */}
+          <View style={styles.actionsContainer}>
+            {step > 1 ? (
+              <TouchableOpacity style={styles.backButton} onPress={handlePrevStep} disabled={loading}>
+                <Text style={styles.backButtonText}>⬅ Quay lại</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.backButton} onPress={() => navigateTo('employer_approvals')} disabled={loading}>
+                <Text style={styles.backButtonText}>✕ Hủy</Text>
+              </TouchableOpacity>
+            )}
+
+            {step < 3 ? (
+              <TouchableOpacity style={styles.nextButton} onPress={handleNextStep}>
+                <Text style={styles.nextButtonText}>Tiếp theo ➔</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <View style={styles.coordsRow}>
-                    <View style={[styles.coordBox, { backgroundColor: '#EF444420', borderColor: '#EF4444' }]}>
-                      <Text style={[styles.coordLabel, { color: '#EF4444' }]}>⚠ Chưa có tọa độ GPS</Text>
-                    </View>
-                  </View>
+                  <Text style={styles.submitButtonText}>
+                    Đăng bài tuyển dụng {isEmergency ? '⚡' : '🚀'}
+                  </Text>
                 )}
-
-                {/* DateTime Inputs */}
-                <Text style={[styles.inputLabel, { marginTop: 12 }]}>Ngày làm việc (YYYY-MM-DD)</Text>
-                <TextInput
-                  style={styles.premiumInput}
-                  placeholder="2026-06-09"
-                  placeholderTextColor={theme.colors.textLight}
-                  value={date}
-                  onChangeText={setDate}
-                />
-
-                <View style={styles.timeRow}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.inputLabel}>Giờ bắt đầu (HH:MM)</Text>
-                    <TextInput
-                      style={styles.premiumInput}
-                      placeholder="08:00"
-                      placeholderTextColor={theme.colors.textLight}
-                      value={startTime}
-                      onChangeText={setStartTime}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={styles.inputLabel}>Giờ kết thúc (HH:MM)</Text>
-                    <TextInput
-                      style={styles.premiumInput}
-                      placeholder="17:00"
-                      placeholderTextColor={theme.colors.textLight}
-                      value={endTime}
-                      onChangeText={setEndTime}
-                    />
-                  </View>
-                </View>
-              </View>
+              </TouchableOpacity>
             )}
           </View>
-        )}
 
-        {/* Wizard Actions */}
-        <View style={styles.actionsContainer}>
-          {step > 1 ? (
-            <TouchableOpacity style={styles.backButton} onPress={handlePrevStep} disabled={loading}>
-              <Text style={styles.backButtonText}>⬅ Quay lại</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.backButton} onPress={() => navigateTo('employer_approvals')} disabled={loading}>
-              <Text style={styles.backButtonText}>✕ Hủy</Text>
-            </TouchableOpacity>
-          )}
-
-          {step < 3 ? (
-            <TouchableOpacity style={styles.nextButton} onPress={handleNextStep}>
-              <Text style={styles.nextButtonText}>Tiếp theo ➔</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.submitButtonText}>
-                  Đăng bài tuyển dụng {isEmergency ? '⚡' : '🚀'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
+          <Text style={styles.termsText}>
+            Bằng cách nhấn đăng tin, bạn đồng ý với các điều khoản dịch vụ của ProxiJob.
+          </Text>
         </View>
-
-        <Text style={styles.termsText}>
-          Bằng cách nhấn đăng tin, bạn đồng ý với các điều khoản dịch vụ của ProxiJob.
-        </Text>
       </ScrollView>
 
       {/* Map Picker Modal */}
@@ -612,7 +1051,10 @@ export default function EmployerEmergencyPost() {
             borderBottomColor: '#E5E9EB'
           }}>
             <TouchableOpacity
-              onPress={() => setMapModalVisible(false)}
+              onPress={() => {
+                setMapSearchQuery('');
+                setMapModalVisible(false);
+              }}
               style={{ padding: 8 }}
             >
               <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.textMuted }}>Hủy</Text>
@@ -622,7 +1064,95 @@ export default function EmployerEmergencyPost() {
               <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' }}>Xác nhận</Text>
             </TouchableOpacity>
           </View>
-          
+
+          {/* Map Search Bar */}
+          <View style={{ zIndex: 20, position: 'relative' }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 12,
+              backgroundColor: '#F8FAFC',
+              borderBottomWidth: 1,
+              borderBottomColor: '#E5E9EB',
+            }}>
+              <TextInput
+                style={{
+                  flex: 1,
+                  height: 40,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 10,
+                  paddingHorizontal: 12,
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  fontSize: 14,
+                  color: '#1E293B',
+                }}
+                placeholder="Nhập địa chỉ để dời ghim bản đồ..."
+                placeholderTextColor="#94A3B8"
+                value={mapSearchQuery}
+                onChangeText={handleMapSearchChange}
+                onSubmitEditing={handleMapSearch}
+              />
+              <TouchableOpacity
+                onPress={handleMapSearch}
+                disabled={searchLoading}
+                style={{
+                  marginLeft: 10,
+                  backgroundColor: '#FF6B00',
+                  borderRadius: 10,
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  height: 40,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                {searchLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Tìm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {showMapSuggestions && (
+              <View style={{
+                position: 'absolute',
+                top: 56,
+                left: 12,
+                right: 12,
+                backgroundColor: '#FFFFFF',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#CBD5E1',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 5,
+                maxHeight: 180,
+                zIndex: 30,
+              }}>
+                <ScrollView keyboardShouldPersistTaps="always">
+                  {mapSuggestions.map((item, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={{
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        borderBottomWidth: index === mapSuggestions.length - 1 ? 0 : 1,
+                        borderBottomColor: '#F1F5F9',
+                      }}
+                      onPress={() => handleSelectMapSuggestion(item)}
+                    >
+                      <Text style={{ fontSize: 13, color: '#334155', fontWeight: '500' }}>{item.display_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+
           <View style={{ flex: 1, position: 'relative' }}>
             {Platform.OS === 'web' ? (
               <iframe
@@ -641,10 +1171,10 @@ export default function EmployerEmergencyPost() {
                   <body>
                     <div id="map"></div>
                     <script>
-                      var map = L.map('map', { zoomControl: true }).setView([${selectedLat}, ${selectedLng}], 15);
+                      var map = L.map('map', { zoomControl: true }).setView([${mapInitLat}, ${mapInitLng}], 15);
                       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-                      var marker = L.marker([${selectedLat}, ${selectedLng}], {
+                      var marker = L.marker([${mapInitLat}, ${mapInitLng}], {
                         draggable: true
                       }).addTo(map);
 
@@ -675,6 +1205,7 @@ export default function EmployerEmergencyPost() {
               />
             ) : (
               <WebView
+                ref={webviewRef}
                 originWhitelist={['*']}
                 source={{
                   html: `
@@ -692,10 +1223,10 @@ export default function EmployerEmergencyPost() {
                     <body>
                       <div id="map"></div>
                       <script>
-                        var map = L.map('map', { zoomControl: true }).setView([${selectedLat}, ${selectedLng}], 15);
+                        var map = L.map('map', { zoomControl: true }).setView([${mapInitLat}, ${mapInitLng}], 15);
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-                        var marker = L.marker([${selectedLat}, ${selectedLng}], {
+                        var marker = L.marker([${mapInitLat}, ${mapInitLng}], {
                           draggable: true
                         }).addTo(map);
 
@@ -815,7 +1346,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   pageHeader: {
     marginVertical: 12,
@@ -835,7 +1366,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   progressSection: {
-    marginVertical: 16,
+    marginTop: 8,
+    marginBottom: 4,
   },
   progressTrack: {
     flexDirection: 'row',
@@ -868,13 +1400,22 @@ const styles = StyleSheet.create({
   stepLabelActive: {
     color: '#FF6B00',
   },
-  bentoCard: {
+  mainFormCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    marginBottom: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 16,
+  },
+  bentoCard: {
+    paddingVertical: 12,
+    marginBottom: 10,
   },
   sectionHeader: {
     fontSize: 11,
@@ -1136,47 +1677,59 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontWeight: '600',
   },
-   locationButtonsRow: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     marginBottom: 12,
-   },
-   gpsButton: {
-     backgroundColor: '#10B981',
-     paddingVertical: 12,
-     paddingHorizontal: 16,
-     borderRadius: 14,
-     flexDirection: 'row',
-     alignItems: 'center',
-     justifyContent: 'center',
-     shadowColor: '#10B981',
-     shadowOffset: { width: 0, height: 3 },
-     shadowOpacity: 0.2,
-     shadowRadius: 6,
-     elevation: 2,
-   },
-   gpsButtonText: {
-     fontSize: 13,
-     fontWeight: '700',
-     color: '#FFFFFF',
-   },
-   mapButton: {
-     backgroundColor: '#FF6B00',
-     paddingVertical: 12,
-     paddingHorizontal: 16,
-     borderRadius: 14,
-     flexDirection: 'row',
-     alignItems: 'center',
-     justifyContent: 'center',
-     shadowColor: '#FF6B00',
-     shadowOffset: { width: 0, height: 3 },
-     shadowOpacity: 0.2,
-     shadowRadius: 6,
-     elevation: 2,
-   },
-   mapButtonText: {
-     fontSize: 13,
-     fontWeight: '700',
-     color: '#FFFFFF',
-   },
+  locationButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  gpsButton: {
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  gpsButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  mapButton: {
+    backgroundColor: '#FF6B00',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  mapButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  header: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderColor: '#F3F4F6'
+  },
+  hBack: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  hTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
 });

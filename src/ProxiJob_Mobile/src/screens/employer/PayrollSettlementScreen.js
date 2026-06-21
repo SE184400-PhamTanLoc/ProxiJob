@@ -13,16 +13,27 @@ import {
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getAvatarSource } from '../../utils/avatarHelper';
+import {
+  usePayrollsQuery,
+  useCalculatePayrollMutation,
+  useApprovePayrollMutation,
+  useAttendanceLogsQuery,
+  useShiftsQuery
+} from '../../hooks/queries';
 
 export default function PayrollSettlementScreen() {
-  const { attendanceLogs, shifts, goBack, showToast, payrolls, runCalculatePayroll, runApprovePayroll, loadPayrolls } = useContext(AppContext);
+  const { user, showToast, goBack } = useContext(AppContext);
+
+  const { data: payrolls = [] } = usePayrollsQuery(user);
+  const { data: attendanceLogs = [] } = useAttendanceLogsQuery(user);
+  const { data: shifts = [] } = useShiftsQuery(user, null);
+
+  const calculatePayrollMutation = useCalculatePayrollMutation(user, showToast);
+  const approvePayrollMutation = useApprovePayrollMutation(user, showToast);
+
   const [settledIds, setSettledIds] = useState([]);
   const [settlingId, setSettlingId] = useState(null);
   const [expandedCardIds, setExpandedCardIds] = useState([]);
-
-  React.useEffect(() => {
-    loadPayrolls();
-  }, []);
 
   const toggleCardDetails = (id) => {
     setExpandedCardIds((prev) => 
@@ -88,7 +99,7 @@ export default function PayrollSettlementScreen() {
 
   const handleSettle = (id) => {
     setSettlingId(id);
-    runApprovePayroll(id).then(() => {
+    approvePayrollMutation.mutateAsync(id).then(() => {
       setSettledIds((prev) => [...prev, id]);
       setSettlingId(null);
     }).catch(() => {
@@ -107,14 +118,8 @@ export default function PayrollSettlementScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header Section (No Back Button, Large Sora Font Matching Previous Screens) */}
-      <View style={styles.topHeader}>
-        <Text style={styles.headerTitle}>QUYẾT TOÁN LƯƠNG</Text>
-        <Text style={styles.headerSubtitle}>Theo dõi, tổng hợp và chuyển khoản thanh toán cho nhân sự ca trực.</Text>
-      </View>
-
       {/* Bento-style Summary Card (White Background, Coordinated Style) */}
-      <View style={styles.summaryBentoCard}>
+      <View style={[styles.summaryBentoCard, { marginTop: 16 }]}>
         {/* Viewfinder Brackets - Adjusted closer to edges */}
         <View style={[styles.viewfinderBracket, styles.bracketTL]} />
         <View style={[styles.viewfinderBracket, styles.bracketTR]} />

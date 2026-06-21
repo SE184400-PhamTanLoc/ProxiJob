@@ -16,13 +16,14 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { IDENTITY_API_BASE_URL } from '../../api/apiConfig';
 import { getPaymentStatusApi, createPaymentSessionApi, saveAuthSession, checkAuthApi } from '../../api/auth';
+import { Ionicons } from '@expo/vector-icons';
 
 const POLL_INTERVAL_MS = 8000;
 const { width: SCREEN_W } = Dimensions.get('window');
 
 // Thiết lập kích thước khung chứa ảnh QR dạng chữ nhật đứng theo tỷ lệ chuẩn của thẻ VietQR (khoảng 3:4)
 const QR_WIDTH = Math.min(SCREEN_W - 60, 320);
-const QR_HEIGHT = QR_WIDTH * 1.35; 
+const QR_HEIGHT = QR_WIDTH * 1.35;
 
 /** Fix localhost QR URLs for real devices */
 function fixQrUrl(url) {
@@ -97,7 +98,7 @@ export default function PaymentQRScreen() {
         if (r.bankTransfer) setPaymentData(r.bankTransfer);
         if (r.status === 'Paid') { setPolling(false); handlePaid(); }
         else if (r.status === 'Expired' || r.status === 'Cancelled') setPolling(false);
-      } catch {}
+      } catch { }
     };
     poll();
     const iv = setInterval(poll, POLL_INTERVAL_MS);
@@ -150,7 +151,7 @@ export default function PaymentQRScreen() {
     try {
       if (Platform.OS === 'web') await navigator.clipboard.writeText(text);
       else { const C = require('expo-clipboard'); await C.setStringAsync(text); }
-    } catch {}
+    } catch { }
     showToast(`Đã sao chép ${label}!`, 'success');
   };
 
@@ -183,22 +184,24 @@ export default function PaymentQRScreen() {
     <SafeAreaView style={st.container}>
       {/* Header */}
       <View style={st.header}>
-        <TouchableOpacity onPress={goBack} style={st.hBack}><Text style={st.hBackText}>←</Text></TouchableOpacity>
+        <TouchableOpacity style={st.hBack} onPress={goBack}>
+          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+        </TouchableOpacity>
         <Text style={st.hTitle}>Thanh toán đơn hàng</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       {/* Payment Method Selector */}
       {status === 'Pending' && (
         <View style={st.methodTabs}>
-          <TouchableOpacity 
-            style={[st.methodTab, paymentMethod === 'bank' && st.methodTabActive]} 
+          <TouchableOpacity
+            style={[st.methodTab, paymentMethod === 'bank' && st.methodTabActive]}
             onPress={() => setPaymentMethod('bank')}
           >
             <Text style={[st.methodTabText, paymentMethod === 'bank' && st.methodTabActiveText]}>🏦 VietQR</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[st.methodTab, paymentMethod === 'momo' && st.methodTabActiveMomo]} 
+          <TouchableOpacity
+            style={[st.methodTab, paymentMethod === 'momo' && st.methodTabActiveMomo]}
             onPress={() => setPaymentMethod('momo')}
           >
             <Text style={[st.methodTabText, paymentMethod === 'momo' && st.methodTabActiveTextMomo]}>💗 Ví MoMo</Text>
@@ -213,14 +216,14 @@ export default function PaymentQRScreen() {
           {paymentMethod === 'bank' && qrUrl && status === 'Pending' && (
             <View style={st.qrHero}>
               <Animated.View style={[st.qrCard, { transform: [{ scale: pulseAnim }] }]}>
-                <Image 
-                  source={{ uri: qrUrl }} 
-                  style={st.qrImg} 
-                  resizeMode="contain" 
-                  onError={(e) => console.log('[QR] load err:', e.nativeEvent?.error, qrUrl)} 
+                <Image
+                  source={{ uri: qrUrl }}
+                  style={st.qrImg}
+                  resizeMode="contain"
+                  onError={(e) => console.log('[QR] load err:', e.nativeEvent?.error, qrUrl)}
                 />
               </Animated.View>
-              
+
               <Text style={st.qrLabel}>QUÉT MÃ ĐỂ THANH TOÁN</Text>
               <Text style={st.qrHint}>Mở ứng dụng ngân hàng bất kỳ để quét mã QR</Text>
 
@@ -240,17 +243,17 @@ export default function PaymentQRScreen() {
                   <Text style={st.momoHeaderText}>momo</Text>
                 </View>
                 <View style={st.momoQrBody}>
-                  <Image 
-                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://payment.momo.vn/pay/order/${orderCode || '123456'}` }} 
-                    style={st.momoQrImg} 
-                    resizeMode="contain" 
+                  <Image
+                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://payment.momo.vn/pay/order/${orderCode || '123456'}` }}
+                    style={st.momoQrImg}
+                    resizeMode="contain"
                   />
                 </View>
                 <View style={st.momoFooter}>
                   <Text style={st.momoFooterText}>Sử dụng ứng dụng MoMo để quét mã</Text>
                 </View>
               </Animated.View>
-              
+
               <Text style={st.qrLabel}>QUÉT MÃ MOMO ĐỂ THANH TOÁN</Text>
               <Text style={st.qrHint}>Mở Ví MoMo quét mã QR hoặc bấm nút bên dưới để thanh toán trực tiếp</Text>
 
@@ -358,7 +361,7 @@ function BlockRow({ label, value, highlight, mono, copyable, onCopy, valueColor,
           bold && { fontSize: 20, fontWeight: '900' },
           danger && { color: '#EF4444', fontWeight: '800' },
         ]} numberOfLines={2}>{value}</Text>
-        
+
         {copyable && (
           <TouchableOpacity style={st.copyBtn} onPress={onCopy} activeOpacity={0.6}>
             <Text style={st.copyBtnText}>Sao chép</Text>
@@ -499,7 +502,7 @@ const st = StyleSheet.create({
   },
   hBack: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   hBackText: { fontSize: 24, fontWeight: 'bold', color: '#1F2937' },
-  hTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
+  hTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937', justifyContent: 'center', alignItems: 'center' },
   scroll: { paddingHorizontal: 16, paddingVertical: 12 },
 
   /* QR Hero Section */

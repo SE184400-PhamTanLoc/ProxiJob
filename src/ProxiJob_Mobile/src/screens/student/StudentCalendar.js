@@ -17,21 +17,21 @@ function getCurrentWeekDays() {
   const today = new Date();
   const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
   const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
-  
+
   const monday = new Date(today);
   monday.setDate(today.getDate() + distanceToMonday);
-  
+
   const days = [];
   const dayNames = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-  
+
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    
+
     const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
     const apiDateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
     const isToday = d.toDateString() === today.toDateString();
-    
+
     days.push({
       name: dayNames[i],
       date: dateStr,
@@ -54,14 +54,14 @@ const getShiftDateLabel = (startTime) => {
   if (!startTime) return '';
   const date = new Date(startTime);
   const today = new Date();
-  
+
   // Reset hours to compare dates only
   const dDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const dToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  
+
   const diffTime = dDate.getTime() - dToday.getTime();
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) {
     return 'Hôm nay';
   } else if (diffDays === 1) {
@@ -69,7 +69,7 @@ const getShiftDateLabel = (startTime) => {
   } else if (diffDays === -1) {
     return `Hôm qua`;
   }
-  
+
   const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   const dayName = dayNames[date.getDay()];
   return `${dayName}, ${date.getDate()} Th${date.getMonth() + 1}`;
@@ -83,9 +83,6 @@ export default function StudentCalendar() {
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'completed'
 
   React.useEffect(() => {
-    if (user?.id) {
-      loadMyApplications(user.id);
-    }
     const days = getCurrentWeekDays();
     setWeekDays(days);
     const todayIdx = days.findIndex(d => d.isToday);
@@ -97,9 +94,9 @@ export default function StudentCalendar() {
     try {
       const shiftDate = new Date(shiftStartTime);
       const [year, month, day] = apiDateStr.split('-').map(Number);
-      return shiftDate.getFullYear() === year && 
-             (shiftDate.getMonth() + 1) === month && 
-             shiftDate.getDate() === day;
+      return shiftDate.getFullYear() === year &&
+        (shiftDate.getMonth() + 1) === month &&
+        shiftDate.getDate() === day;
     } catch (e) {
       return false;
     }
@@ -214,7 +211,7 @@ export default function StudentCalendar() {
           <View style={{ marginTop: 14 }}>
             <TouchableOpacity
               style={[
-                styles.checkInActionBtn, 
+                styles.checkInActionBtn,
                 isWorking && { backgroundColor: theme.colors.success },
                 isApplied && { backgroundColor: theme.colors.textLight }
               ]}
@@ -333,8 +330,7 @@ export default function StudentCalendar() {
               </View>
             ) : (
               completedShifts.map(renderShiftItem)
-            )
-          )}
+            ))}
         </View>
       </ScrollView>
     </SafeAreaView>

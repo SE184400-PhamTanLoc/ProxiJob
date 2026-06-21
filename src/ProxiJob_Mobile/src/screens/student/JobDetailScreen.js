@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppContext } from '../../context/AppContext';
-import { useShiftsQuery, useApplyMutation } from '../../hooks/queries';
+import { useShiftsQuery, useApplyMutation, useEmployerJobsQuery } from '../../hooks/queries';
 import { getAvatarSource } from '../../utils/avatarHelper';
 
 export default function JobDetailScreen() {
@@ -29,6 +29,8 @@ export default function JobDetailScreen() {
   } = useContext(AppContext);
 
   const { data: shifts = [] } = useShiftsQuery(user, studentCoords);
+  const { data: employerData } = useEmployerJobsQuery(user);
+  const employerShifts = employerData?.shifts || [];
   const applyMutation = useApplyMutation(user, showToast, addNotification);
 
   const applyToShift = async (shiftId) => {
@@ -40,7 +42,7 @@ export default function JobDetailScreen() {
   const [isSaved, setIsSaved] = useState(false);
 
   const shiftId = navigationParams?.shiftId;
-  const shift = shifts.find((s) => s.id === shiftId);
+  const shift = shifts.find((s) => s.id === shiftId) || employerShifts.find((s) => s.id === shiftId);
 
   if (!shift) {
     return (
@@ -248,7 +250,17 @@ export default function JobDetailScreen() {
           </View>
 
           {/* Action Button */}
-          {success ? (
+          {user?.role === 'employer' ? (
+            <TouchableOpacity
+              style={styles.applyBtn}
+              onPress={goBack}
+              activeOpacity={0.8}
+            >
+              <View style={styles.applyBtnContent}>
+                <Text style={styles.applyBtnText}>Quay lại tin tuyển</Text>
+              </View>
+            </TouchableOpacity>
+          ) : success ? (
             <View style={styles.successBtn}>
               <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.successBtnText}>ỨNG TUYỂN THÀNH CÔNG!</Text>
