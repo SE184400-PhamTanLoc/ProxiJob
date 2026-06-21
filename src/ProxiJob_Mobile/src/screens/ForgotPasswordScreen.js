@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { AppContext } from '../context/AppContext';
 import { supabase } from '../db/dbConfig';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ForgotPasswordScreen() {
   const { navigateTo, selectedRole } = useContext(AppContext);
@@ -170,6 +171,16 @@ export default function ForgotPasswordScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Continue as Guest */}
+          <TouchableOpacity
+            style={styles.guestButton}
+            onPress={() => navigateTo('student_dashboard')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="home-outline" size={16} color={theme.colors.textMuted || "#6B7280"} style={{ marginRight: 6 }} />
+            <Text style={styles.guestButtonText}>Tiếp tục xem việc làm (Khách)</Text>
+          </TouchableOpacity>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -324,5 +335,24 @@ const styles = StyleSheet.create({
   backToLoginText: {
     fontSize: 13,
     fontWeight: 'bold',
+  },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#F8FAFC',
+    marginTop: 10,
+    width: '100%',
+    maxWidth: 400,
+  },
+  guestButtonText: {
+    color: theme.colors.textMuted || '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
   }
 });

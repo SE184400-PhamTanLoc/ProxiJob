@@ -56,7 +56,7 @@ export const useShifts = ({
               hourlyRate: s.salary,
               latitude: job.latitude || job.location?.latitude || 0,
               longitude: job.longitude || job.location?.longitude || 0,
-              address: job.address || job.location?.address || '',
+              address: job.address || job.location?.address || job.shopAddress || job.locationAddress || '',
               date: new Date(s.startTime).toLocaleDateString('vi-VN'),
               time: `${new Date(s.startTime).getHours().toString().padStart(2, '0')}:${new Date(s.startTime).getMinutes().toString().padStart(2, '0')} - ${new Date(s.endTime).getHours().toString().padStart(2, '0')}:${new Date(s.endTime).getMinutes().toString().padStart(2, '0')}`,
               description: job.description || '',
@@ -634,7 +634,7 @@ export const useShifts = ({
         loadEmployerJobs();
       }
     } else {
-      setShifts(INITIAL_SHIFTS);
+      loadShifts(false);
       setActiveShift(null);
       setEmployerJobs([]);
       setLeaveRequests(INITIAL_LEAVE_REQUESTS);

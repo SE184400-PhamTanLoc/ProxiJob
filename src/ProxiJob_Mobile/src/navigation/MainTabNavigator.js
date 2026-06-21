@@ -99,19 +99,21 @@ export default function MainTabNavigator({ isStudent }) {
 
       {/* Student Bottom Navigation Bar */}
       {isStudent && showTabBar && (
-        <BlurView intensity={75} tint="light" style={styles.tabBar}>
+        <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[
-              styles.tabItem,
-              (currentScreen === 'student_dashboard' || currentScreen === 'job_detail') && styles.activeTabItemStudent
-            ]}
+            style={styles.tabItem}
             onPress={() => navigateTo('student_dashboard')}
           >
-            <Ionicons
-              name={currentScreen === 'student_dashboard' || currentScreen === 'job_detail' ? 'search' : 'search-outline'}
-              size={20}
-              color={currentScreen === 'student_dashboard' || currentScreen === 'job_detail' ? '#FF6B00' : '#9CA3AF'}
-            />
+            <View style={[
+              styles.iconContainer,
+              (currentScreen === 'student_dashboard' || currentScreen === 'job_detail') && styles.activeIconContainerStudent
+            ]}>
+              <Ionicons
+                name={currentScreen === 'student_dashboard' || currentScreen === 'job_detail' ? 'search' : 'search-outline'}
+                size={22}
+                color={currentScreen === 'student_dashboard' || currentScreen === 'job_detail' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
             <Text style={[
               styles.tabLabel,
               (currentScreen === 'student_dashboard' || currentScreen === 'job_detail') && styles.activeTabLabelStudent
@@ -119,70 +121,104 @@ export default function MainTabNavigator({ isStudent }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, currentScreen === 'student_calendar' && styles.activeTabItemStudent]}
+            style={styles.tabItem}
             onPress={() => navigateTo('student_calendar')}
           >
-            <Ionicons
-              name={currentScreen === 'student_calendar' ? 'calendar' : 'calendar-outline'}
-              size={20}
-              color={currentScreen === 'student_calendar' ? '#FF6B00' : '#9CA3AF'}
-            />
-            <Text style={[styles.tabLabel, currentScreen === 'student_calendar' && styles.activeTabLabelStudent]}>Lịch Roster</Text>
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'student_calendar' && styles.activeIconContainerStudent
+            ]}>
+              <Ionicons
+                name={currentScreen === 'student_calendar' ? 'calendar' : 'calendar-outline'}
+                size={22}
+                color={currentScreen === 'student_calendar' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'student_calendar' && styles.activeTabLabelStudent
+            ]}>Lịch Roster</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, currentScreen === 'student_checkin' && styles.activeTabItemStudent]}
+            style={styles.tabItem}
             onPress={() => navigateTo('student_checkin')}
           >
-            <Ionicons
-              name={currentScreen === 'student_checkin' ? 'location' : 'location-outline'}
-              size={20}
-              color={currentScreen === 'student_checkin' ? '#FF6B00' : '#9CA3AF'}
-            />
-            <Text style={[styles.tabLabel, currentScreen === 'student_checkin' && styles.activeTabLabelStudent]}>Điểm Danh</Text>
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'student_checkin' && styles.activeIconContainerStudent
+            ]}>
+              <Ionicons
+                name={currentScreen === 'student_checkin' ? 'location' : 'location-outline'}
+                size={22}
+                color={currentScreen === 'student_checkin' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'student_checkin' && styles.activeTabLabelStudent
+            ]}>Điểm Danh</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, currentScreen === 'student_chat' && styles.activeTabItemStudent]}
+            style={styles.tabItem}
             onPress={() => navigateTo('student_chat')}
           >
-            <Ionicons
-              name={currentScreen === 'student_chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
-              size={20}
-              color={currentScreen === 'student_chat' ? '#FF6B00' : '#9CA3AF'}
-            />
-            <Text style={[styles.tabLabel, currentScreen === 'student_chat' && styles.activeTabLabelStudent]}>Trò Chuyện</Text>
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'student_chat' && styles.activeIconContainerStudent
+            ]}>
+              <Ionicons
+                name={currentScreen === 'student_chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+                size={22}
+                color={currentScreen === 'student_chat' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'student_chat' && styles.activeTabLabelStudent
+            ]}>Trò Chuyện</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, currentScreen === 'student_portfolio' && styles.activeTabItemStudent]}
+            style={styles.tabItem}
             onPress={() => navigateTo('student_portfolio')}
           >
-            <Ionicons
-              name={currentScreen === 'student_portfolio' ? 'person' : 'person-outline'}
-              size={20}
-              color={currentScreen === 'student_portfolio' ? '#FF6B00' : '#9CA3AF'}
-            />
-            <Text style={[styles.tabLabel, currentScreen === 'student_portfolio' && styles.activeTabLabelStudent]}>Hồ Sơ</Text>
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'student_portfolio' && styles.activeIconContainerStudent
+            ]}>
+              <Ionicons
+                name={currentScreen === 'student_portfolio' ? 'person' : 'person-outline'}
+                size={22}
+                color={currentScreen === 'student_portfolio' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'student_portfolio' && styles.activeTabLabelStudent
+            ]}>Hồ Sơ</Text>
           </TouchableOpacity>
-        </BlurView>
+        </View>
       )}
 
       {/* Employer Bottom Navigation Bar */}
       {!isStudent && showTabBar && (
-        <BlurView intensity={75} tint="light" style={styles.tabBar}>
+        <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[
-              styles.tabItem,
-              (currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list') && styles.activeTabItemEmployer
-            ]}
+            style={styles.tabItem}
             onPress={() => navigateTo('employer_approvals')}
           >
-            <Ionicons
-              name={currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list' ? 'briefcase' : 'briefcase-outline'}
-              size={20}
-              color={currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list' ? '#0A58CA' : '#9CA3AF'}
-            />
+            <View style={[
+              styles.iconContainer,
+              (currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list') && styles.activeIconContainerEmployer
+            ]}>
+              <Ionicons
+                name={currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list' ? 'briefcase' : 'briefcase-outline'}
+                size={22}
+                color={currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
             <Text style={[
               styles.tabLabel,
               (currentScreen === 'employer_approvals' || currentScreen === 'employer_emergency_post' || currentScreen === 'candidate_list') && styles.activeTabLabelEmployer
@@ -190,53 +226,79 @@ export default function MainTabNavigator({ isStudent }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, currentScreen === 'employer_hrm' && styles.activeTabItemEmployer]}
+            style={styles.tabItem}
             onPress={() => navigateTo('employer_hrm')}
           >
-            <Ionicons
-              name={currentScreen === 'employer_hrm' ? 'people' : 'people-outline'}
-              size={20}
-              color={currentScreen === 'employer_hrm' ? '#0A58CA' : '#9CA3AF'}
-            />
-            <Text style={[styles.tabLabel, currentScreen === 'employer_hrm' && styles.activeTabLabelEmployer]}>Nhân Sự</Text>
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'employer_hrm' && styles.activeIconContainerEmployer
+            ]}>
+              <Ionicons
+                name={currentScreen === 'employer_hrm' ? 'people' : 'people-outline'}
+                size={22}
+                color={currentScreen === 'employer_hrm' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'employer_hrm' && styles.activeTabLabelEmployer
+            ]}>Nhân Sự</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, currentScreen === 'employer_scheduling' && styles.activeTabItemEmployer]}
+            style={styles.tabItem}
             onPress={() => navigateTo('employer_scheduling')}
           >
-            <Ionicons
-              name={currentScreen === 'employer_scheduling' ? 'calendar' : 'calendar-outline'}
-              size={20}
-              color={currentScreen === 'employer_scheduling' ? '#0A58CA' : '#9CA3AF'}
-            />
-            <Text style={[styles.tabLabel, currentScreen === 'employer_scheduling' && styles.activeTabLabelEmployer]}>Xếp Lịch</Text>
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'employer_scheduling' && styles.activeIconContainerEmployer
+            ]}>
+              <Ionicons
+                name={currentScreen === 'employer_scheduling' ? 'calendar' : 'calendar-outline'}
+                size={22}
+                color={currentScreen === 'employer_scheduling' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'employer_scheduling' && styles.activeTabLabelEmployer
+            ]}>Xếp Lịch</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabItem, currentScreen === 'employer_monitor' && styles.activeTabItemEmployer]}
+            style={styles.tabItem}
             onPress={() => navigateTo('employer_monitor')}
           >
-            <Ionicons
-              name={currentScreen === 'employer_monitor' ? 'navigate' : 'navigate-outline'}
-              size={20}
-              color={currentScreen === 'employer_monitor' ? '#0A58CA' : '#9CA3AF'}
-            />
-            <Text style={[styles.tabLabel, currentScreen === 'employer_monitor' && styles.activeTabLabelEmployer]}>GPS Live</Text>
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'employer_monitor' && styles.activeIconContainerEmployer
+            ]}>
+              <Ionicons
+                name={currentScreen === 'employer_monitor' ? 'navigate' : 'navigate-outline'}
+                size={22}
+                color={currentScreen === 'employer_monitor' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
+            <Text style={[
+              styles.tabLabel,
+              currentScreen === 'employer_monitor' && styles.activeTabLabelEmployer
+            ]}>GPS Live</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.tabItem,
-              currentScreen === 'employer_chat' && styles.activeTabItemEmployer
-            ]}
+            style={styles.tabItem}
             onPress={() => navigateTo('employer_chat')}
           >
-            <Ionicons
-              name={currentScreen === 'employer_chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
-              size={20}
-              color={currentScreen === 'employer_chat' ? '#0A58CA' : '#9CA3AF'}
-            />
+            <View style={[
+              styles.iconContainer,
+              currentScreen === 'employer_chat' && styles.activeIconContainerEmployer
+            ]}>
+              <Ionicons
+                name={currentScreen === 'employer_chat' ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+                size={22}
+                color={currentScreen === 'employer_chat' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
             <Text style={[
               styles.tabLabel,
               currentScreen === 'employer_chat' && styles.activeTabLabelEmployer
@@ -244,23 +306,25 @@ export default function MainTabNavigator({ isStudent }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.tabItem,
-              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabItemEmployer
-            ]}
+            style={styles.tabItem}
             onPress={() => navigateTo('payroll_settlement')}
           >
-            <Ionicons
-              name={currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' ? 'wallet' : 'wallet-outline'}
-              size={20}
-              color={currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' ? '#0A58CA' : '#9CA3AF'}
-            />
+            <View style={[
+              styles.iconContainer,
+              (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeIconContainerEmployer
+            ]}>
+              <Ionicons
+                name={currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' ? 'wallet' : 'wallet-outline'}
+                size={22}
+                color={currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' ? '#FFFFFF' : '#64748B'}
+              />
+            </View>
             <Text style={[
               styles.tabLabel,
               (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabLabelEmployer
             ]}>Quyết Toán</Text>
           </TouchableOpacity>
-        </BlurView>
+        </View>
       )}
     </View>
   );
@@ -270,53 +334,66 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   content: {
     flex: 1,
-    paddingBottom: Platform.OS === 'ios' ? 96 : 84,
+    paddingBottom: 0,
   },
   tabBar: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 24 : 16,
-    left: 16,
-    right: 16,
-    height: 68,
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderRadius: 20,
+    left: 20,
+    right: 20,
+    height: 74,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 37,
     borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.5)',
+    borderColor: '#F1F5F9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     elevation: 8,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 14,
-    marginHorizontal: 2,
-    marginVertical: 4,
-    height: 56,
+    height: 68,
   },
-  activeTabItemStudent: {
-    backgroundColor: '#FF6B000C',
+  iconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
-  activeTabItemEmployer: {
-    backgroundColor: '#0A58CA0C',
+  activeIconContainerStudent: {
+    backgroundColor: '#FF6B00',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  activeIconContainerEmployer: {
+    backgroundColor: '#0A58CA',
+    shadowColor: '#0A58CA',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   tabLabel: {
     fontSize: 9,
     fontWeight: '600',
-    color: '#9CA3AF',
-    marginTop: 3,
+    color: '#64748B',
+    marginTop: 2,
   },
   activeTabLabelStudent: {
     color: '#FF6B00',

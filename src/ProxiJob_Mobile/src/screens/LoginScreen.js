@@ -9,7 +9,9 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Image
+  Image,
+  Modal,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
@@ -17,13 +19,14 @@ import { AppContext } from '../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
-  const { login, navigateTo, authLoading, showToast } = useContext(AppContext);
+  const { login, loginWithGoogle, navigateTo, authLoading, showToast } = useContext(AppContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
 
   const validateForm = () => {
     let tempErrors = {};
@@ -53,6 +56,37 @@ export default function LoginScreen() {
       return;
     }
     login(email.trim(), password);
+  };
+
+  const handleGoogleLogin = () => {
+    // Show role selection modal first before triggering login flow
+    setShowRoleModal(true);
+  };
+
+  const handleRoleSelect = (role) => {
+    setShowRoleModal(false);
+
+    // =========================================================================
+    // --- WORKFLOW TO INTEGRATE @react-native-google-signin/google-signin ---
+    // 1. Install dependency: npm install @react-native-google-signin/google-signin
+    // 2. Import GoogleSignin in this file:
+    //    import { GoogleSignin } from '@react-native-google-signin/google-signin';
+    // 3. Configure it on app load (e.g. inside a useEffect):
+    //    GoogleSignin.configure({ webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com' });
+    // 4. Implement the actual signing process:
+    //    try {
+    //      await GoogleSignin.hasPlayServices();
+    //      const response = await GoogleSignin.signIn();
+    //      const idToken = response.data.idToken; // Get ID Token
+    //      loginWithGoogle(idToken, role);
+    //    } catch (err) {
+    //      console.log('Google Sign-in failed', err);
+    //    }
+    // =========================================================================
+
+    // Trigger context callback using a mock Google ID Token for testing/development
+    console.log('[LoginScreen] Initiating Google Sign-In with mock token and role:', role);
+    loginWithGoogle('mock-google-id-token-xyz789', role);
   };
 
   return (
@@ -145,7 +179,7 @@ export default function LoginScreen() {
               </View>
 
               {/* Dynamic Login Button */}
-              <View style={{ gap: 10 }}>
+              <View style={{ gap: 12 }}>
                 <TouchableOpacity
                   style={[
                     styles.loginButton,
@@ -162,9 +196,97 @@ export default function LoginScreen() {
                     <Text style={styles.loginButtonText}>Đăng nhập</Text>
                   )}
                 </TouchableOpacity>
+
+                {/* Divider */}
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>Hoặc đăng nhập bằng</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                {/* Google Sign In Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.googleButton,
+                    authLoading && { opacity: 0.7 }
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={handleGoogleLogin}
+                  disabled={authLoading}
+                >
+                  <Ionicons name="logo-google" size={18} color="#4081EC" style={{ marginRight: 10 }} />
+                  <Text style={styles.googleButtonText}>Tiếp tục với Google</Text>
+                </TouchableOpacity>
+
+                {/* Continue as Guest */}
+                <TouchableOpacity
+                  style={styles.guestButton}
+                  onPress={() => navigateTo('student_dashboard')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="home-outline" size={16} color={theme.colors.textMuted || "#6B7280"} style={{ marginRight: 6 }} />
+                  <Text style={styles.guestButtonText}>Tiếp tục xem việc làm (Khách)</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
+
+          {/* Google Role Selection Modal */}
+          <Modal
+            visible={showRoleModal}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowRoleModal(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setShowRoleModal(false)}>
+              <View style={styles.modalOverlay}>
+                <TouchableWithoutFeedback>
+                  <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Bạn đăng nhập với vai trò nào?</Text>
+                    <Text style={styles.modalSubtitle}>
+                      Vui lòng chọn vai trò để ProxiJob cấu hình giao diện phù hợp với nhu cầu của bạn.
+                    </Text>
+
+                    <View style={styles.roleSelectionRow}>
+                      {/* Student Card */}
+                      <TouchableOpacity
+                        style={[styles.roleSelectCard, styles.studentSelectCard]}
+                        activeOpacity={0.85}
+                        onPress={() => handleRoleSelect('student')}
+                      >
+                        <View style={[styles.roleSelectIconContainer, { backgroundColor: theme.colors.student + '15' }]}>
+                          <Ionicons name="school-outline" size={28} color={theme.colors.student} />
+                        </View>
+                        <Text style={[styles.roleSelectCardTitle, { color: theme.colors.student }]}>Sinh viên</Text>
+                        <Text style={styles.roleSelectCardDesc}>Tìm việc làm quanh đây kiếm thêm thu nhập</Text>
+                      </TouchableOpacity>
+
+                      {/* Employer Card */}
+                      <TouchableOpacity
+                        style={[styles.roleSelectCard, styles.employerSelectCard]}
+                        activeOpacity={0.85}
+                        onPress={() => handleRoleSelect('employer')}
+                      >
+                        <View style={[styles.roleSelectIconContainer, { backgroundColor: theme.colors.employer + '15' }]}>
+                          <Ionicons name="storefront-outline" size={28} color={theme.colors.employer} />
+                        </View>
+                        <Text style={[styles.roleSelectCardTitle, { color: theme.colors.employer }]}>Chủ quán</Text>
+                        <Text style={styles.roleSelectCardDesc}>Đăng tin tuyển nhân sự tức thì cho cửa hàng</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.modalCloseButton}
+                      onPress={() => setShowRoleModal(false)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.modalCloseButtonText}>Đóng</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
 
           {/* Register Footer */}
           <View style={styles.footerContainer}>
@@ -180,7 +302,6 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -374,5 +495,147 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: 48,
+  },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#F8FAFC',
+    marginTop: 0,
+    width: '100%',
+    maxWidth: 400,
+  },
+  guestButtonText: {
+    color: theme.colors.textMuted || '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.border || '#E5E7EB',
+  },
+  dividerText: {
+    fontSize: 12,
+    color: theme.colors.textMuted || '#6B7280',
+    paddingHorizontal: 10,
+    fontWeight: '500',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: theme.borderRadius.md || 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  googleButtonText: {
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.56)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 440,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 18,
+    paddingHorizontal: 16,
+  },
+  roleSelectionRow: {
+    flexDirection: 'row',
+    gap: 16,
+    width: '100%',
+    marginBottom: 24,
+  },
+  roleSelectCard: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studentSelectCard: {
+    borderColor: '#FFEBE0',
+  },
+  employerSelectCard: {
+    borderColor: '#E0EBFF',
+  },
+  roleSelectIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  roleSelectCardTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  roleSelectCardDesc: {
+    fontSize: 11,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 15,
+  },
+  modalCloseButton: {
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseButtonText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '600',
   }
 });

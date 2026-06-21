@@ -10,6 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { useShiftsQuery } from '../../hooks/queries';
+import { Ionicons } from '@expo/vector-icons';
 
 function getCurrentWeekDays() {
   const today = new Date();
@@ -42,8 +44,40 @@ function getCurrentWeekDays() {
   return days;
 }
 
+const getDistrict = (address) => {
+  if (!address) return '';
+  const match = address.match(/(Quận \d+|Q\.\s*\d+|Quận [a-zA-ZÀ-ỹ\s]+|Bình Thạnh|Gò Vấp|Thủ Đức|Phú Nhuận|Tân Bình|Tân Phú|Bình Tân)/i);
+  return match ? match[0] : address;
+};
+
+const getShiftDateLabel = (startTime) => {
+  if (!startTime) return '';
+  const date = new Date(startTime);
+  const today = new Date();
+  
+  // Reset hours to compare dates only
+  const dDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  
+  const diffTime = dDate.getTime() - dToday.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    return 'Hôm nay';
+  } else if (diffDays === 1) {
+    return `Mai, ${date.getDate()} Th${date.getMonth() + 1}`;
+  } else if (diffDays === -1) {
+    return `Hôm qua`;
+  }
+  
+  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const dayName = dayNames[date.getDay()];
+  return `${dayName}, ${date.getDate()} Th${date.getMonth() + 1}`;
+};
+
 export default function StudentCalendar() {
-  const { shifts, navigateTo, loadMyApplications, user } = useContext(AppContext);
+  const { navigateTo, user, studentCoords } = useContext(AppContext);
+  const { data: shifts = [], refetch: loadMyApplications } = useShiftsQuery(user, studentCoords);
   const [weekDays, setWeekDays] = useState([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'completed'
@@ -113,47 +147,71 @@ export default function StudentCalendar() {
     const isApplied = shift.status === 'applied';
     const isApproved = shift.status === 'approved';
 
-    return (
-      <View key={shift.id} style={styles.shiftCard}>
-        {/* Futuristic Viewfinder Bracket Accents */}
-        <View style={styles.viewfinderCornerTL} />
-        <View style={styles.viewfinderCornerBR} />
+    // Left border color indicating status: Orange for approved/working, Yellow for applied/waiting, Gray for completed
+    let leftBorderColor = '#94A3B8';
+    if (isApproved || isWorking) {
+      leftBorderColor = '#FF6B00';
+    } else if (isApplied) {
+      leftBorderColor = '#FFD200';
+    }
 
-        <View style={styles.shiftCardHeader}>
-          <View style={{flex: 1, paddingRight: 8}}>
-            <Text style={styles.shiftShopName}>{shift.shopName.toUpperCase()}</Text>
-            <Text style={styles.shiftTitle}>{shift.title}</Text>
-          </View>
+    return (
+      <View key={shift.id} style={[styles.shiftCard, { borderLeftColor: leftBorderColor, borderLeftWidth: 6 }]}>
+        {/* Top row: Status pill badge + Ellipsis vertical icon */}
+        <View style={styles.cardHeaderRow}>
           <View style={[
             styles.statusBadge,
             isWorking && styles.badgeWorking,
             isCompleted && styles.badgeCompleted,
-            isApplied && styles.badgeApplied
+            isApplied && styles.badgeApplied,
+            isApproved && styles.badgeApproved
           ]}>
             <Text style={[
               styles.statusText,
               isWorking && styles.textWorking,
               isCompleted && styles.textCompleted,
-              isApplied && styles.textApplied
+              isApplied && styles.textApplied,
+              isApproved && styles.textApproved
             ]}>
-              {isWorking ? '⚡ Đang làm' : isCompleted ? '✅ Đã hoàn thành' : isApplied ? '⏳ Chờ duyệt' : '📅 Đã duyệt'}
+              {isWorking ? 'ĐANG LÀM' : isCompleted ? 'HOÀN THÀNH' : isApplied ? 'ĐANG CHỜ' : 'ĐÃ DUYỆT'}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.ellipsisButton} activeOpacity={0.7}>
+            <Ionicons name="ellipsis-vertical" size={18} color="#64748B" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Middle row: Job title + Location row (Pin icon + Shop name & District) */}
+        <View style={styles.cardBodyContainer}>
+          <Text style={styles.shiftTitle}>{shift.title}</Text>
+          <View style={styles.locationContainer}>
+            <Ionicons name="location-sharp" size={14} color="#FF6B00" style={{ marginRight: 4 }} />
+            <Text style={styles.shiftShopName}>
+              {shift.shopName}, {getDistrict(shift.address) || 'Q. 1'}
             </Text>
           </View>
         </View>
 
-        <View style={styles.shiftCardDetails}>
-          <Text style={styles.detailRow}>⏰ {shift.time} ({shift.date})</Text>
-          <Text style={styles.detailRow}>💰 Lương dự kiến: <Text style={styles.boldText}>{(shift.hourlyRate * 4).toLocaleString('vi-VN')} đ</Text> (4 giờ làm)</Text>
-          {isCompleted && (
-            <View style={styles.checkInOutTimeBox}>
-              <Text style={styles.checkInOutTimeText}>⏱️ Check-in: {shift.checkInTime} | Check-out: {shift.checkOutTime}</Text>
-            </View>
-          )}
+        {/* Divider line */}
+        <View style={styles.cardDivider} />
+
+        {/* Bottom row: Left column: Date & Time range. Right column: Money earnings (value + unit below) */}
+        <View style={styles.cardFooterRow}>
+          <View style={styles.footerLeftColumn}>
+            <Text style={styles.footerDateLabel}>{getShiftDateLabel(shift.startTime)}</Text>
+            <Text style={styles.footerTimeRange}>{shift.time}</Text>
+          </View>
+          <View style={styles.footerRightColumn}>
+            <Text style={styles.footerEarningsValue}>
+              {(shift.hourlyRate * 4).toLocaleString('vi-VN')}
+            </Text>
+            <Text style={styles.footerEarningsUnit}>VND</Text>
+          </View>
         </View>
 
+        {/* Check-In Action Button (preserved for non-completed shifts with polished styling) */}
         {!isCompleted && (
-          <>
-            <View style={styles.cardDivider} />
+          <View style={{ marginTop: 14 }}>
             <TouchableOpacity
               style={[
                 styles.checkInActionBtn, 
@@ -164,10 +222,10 @@ export default function StudentCalendar() {
               onPress={() => navigateTo('student_checkin', { shiftId: shift.id })}
             >
               <Text style={styles.checkInActionText}>
-                {isWorking ? 'Xem phiên điểm danh GPS' : isApplied ? 'Đang chờ chủ quán duyệt hồ sơ...' : '📍 Đến điểm check-in GPS'}
+                {isWorking ? '⚡ Xem phiên điểm danh GPS' : isApplied ? '⏳ Đang chờ chủ quán duyệt hồ sơ...' : '📍 Điểm danh GPS'}
               </Text>
             </TouchableOpacity>
-          </>
+          </View>
         )}
       </View>
     );
@@ -290,59 +348,58 @@ const styles = StyleSheet.create({
   },
   earningsCard: {
     backgroundColor: theme.colors.student,
-    padding: theme.spacing.lg,
-    marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    padding: 24,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 20,
     shadowColor: theme.colors.student,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
   },
   earningsLabel: {
-    color: theme.colors.white + 'B3',
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   earningsValue: {
     color: theme.colors.white,
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginVertical: 4,
+    fontSize: 28,
+    fontWeight: '800',
+    marginVertical: 6,
   },
   earningsSubRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: theme.colors.white + '33',
-    paddingTop: 8,
-    marginTop: 8,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    paddingTop: 10,
+    marginTop: 6,
   },
   earningsSubText: {
     color: theme.colors.white,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  scrollContent: {
-    paddingBottom: theme.spacing.xl,
+    fontSize: 12,
+    fontWeight: '600',
   },
   weekTimeline: {
     backgroundColor: '#FFFFFF',
-    paddingTop: 12,
+    paddingTop: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBEEF0',
+    borderBottomColor: '#F1F5F9',
   },
   timelineLabel: {
     fontSize: 12,
     fontWeight: 'bold',
     color: '#94A3B8',
     paddingHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 10,
+    letterSpacing: 0.5,
   },
   daysScroll: {
     paddingHorizontal: 12,
-    paddingBottom: 12,
+    paddingBottom: 14,
   },
   dayHeaderCell: {
     width: 52,
@@ -353,20 +410,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(226, 191, 176, 0.2)',
+    borderColor: '#F1F5F9',
     position: 'relative',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
       },
       android: {
         elevation: 1,
       },
       web: {
-        boxShadow: '0 4px 20px -5px rgba(0, 0, 0, 0.05)',
+        boxShadow: '0 4px 12px -5px rgba(0, 0, 0, 0.05)',
       }
     }),
   },
@@ -375,16 +432,16 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.student,
     shadowColor: theme.colors.student,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 12,
-    elevation: 4,
+    elevation: 5,
   },
   todayHeaderCell: {
     borderWidth: 1.5,
     borderColor: theme.colors.student,
   },
   dayNameText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 'bold',
     color: '#94A3B8',
     textTransform: 'uppercase',
@@ -395,7 +452,7 @@ const styles = StyleSheet.create({
   dayDateText: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#181C1E',
+    color: '#1E293B',
     marginTop: 4,
   },
   selectedDayDateText: {
@@ -427,194 +484,198 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: 120,
   },
   daySummary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
     marginTop: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: 8,
   },
   summaryTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#64748B',
+    letterSpacing: 0.5,
   },
   todayTag: {
     backgroundColor: 'rgba(255, 107, 0, 0.1)',
     color: theme.colors.student,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 'bold',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 9999,
+    borderRadius: 12,
   },
   tabContainer: {
     flexDirection: 'row',
-    marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    padding: 4,
+    marginHorizontal: 8,
+    marginTop: 16,
+    marginBottom: 8,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
+    borderRadius: 10,
   },
   activeTabButton: {
-    borderBottomWidth: 2.5,
-    borderBottomColor: theme.colors.student,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tabButtonText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: theme.colors.textMuted,
+    color: '#64748B',
   },
   activeTabButtonText: {
     color: theme.colors.student,
   },
   shiftsListContainer: {
-    paddingHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.md,
+    paddingHorizontal: 4,
+    marginTop: 16,
   },
   shiftCard: {
-    position: 'relative',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E9EB',
+    borderColor: '#F1F5F9',
     padding: 20,
     marginBottom: 16,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.04,
-    shadowRadius: 15,
-    elevation: 2,
+    shadowRadius: 16,
+    elevation: 3,
   },
-  viewfinderCornerTL: {
-    position: 'absolute',
-    top: -1,
-    left: -1,
-    width: 12,
-    height: 12,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    borderColor: theme.colors.student,
-    borderTopLeftRadius: 6,
-  },
-  viewfinderCornerBR: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 12,
-    height: 12,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    borderColor: theme.colors.student,
-    borderBottomRightRadius: 6,
-  },
-  shiftCardHeader: {
+  cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.sm,
-  },
-  shiftShopName: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#5B00DF',
-    letterSpacing: 0.5,
-  },
-  shiftTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#181C1E',
-    marginTop: 2,
+    alignItems: 'center',
+    marginBottom: 14,
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 9999,
-    backgroundColor: '#FF6B001F',
-    borderWidth: 1,
-    borderColor: '#FF6B0033',
+    borderRadius: 12,
   },
   badgeWorking: {
-    backgroundColor: '#10B9811F',
-    borderColor: '#10B98133',
+    backgroundColor: '#E8F5E9',
   },
   badgeCompleted: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
+    backgroundColor: '#F1F5F9',
   },
   badgeApplied: {
-    backgroundColor: '#F59E0B1F',
-    borderColor: '#F59E0B33',
+    backgroundColor: '#FFF9C4',
+  },
+  badgeApproved: {
+    backgroundColor: '#FFEBE0',
   },
   statusText: {
-    fontSize: 10,
-    color: '#FF6B00',
+    fontSize: 11,
     fontWeight: 'bold',
   },
   textWorking: {
-    color: '#10B981',
+    color: '#2E7D32',
   },
   textCompleted: {
-    color: '#6B7280',
+    color: '#475569',
   },
   textApplied: {
     color: '#F59E0B',
   },
-  shiftCardDetails: {
-    marginBottom: 4,
-    marginTop: 8,
+  textApproved: {
+    color: '#FF6B00',
   },
-  detailRow: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginVertical: 2,
+  ellipsisButton: {
+    padding: 4,
   },
-  boldText: {
-    fontWeight: 'bold',
-    color: theme.colors.text,
+  cardBodyContainer: {
+    marginBottom: 12,
   },
-  checkInOutTimeBox: {
-    backgroundColor: theme.colors.white,
-    padding: 6,
-    borderRadius: 6,
-    marginTop: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  shiftTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+    lineHeight: 22,
   },
-  checkInOutTimeText: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  shiftShopName: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#E5E9EB',
-    opacity: 0.6,
-    marginVertical: 12,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 14,
+  },
+  cardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  footerLeftColumn: {
+    flex: 1,
+  },
+  footerRightColumn: {
+    alignItems: 'flex-end',
+  },
+  footerDateLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  footerTimeRange: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  footerEarningsValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  footerEarningsUnit: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
   },
   checkInActionBtn: {
     backgroundColor: theme.colors.student,
-    height: 40,
-    borderRadius: 9999,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: theme.colors.student,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   checkInActionText: {
     color: theme.colors.white,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 50,
   },
   emptyText: {
     fontSize: 14,
@@ -627,3 +688,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   }
 });
+

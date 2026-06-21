@@ -3,9 +3,6 @@ import { useToast } from "./useToast";
 import { useLocation } from "./useLocation";
 import { useAuth } from "./useAuth";
 import { useNavigation } from "./useNavigation";
-import { useShifts } from "./useShifts";
-import { useManagement } from "./useManagement";
-import { deleteSchedule } from "../api/management";
 
 export const AppContext = createContext();
 
@@ -15,8 +12,6 @@ export const AppProvider = ({ children }) => {
 
   // Create refs to avoid circular dependencies and stale closures
   const navigationRef = useRef(null);
-  const shiftsRef = useRef(null);
-  const loadStaffListRef = useRef(null);
 
   // Set up authentication
   const authState = useAuth({
@@ -27,16 +22,8 @@ export const AppProvider = ({ children }) => {
     setNavigationStack: (stack) =>
       navigationRef.current?.setNavigationStack(stack),
     onLogoutResets: () => {
-      if (shiftsRef.current) {
-        shiftsRef.current.setActiveShift(null);
-        shiftsRef.current.setEmployerJobs([]);
-        shiftsRef.current.setShifts([]);
-      }
+      setActiveShift(null);
       locationState.setSimulatedDistanceToActive(3200);
-      // Clean up HRM and logs via setters
-      if (loadStaffListRef.current) {
-        // We will reset these directly if needed, or through direct setters exposed
-      }
     },
   });
 
@@ -44,30 +31,19 @@ export const AppProvider = ({ children }) => {
   const navigationState = useNavigation(
     authState.isEnterprise,
     toastState.showToast,
+    authState.user
   );
   navigationRef.current = navigationState;
 
-  // Set up shift management
-  const shiftsState = useShifts({
-    user: authState.user,
-    STUDENT_MOCK_GPS: locationState.STUDENT_MOCK_GPS,
-    showToast: toastState.showToast,
-    addNotification: toastState.addNotification,
-    loadStaffListRef,
-  });
-  shiftsRef.current = shiftsState;
-
-  // Set up management / HRM / scheduling / payroll
-  const managementState = useManagement({
-    user: authState.user,
-    showToast: toastState.showToast,
-    approveStudentApplication: shiftsState.approveStudentApplication,
-    rejectStudentApplication: shiftsState.rejectStudentApplication,
-  });
-  loadStaffListRef.current = managementState.loadStaffList;
+  // In-memory active check-in session state
+  const [activeShift, setActiveShift] = useState(null);
 
   // Static review state for backward compatibility
   const [reviews, setReviews] = useState([]);
+
+  // --- Temporary dummy fallback variables for Employer screens to prevent crashes ---
+  const dummyFn = async () => {};
+  const dummySyncFn = () => {};
 
   return (
     <AppContext.Provider
@@ -86,6 +62,7 @@ export const AppProvider = ({ children }) => {
         isEnterprise: authState.isEnterprise,
         setIsEnterprise: authState.setIsEnterprise,
         login: authState.login,
+        loginWithGoogle: authState.loginWithGoogle,
         register: authState.register,
         logout: authState.logout,
 
@@ -118,57 +95,52 @@ export const AppProvider = ({ children }) => {
         navigateTo: navigationState.navigateTo,
         goBack: navigationState.goBack,
 
-        // Shifts & Jobs State
-        shifts: shiftsState.shifts,
-        setShifts: shiftsState.setShifts,
-        activeShift: shiftsState.activeShift,
-        setActiveShift: shiftsState.setActiveShift,
-        employerJobs: shiftsState.employerJobs,
-        setEmployerJobs: shiftsState.setEmployerJobs,
-        leaveRequests: shiftsState.leaveRequests,
-        setLeaveRequests: shiftsState.setLeaveRequests,
-        loadShifts: shiftsState.loadShifts,
-        loadMyApplications: shiftsState.loadMyApplications,
-        loadEmployerJobs: shiftsState.loadEmployerJobs,
-        applyToShift: shiftsState.applyToShift,
-        checkInShift: shiftsState.checkInShift,
-        checkOutShift: shiftsState.checkOutShift,
-        createEmergencyShift: shiftsState.createEmergencyShift,
-        createJobPostWizard: shiftsState.createJobPostWizard,
-        updateJobPostWizard: shiftsState.updateJobPostWizard,
-        deleteJobPost: shiftsState.deleteJobPost,
-        approveStudentApplication: shiftsState.approveStudentApplication,
-        rejectStudentApplication: shiftsState.rejectStudentApplication,
-
-        // HRM/Management State
-        staffList: managementState.staffList,
-        setStaffList: () => {}, // Backward compatibility dummy
-        loadStaffList: managementState.loadStaffList,
-        addStaffMember: managementState.addStaffMember,
-        removeStaffMember: managementState.removeStaffMember,
-        hrmSingleApplicants: managementState.hrmSingleApplicants,
-        setHrmSingleApplicants: managementState.setHrmSingleApplicants,
-        attendanceLogs: managementState.attendanceLogs,
-        setAttendanceLogs: managementState.setAttendanceLogs,
-        loadAttendanceLogs: managementState.loadAttendanceLogs,
-        payrolls: managementState.payrolls,
-        loadPayrolls: managementState.loadPayrolls,
-        runCalculatePayroll: managementState.runCalculatePayroll,
-        runApprovePayroll: managementState.runApprovePayroll,
-
-        // Scheduling State
-        schedulesList: managementState.schedulesList,
-        loadSchedules: managementState.loadSchedules,
-        addEmployeeSchedule: managementState.addEmployeeSchedule,
-        removeEmployeeSchedule: managementState.removeEmployeeSchedule,
-        deleteSchedule,
+        // Active shift check-in session (keeps track of in-memory active check-in session details)
+        activeShift,
+        setActiveShift,
 
         // Reviews (backward-compatible mock state)
         reviews,
         setReviews,
 
-        // Other Actions
-        handleLeaveRequest: managementState.handleLeaveRequest,
+        // --- Employer fallback dummies ---
+        shifts: [],
+        setShifts: dummySyncFn,
+        employerJobs: [],
+        setEmployerJobs: dummySyncFn,
+        leaveRequests: [],
+        setLeaveRequests: dummySyncFn,
+        loadShifts: dummyFn,
+        loadMyApplications: dummyFn,
+        loadEmployerJobs: dummyFn,
+        applyToShift: dummyFn,
+        checkInShift: dummyFn,
+        checkOutShift: dummyFn,
+        createEmergencyShift: dummyFn,
+        createJobPostWizard: dummyFn,
+        updateJobPostWizard: dummyFn,
+        deleteJobPost: dummyFn,
+        approveStudentApplication: dummyFn,
+        rejectStudentApplication: dummyFn,
+        staffList: [],
+        loadStaffList: dummyFn,
+        addStaffMember: dummyFn,
+        removeStaffMember: dummyFn,
+        hrmSingleApplicants: [],
+        setHrmSingleApplicants: dummySyncFn,
+        attendanceLogs: [],
+        setAttendanceLogs: dummySyncFn,
+        loadAttendanceLogs: dummyFn,
+        payrolls: [],
+        loadPayrolls: dummyFn,
+        runCalculatePayroll: dummyFn,
+        runApprovePayroll: dummyFn,
+        schedulesList: [],
+        loadSchedules: dummyFn,
+        addEmployeeSchedule: dummyFn,
+        removeEmployeeSchedule: dummyFn,
+        deleteSchedule: dummyFn,
+        handleLeaveRequest: dummyFn,
       }}
     >
       {children}

@@ -1,12 +1,27 @@
 import { useState, useCallback } from 'react';
 
-export const useNavigation = (isEnterprise, showToast) => {
-  const [currentScreen, setCurrentScreen] = useState('login');
+export const useNavigation = (isEnterprise, showToast, user) => {
+  const [currentScreen, setCurrentScreen] = useState('student_dashboard');
   const [navigationStack, setNavigationStack] = useState([]);
   const [navigationParams, setNavigationParams] = useState({});
   const [upgradeRedirectScreen, setUpgradeRedirectScreen] = useState(null);
 
   const navigateTo = useCallback((screenName, params = {}) => {
+    // Guest protection for student screens
+    const protectedStudentScreens = [
+      'student_calendar',
+      'student_checkin',
+      'student_portfolio',
+      'student_chat'
+    ];
+    if (protectedStudentScreens.includes(screenName) && !user) {
+      showToast('Vui lòng đăng nhập để sử dụng chức năng này!', 'warning');
+      setNavigationParams(params);
+      setNavigationStack(prev => [...prev, currentScreen]);
+      setCurrentScreen('login');
+      return;
+    }
+
     // Avoid double routing to tab screens to prevent rendering loops and jitter
     const tabScreens = [
       'student_dashboard',
@@ -45,7 +60,7 @@ export const useNavigation = (isEnterprise, showToast) => {
     setNavigationParams(params);
     setNavigationStack(prev => [...prev, currentScreen]);
     setCurrentScreen(screenName);
-  }, [currentScreen, isEnterprise, showToast]);
+  }, [currentScreen, isEnterprise, showToast, user]);
 
   const goBack = useCallback(() => {
     if (navigationStack.length > 0) {

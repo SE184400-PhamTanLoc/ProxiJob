@@ -15,19 +15,24 @@ import {
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getCategoriesApi, getSkillsApi, getJobPostById } from '../../api/jobs';
+import { useEmployerJobsQuery, useDeleteJobPostMutation, useUpdateJobPostWizardMutation, useHandleLeaveRequestMutation } from '../../hooks/queries';
 
 export default function EmployerApprovals() {
   const { 
-    shifts, 
-    leaveRequests, 
-    handleLeaveRequest,
     navigateTo,
-    loadEmployerJobs,
-    updateJobPostWizard,
-    deleteJobPost,
     showToast,
     user
   } = useContext(AppContext);
+
+  // TanStack Query
+  const { data: employerData = { shifts: [], leaveRequests: [], employerJobs: [] }, isLoading, refetch } = useEmployerJobsQuery(user);
+  const shifts = employerData.shifts || [];
+  const leaveRequests = employerData.leaveRequests || [];
+
+  // Mutations
+  const deleteJobPostMutation = useDeleteJobPostMutation(user, showToast);
+  const updateJobPostWizardMutation = useUpdateJobPostWizardMutation(user, showToast);
+  const handleLeaveRequestMutation = useHandleLeaveRequestMutation(user, showToast);
 
   const [activeSegment, setActiveSegment] = useState('job_posts'); // 'job_posts' | 'leaves'
 
@@ -69,8 +74,6 @@ export default function EmployerApprovals() {
   const [deletingJob, setDeletingJob] = useState(false);
 
   useEffect(() => {
-    loadEmployerJobs();
-
     // Fetch categories and skills from backend
     getCategoriesApi().then(res => {
       const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || []));
@@ -94,15 +97,11 @@ export default function EmployerApprovals() {
     if (!deletingShift) return;
     try {
       setDeletingJob(true);
-      const success = await deleteJobPost(deletingShift.jobPostId);
-      if (success) {
-        setDeleteModalVisible(false);
-        setDeletingShift(null);
-        await loadEmployerJobs();
-      }
+      await deleteJobPostMutation.mutateAsync(deletingShift.jobPostId);
+      setDeleteModalVisible(false);
+      setDeletingShift(null);
     } catch (err) {
       console.log('Error deleting job post:', err);
-      showToast('Có lỗi xảy ra khi xóa bài đăng.', 'error');
     } finally {
       setDeletingJob(false);
     }
@@ -160,22 +159,26 @@ export default function EmployerApprovals() {
       return;
     }
 
-    setSavingEdit(true);
-    const success = await updateJobPostWizard(editingJobId, {
-      title: editTitle,
-      description: editDescription,
-      requirements: editRequirements,
-      categoryId: editCategoryId,
-      address: editAddress,
-      latitude: editLatitude,
-      longitude: editLongitude,
-      skillIds: editSelectedSkills
-    });
-    setSavingEdit(false);
-
-    if (success) {
+    try {
+      setSavingEdit(true);
+      await updateJobPostWizardMutation.mutateAsync({
+        jobPostId: editingJobId,
+        data: {
+          title: editTitle,
+          description: editDescription,
+          requirements: editRequirements,
+          categoryId: editCategoryId,
+          address: editAddress,
+          latitude: editLatitude,
+          longitude: editLongitude,
+          skillIds: editSelectedSkills
+        }
+      });
       setEditModalVisible(false);
-      await loadEmployerJobs();
+    } catch (err) {
+      console.log('Error updating job post:', err);
+    } finally {
+      setSavingEdit(false);
     }
   };
 

@@ -12,13 +12,19 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Dimensions
+  Dimensions,
+  RefreshControl
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { useShiftsQuery } from '../../hooks/queries';
+import { Ionicons } from '@expo/vector-icons';
+
+// TÍCH HỢP THƯ VIỆN ĐỊNH VỊ GPS PHẦN CỨNG CỦA EXPO
+import * as Location from 'expo-location';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 import { getStudentProfileApi, updateStudentProfileApi, registerStudentProfileApi } from '../../api/studentApi';
@@ -109,15 +115,23 @@ const decodeBase64ToArrayBuffer = (base64String) => {
 };
 
 export default function StudentPortfolio() {
-  const { reviews, shifts, user, setUser, showToast, studentCoords, setStudentCoords } = useContext(AppContext);
+  const { reviews, user, setUser, showToast, studentCoords, setStudentCoords } = useContext(AppContext);
+  const { data: shifts = [] } = useShiftsQuery(user, studentCoords);
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState(null);
   const [profileExists, setProfileExists] = useState(false);
+  const [skillInput, setSkillInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // State phục vụ quét định vị thiết bị
+  const [gpsScanning, setGpsScanning] = useState(false);
+
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [selectedLat, setSelectedLat] = useState(10.7769);
   const [selectedLng, setSelectedLng] = useState(106.7009);
+  const [mapStartCoords, setMapStartCoords] = useState({ lat: 10.7769, lng: 106.7009 });
 
   const [avatarMenuVisible, setAvatarMenuVisible] = useState(false);
   const [viewingAvatar, setViewingAvatar] = useState(false);
@@ -238,11 +252,10 @@ export default function StudentPortfolio() {
         setProfileExists(true);
       }
 
-      // Update the global user context so it updates the header immediately!
-      const updatedUser = { 
-        ...user, 
+      const updatedUser = {
+        ...user,
         avatarUrl: `${publicUrl.split('?')[0]}?t=${Date.now()}`,
-        gender: updatedProfileData.gender 
+        gender: updatedProfileData.gender
       };
       if (setUser) {
         setUser(updatedUser);
@@ -304,7 +317,6 @@ export default function StudentPortfolio() {
   const [showYearList, setShowYearList] = useState(false);
   const [showGenderDropdown, setShowGenderDropdown] = useState(false);
 
-  // Sync calendar date when form date changes
   useEffect(() => {
     if (form.dateOfBirth) {
       const d = new Date(form.dateOfBirth);
@@ -377,8 +389,7 @@ export default function StudentPortfolio() {
             data.avatarUrl = '';
           }
         }
-        
-        // Sync with global user context
+
         if (user && (user.avatarUrl !== (data.avatarUrl || '') || user.gender !== data.gender)) {
           const updatedUser = { ...user, avatarUrl: data.avatarUrl || '', gender: data.gender };
           setUser(updatedUser);
@@ -392,16 +403,16 @@ export default function StudentPortfolio() {
           }
         }
 
-         console.log('[StudentPortfolio] profile data loaded:', data);
-         if (data.latitude && data.longitude) {
-           const coords = { latitude: data.latitude, longitude: data.longitude };
-           await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
-           if (setStudentCoords) {
-             setStudentCoords(coords);
-           }
-         }
-         setProfile(data);
-         setProfileExists(true);
+        console.log('[StudentPortfolio] profile data loaded:', data);
+        if (data.latitude && data.longitude) {
+          const coords = { latitude: data.latitude, longitude: data.longitude };
+          await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
+          if (setStudentCoords) {
+            setStudentCoords(coords);
+          }
+        }
+        setProfile(data);
+        setProfileExists(true);
       }
     } catch (err) {
       console.log('[StudentPortfolio] Error loading profile:', err.message);
@@ -411,6 +422,13 @@ export default function StudentPortfolio() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadProfile();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -427,7 +445,7 @@ export default function StudentPortfolio() {
             setSelectedLng(data.lng);
           }
         } catch (e) {
-          // Ignore non-JSON or unrelated messages
+          // Ignore non-JSON
         }
       };
       window.addEventListener('message', handleMessage);
@@ -477,24 +495,77 @@ export default function StudentPortfolio() {
 
   const geocodeAddress = async (addressText, cityText) => {
     try {
-      const query = `${addressText}${cityText ? ', ' + cityText : ''}, Viet Nam`;
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+      let cleaned = addressText.trim();
+      cleaned = cleaned.replace(/^\d+([/.-]\d+)*[a-zA-Z]?\s+/, '');
+      cleaned = cleaned.replace(/^(hẻm|ngõ|kiệt)\s+\d+([/.-]\d+)*[a-zA-Z]?\s+/, '');
+
+      const query = `${cleaned}${cityText ? ', ' + cityText : ''}, Viet Nam`;
+      let response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
         headers: {
           'User-Agent': 'ProxiJobApp/1.0'
         }
       });
-      if (!response.ok) return null;
-      const data = await response.json();
+      let data = await response.json().catch(() => []);
       if (data && data.length > 0) {
         return {
           latitude: parseFloat(data[0].lat),
           longitude: parseFloat(data[0].lon)
         };
       }
+
+      const lower = addressText.toLowerCase();
+      let fallbackQuery = '';
+      if (lower.includes('trường thọ')) {
+        fallbackQuery = 'Trường Thọ, Thủ Đức, Viet Nam';
+      } else if (lower.includes('thủ đức')) {
+        fallbackQuery = 'Thủ Đức, Viet Nam';
+      } else {
+        const parts = addressText.split(/[,.-]/);
+        if (parts.length > 1) {
+          fallbackQuery = `${parts[parts.length - 2].trim()}, ${parts[parts.length - 1].trim()}, Viet Nam`;
+        }
+      }
+
+      if (fallbackQuery) {
+        response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQuery)}&format=json&limit=1`, {
+          headers: {
+            'User-Agent': 'ProxiJobApp/1.0'
+          }
+        });
+        data = await response.json().catch(() => []);
+        if (data && data.length > 0) {
+          return {
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon)
+          };
+        }
+      }
     } catch (e) {
       console.log('Geocoding error:', e);
     }
     return null;
+  };
+
+  const handleAddSkillTag = () => {
+    const trimmedInput = skillInput.trim();
+    if (!trimmedInput) return;
+
+    // Check if tag already exists in comma separated string
+    const currentSkills = form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [];
+    if (currentSkills.includes(trimmedInput)) {
+      showToast('Kỹ năng này đã được thêm!', 'warning');
+      return;
+    }
+
+    const updatedSkills = [...currentSkills, trimmedInput].join(', ');
+    setForm(prev => ({ ...prev, skills: updatedSkills }));
+    setSkillInput('');
+  };
+
+  const handleRemoveSkillTag = (skillToRemove) => {
+    const currentSkills = form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const updatedSkills = currentSkills.filter(s => s !== skillToRemove).join(', ');
+    setForm(prev => ({ ...prev, skills: updatedSkills }));
   };
 
   const handleSaveProfile = async () => {
@@ -504,8 +575,7 @@ export default function StudentPortfolio() {
       let currentLat = form.latitude;
       let currentLng = form.longitude;
 
-      // Auto geocode address input if custom coords not explicitly picked
-      if (form.address && form.address !== initialForm?.address) {
+      if (form.address && form.address !== initialForm?.address && !form.latitude) {
         const coords = await geocodeAddress(form.address, form.city);
         if (coords) {
           currentLat = coords.latitude;
@@ -555,7 +625,6 @@ export default function StudentPortfolio() {
   const handleConfirmMapLocation = async () => {
     try {
       setSaving(true);
-      // Reverse geocode chosen coordinates to get a human-readable address
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${selectedLat}&lon=${selectedLng}&format=json`, {
         headers: {
           'User-Agent': 'ProxiJobApp/1.0'
@@ -566,7 +635,7 @@ export default function StudentPortfolio() {
         const displayName = data.display_name || '';
         const addressVal = data.address?.road || data.address?.suburb || data.address?.quarter || displayName.split(',')[0] || 'Địa chỉ chọn trên bản đồ';
         const cityVal = data.address?.city || data.address?.town || data.address?.state || 'TP. Hồ Chí Minh';
-        
+
         setForm(prev => ({
           ...prev,
           address: addressVal,
@@ -583,13 +652,13 @@ export default function StudentPortfolio() {
           longitude: selectedLng
         }));
       }
-      
+
       const coords = { latitude: selectedLat, longitude: selectedLng };
       await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
       if (setStudentCoords) {
         setStudentCoords(coords);
       }
-      
+
       setMapModalVisible(false);
       setTimeout(() => {
         setEditModalVisible(true);
@@ -612,14 +681,24 @@ export default function StudentPortfolio() {
       setSaving(false);
     }
   };
-  // Compute stats based on completed shifts
+
   const completedShifts = shifts.filter(s => s.status === 'completed');
   const totalCompletedShifts = completedShifts.length + (profile?.reviewCount || 12);
   const averageRating = profile?.reputationScore !== undefined ? profile.reputationScore.toFixed(1) : '4.9';
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.student]}
+            tintColor={theme.colors.student}
+          />
+        }
+      >
         {loading && (
           <View style={{ paddingVertical: 10, alignItems: 'center', backgroundColor: 'rgba(255, 107, 0, 0.05)', borderRadius: 10, marginHorizontal: 16, marginBottom: 12 }}>
             <ActivityIndicator size="small" color={theme.colors.student} />
@@ -639,13 +718,13 @@ export default function StudentPortfolio() {
                 <ActivityIndicator size="small" color={theme.colors.student} />
               </View>
             ) : (
-              <Image 
-                source={getAvatarSource(user?.avatarUrl || profile?.avatarUrl, profile?.gender || user?.gender, profile?.fullName || user?.name)} 
-                style={styles.avatarImage} 
+              <Image
+                source={getAvatarSource(user?.avatarUrl || profile?.avatarUrl, profile?.gender || user?.gender, profile?.fullName || user?.name)}
+                style={styles.avatarImage}
               />
             )}
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedText}>✓</Text>
+              <Ionicons name="checkmark-circle" size={16} color="#FFF" />
             </View>
           </TouchableOpacity>
 
@@ -660,51 +739,84 @@ export default function StudentPortfolio() {
           </Text>
 
           <TouchableOpacity style={styles.editButton} onPress={openEditModal}>
-            <Text style={styles.editButtonText}>📝 Chỉnh sửa thông tin</Text>
+            <Ionicons name="create-outline" size={16} color="#FF6B00" style={{ marginRight: 6 }} />
+            <Text style={styles.editButtonText}>Chỉnh sửa hồ sơ</Text>
           </TouchableOpacity>
         </View>
 
         {/* Reputation Stats Summary */}
         <View style={styles.statsRow}>
-          <View style={[styles.statBox, theme.shadows.light]}>
-            <Text style={styles.statValue}>⭐ {averageRating}</Text>
-            <Text style={styles.statLabel}>Đánh giá trung bình</Text>
+          <View style={[styles.statBox, styles.statBoxRating, theme.shadows.light]}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="star" size={18} color="#EAB308" />
+            </View>
+            <Text style={styles.statValue}>{averageRating}</Text>
+            <Text style={styles.statLabel}>Đánh giá</Text>
           </View>
 
-          <View style={[styles.statBox, theme.shadows.light]}>
+          <View style={[styles.statBox, styles.statBoxShifts, theme.shadows.light]}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="briefcase" size={18} color="#2563EB" />
+            </View>
             <Text style={styles.statValue}>{totalCompletedShifts}</Text>
             <Text style={styles.statLabel}>Ca đã làm</Text>
           </View>
 
-          <View style={[styles.statBox, theme.shadows.light]}>
+          <View style={[styles.statBox, styles.statBoxPercent, theme.shadows.light]}>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="ribbon" size={18} color="#10B981" />
+            </View>
             <Text style={styles.statValue}>{profile?.completionPercent !== undefined ? `${profile.completionPercent}%` : '100%'}</Text>
-            <Text style={styles.statLabel}>Độ hoàn thiện HS</Text>
+            <Text style={styles.statLabel}>Hoàn thiện HS</Text>
           </View>
         </View>
 
         {/* Contact & Personal Details Section */}
-        <Text style={styles.sectionHeader}>Thông tin liên hệ & Cá nhân</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Ionicons name="person-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+          <Text style={styles.sectionHeader}>Thông tin cá nhân</Text>
+        </View>
         <View style={[styles.detailsCard, theme.shadows.light]}>
           <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>📞 Số điện thoại:</Text>
+            <View style={styles.detailLabelRow}>
+              <Ionicons name="call-outline" size={16} color="#64748B" style={{ marginRight: 8 }} />
+              <Text style={styles.detailLabel}>Số điện thoại</Text>
+            </View>
             <Text style={styles.detailValue}>{profile?.phoneNumber || 'Chưa cập nhật'}</Text>
           </View>
+
           <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>🎂 Ngày sinh:</Text>
+            <View style={styles.detailLabelRow}>
+              <Ionicons name="calendar-outline" size={16} color="#64748B" style={{ marginRight: 8 }} />
+              <Text style={styles.detailLabel}>Ngày sinh</Text>
+            </View>
             <Text style={styles.detailValue}>{formatDateToDisplay(profile?.dateOfBirth)}</Text>
           </View>
+
           <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>🚻 Giới tính:</Text>
+            <View style={styles.detailLabelRow}>
+              <Ionicons name="male-female-outline" size={16} color="#64748B" style={{ marginRight: 8 }} />
+              <Text style={styles.detailLabel}>Giới tính</Text>
+            </View>
             <Text style={styles.detailValue}>{profile?.gender || 'Chưa cập nhật'}</Text>
           </View>
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>📍 Địa chỉ:</Text>
-            <Text style={styles.detailValue}>{profile?.address ? `${profile.address}, ${profile.city || ''}` : 'Chưa cập nhật'}</Text>
+
+          <View style={[styles.detailItem, { borderBottomWidth: 0 }]}>
+            <View style={styles.detailLabelRow}>
+              <Ionicons name="location-outline" size={16} color="#64748B" style={{ marginRight: 8 }} />
+              <Text style={styles.detailLabel}>Địa chỉ</Text>
+            </View>
+            <Text style={[styles.detailValue, { flex: 1, textAlign: 'right', marginLeft: 16 }]} numberOfLines={2}>
+              {profile?.address ? `${profile.address}, ${profile.city || ''}` : 'Chưa cập nhật'}
+            </Text>
           </View>
         </View>
 
         {/* Skills Section */}
-        <Text style={styles.sectionHeader}>Kỹ năng nổi bật</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Ionicons name="extension-puzzle-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+          <Text style={styles.sectionHeader}>Kỹ năng nổi bật</Text>
+        </View>
         <View style={styles.skillsContainer}>
           {profile?.skills ? (
             profile.skills.split(',').map((skill, index) => (
@@ -724,28 +836,40 @@ export default function StudentPortfolio() {
         </View>
 
         {/* E-Portfolio Feedbacks */}
-        <Text style={styles.sectionHeader}>Đánh giá từ chủ quán ({reviews.length})</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Ionicons name="chatbubbles-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+          <Text style={styles.sectionHeader}>Đánh giá từ chủ quán ({reviews.length})</Text>
+        </View>
         <View style={styles.reviewsList}>
           {reviews.length > 0 ? (
             reviews.map((review) => (
               <View key={review.id} style={[styles.reviewCard, theme.shadows.light]}>
                 <View style={styles.reviewHeader}>
-                  <Text style={styles.reviewAuthor}>{review.author}</Text>
-                  <Text style={styles.reviewDate}>{review.date}</Text>
-                </View>
-
-                <View style={styles.starRow}>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Text key={i} style={[
-                      styles.star,
-                      i < review.rating ? styles.starFilled : styles.starEmpty
-                    ]}>
-                      ★
+                  <View style={styles.reviewerAvatar}>
+                    <Text style={styles.reviewerAvatarText}>
+                      {(review.author || 'Q').slice(0, 2).toUpperCase()}
                     </Text>
-                  ))}
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.reviewAuthor}>{review.author}</Text>
+                    <Text style={styles.reviewDate}>{review.date}</Text>
+                  </View>
+                  <View style={styles.starRow}>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Ionicons
+                        key={i}
+                        name={i < review.rating ? "star" : "star-outline"}
+                        size={14}
+                        color="#EAB308"
+                        style={{ marginRight: 2 }}
+                      />
+                    ))}
+                  </View>
                 </View>
 
-                <Text style={styles.reviewComment}>"{review.comment}"</Text>
+                <View style={styles.reviewQuoteBg}>
+                  <Text style={styles.reviewComment}>"{review.comment}"</Text>
+                </View>
               </View>
             ))
           ) : (
@@ -754,7 +878,6 @@ export default function StudentPortfolio() {
             </View>
           )}
         </View>
-
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -771,8 +894,8 @@ export default function StudentPortfolio() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{profileExists ? 'Chỉnh sửa hồ sơ' : 'Tạo hồ sơ năng lực'}</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Text style={styles.closeText}>✕</Text>
+              <TouchableOpacity style={styles.closeBtnCircle} onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
 
@@ -797,7 +920,7 @@ export default function StudentPortfolio() {
                   <Text style={styles.datePickerBtnText}>
                     {form.dateOfBirth ? formatDateToDisplay(form.dateOfBirth) : 'Chọn ngày sinh...'}
                   </Text>
-                  <Text style={styles.calendarIcon}>📅</Text>
+                  <Ionicons name="calendar-outline" size={18} color="#64748B" />
                 </TouchableOpacity>
               </View>
 
@@ -810,7 +933,7 @@ export default function StudentPortfolio() {
                   <Text style={styles.dropdownBtnText}>
                     {form.gender || 'Chọn giới tính...'}
                   </Text>
-                  <Text style={styles.dropdownIcon}>▾</Text>
+                  <Ionicons name="chevron-down" size={18} color="#64748B" />
                 </TouchableOpacity>
 
                 {showGenderDropdown && (
@@ -871,18 +994,75 @@ export default function StudentPortfolio() {
                     onChangeText={(val) => setForm(prev => ({ ...prev, address: val }))}
                     placeholder="Nhập địa chỉ nhà"
                   />
+
+                  {/* NÚT BẢN ĐỒ: ĐÃ ĐƯỢC TÍCH HỢP QUÉT GPS ĐỘ CHÍNH XÁC CAO */}
                   <TouchableOpacity
                     style={styles.mapIconButton}
-                    onPress={() => {
-                      setSelectedLat(studentCoords?.latitude || 10.7769);
-                      setSelectedLng(studentCoords?.longitude || 106.7009);
+                    disabled={gpsScanning}
+                    onPress={async () => {
+                      let lat = studentCoords?.latitude || 10.7769;
+                      let lng = studentCoords?.longitude || 106.7009;
+
+                      try {
+                        setGpsScanning(true);
+                        showToast('Đang quét GPS độ chính xác cao...', 'info');
+
+                        // 1. Hỏi xin quyền sử dụng định vị của thiết bị
+                        const { status } = await Location.requestForegroundPermissionsAsync();
+
+                        if (status === 'granted') {
+                          // 2. Ép phần cứng quét tọa độ thời gian thực với sai số ít nhất
+                          const geoPosition = await Location.getCurrentPositionAsync({
+                            accuracy: Location.Accuracy.BestForNavigation,
+                          });
+
+                          if (geoPosition && geoPosition.coords) {
+                            lat = geoPosition.coords.latitude;
+                            lng = geoPosition.coords.longitude;
+                            console.log('[GPS Thành công]:', lat, lng);
+                          }
+                        } else {
+                          // Fallback: Nếu từ chối quyền, quét chữ giống logic cũ của bạn
+                          showToast('Quyền bị từ chối. Đang định vị theo text...', 'info');
+                          if (form.address) {
+                            const coords = await geocodeAddress(form.address, form.city);
+                            if (coords) {
+                              lat = coords.latitude;
+                              lng = coords.longitude;
+                            }
+                          }
+                        }
+                      } catch (error) {
+                        console.log('Không thể lấy GPS cảm biến, dùng geocode:', error);
+                        if (form.address) {
+                          const coords = await geocodeAddress(form.address, form.city);
+                          if (coords) {
+                            lat = coords.latitude;
+                            lng = coords.longitude;
+                          }
+                        }
+                      } finally {
+                        setGpsScanning(false);
+                      }
+
+                      setSelectedLat(lat);
+                      setSelectedLng(lng);
+                      setMapStartCoords({ lat, lng });
                       setEditModalVisible(false);
+
                       setTimeout(() => {
                         setMapModalVisible(true);
                       }, 400);
                     }}
                   >
-                    <Text style={styles.mapIconButtonText}>📍 Bản đồ</Text>
+                    {gpsScanning ? (
+                      <ActivityIndicator size="small" color="#FF6B00" />
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="map-outline" size={16} color="#FF6B00" style={{ marginRight: 4 }} />
+                        <Text style={styles.mapIconButtonText}>Bản đồ</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -910,13 +1090,35 @@ export default function StudentPortfolio() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Kỹ năng (Phân cách bằng dấu phẩy)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={form.skills}
-                  onChangeText={(val) => setForm(prev => ({ ...prev, skills: val }))}
-                  placeholder="Pha chế, Giao tiếp, Đúng giờ..."
-                />
+                <Text style={styles.label}>Kỹ năng</Text>
+                <View style={styles.skillInputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                    value={skillInput}
+                    onChangeText={setSkillInput}
+                    placeholder="Nhập kỹ năng (ví dụ: Rửa chén)..."
+                    onSubmitEditing={handleAddSkillTag}
+                  />
+                  <TouchableOpacity style={styles.btnAddSkillTag} onPress={handleAddSkillTag}>
+                    <Ionicons name="add" size={24} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Skill tag list */}
+                <View style={styles.skillTagsWrapper}>
+                  {form.skills ? (
+                    form.skills.split(',').map(s => s.trim()).filter(Boolean).map((skill, index) => (
+                      <View key={index} style={styles.skillTagBadge}>
+                        <Text style={styles.skillTagText}>#{skill}</Text>
+                        <TouchableOpacity onPress={() => handleRemoveSkillTag(skill)} style={styles.btnRemoveSkillTag}>
+                          <Ionicons name="close" size={14} color="#94A3B8" />
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.noSkillsText}>Chưa có kỹ năng nào được thêm.</Text>
+                  )}
+                </View>
               </View>
             </ScrollView>
 
@@ -940,7 +1142,7 @@ export default function StudentPortfolio() {
               </TouchableOpacity>
             </View>
 
-            {/* Calendar Picker Absolute Overlay inside modalContent */}
+            {/* Calendar Picker Absolute Overlay */}
             {calendarVisible && (
               <View style={styles.calOverlay}>
                 <View style={styles.calContent}>
@@ -973,9 +1175,7 @@ export default function StudentPortfolio() {
                     </View>
                   ) : (
                     <View>
-                      {/* Month / Year Nav Row */}
                       <View style={styles.calNavRow}>
-                        {/* Month Nav */}
                         <View style={styles.calNavGroup}>
                           <TouchableOpacity
                             style={styles.calNavBtn}
@@ -1006,23 +1206,22 @@ export default function StudentPortfolio() {
                           </TouchableOpacity>
                         </View>
 
-                        {/* Year Nav */}
                         <TouchableOpacity
                           style={styles.calYearBadge}
-                          onPress={() => setShowYearList(true)}
+                          onPress={() => {
+                            setShowYearList(true);
+                          }}
                         >
                           <Text style={styles.calYearBadgeText}>Năm {calYear} ▾</Text>
                         </TouchableOpacity>
                       </View>
 
-                      {/* Weekdays Row */}
                       <View style={styles.calWeekdays}>
                         {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d, i) => (
                           <Text key={i} style={styles.weekdayLabel}>{d}</Text>
                         ))}
                       </View>
 
-                      {/* Days Grid */}
                       <View style={styles.calDaysGrid}>
                         {renderCalendarDays()}
                       </View>
@@ -1056,88 +1255,38 @@ export default function StudentPortfolio() {
           }, 400);
         }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-          <View style={{
-            height: 56,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: '#E5E9EB'
-          }}>
-            <TouchableOpacity
-              onPress={() => {
-                setMapModalVisible(false);
-                setTimeout(() => {
-                  setEditModalVisible(true);
-                }, 400);
-              }}
-              style={{ padding: 8 }}
-            >
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.textMuted }}>Hủy</Text>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.text }}>📍 Định vị trên bản đồ</Text>
-            <TouchableOpacity onPress={handleConfirmMapLocation} style={{ padding: 8, backgroundColor: theme.colors.student, borderRadius: 8, paddingHorizontal: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' }}>Xác nhận</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={{ flex: 1, position: 'relative' }}>
-            {Platform.OS === 'web' ? (
-              <iframe
-                srcDoc={`
-                  <!DOCTYPE html>
-                  <html>
-                  <head>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-                    <style>
-                      body { margin: 0; padding: 0; }
-                      #map { height: 100vh; width: 100vw; }
-                    </style>
-                  </head>
-                  <body>
-                    <div id="map"></div>
-                    <script>
-                      var map = L.map('map', { zoomControl: true }).setView([${selectedLat}, ${selectedLng}], 15);
-                      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        <SafeAreaProvider>
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={["top", "left", "right", "bottom"]}>
+            <View style={{
+              height: 56,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#E5E9EB'
+            }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setMapModalVisible(false);
+                  setTimeout(() => {
+                    setEditModalVisible(true);
+                  }, 400);
+                }}
+                style={{ padding: 8 }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.textMuted }}>Hủy</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.text }}>📍 Định vị trên bản đồ</Text>
+              <TouchableOpacity onPress={handleConfirmMapLocation} style={{ padding: 8, backgroundColor: theme.colors.student, borderRadius: 8, paddingHorizontal: 12 }}>
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' }}>Xác nhận</Text>
+              </TouchableOpacity>
+            </View>
 
-                      var marker = L.marker([${selectedLat}, ${selectedLng}], {
-                        draggable: true
-                      }).addTo(map);
-
-                      function sendCoords(lat, lng) {
-                        var payload = JSON.stringify({ lat: lat, lng: lng });
-                        if (window.ReactNativeWebView) {
-                          window.ReactNativeWebView.postMessage(payload);
-                        } else {
-                          window.parent.postMessage(payload, '*');
-                        }
-                      }
-
-                      map.on('click', function(e) {
-                        marker.setLatLng(e.latlng);
-                        sendCoords(e.latlng.lat, e.latlng.lng);
-                      });
-
-                      marker.on('dragend', function(e) {
-                        var position = marker.getLatLng();
-                        sendCoords(position.lat, position.lng);
-                      });
-                    </script>
-                  </body>
-                  </html>
-                `}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                title="Bản đồ chọn vị trí"
-              />
-            ) : (
-              <WebView
-                originWhitelist={['*']}
-                source={{
-                  html: `
+            <View style={{ flex: 1, position: 'relative' }}>
+              {Platform.OS === 'web' ? (
+                <iframe
+                  srcDoc={`
                     <!DOCTYPE html>
                     <html>
                     <head>
@@ -1152,12 +1301,10 @@ export default function StudentPortfolio() {
                     <body>
                       <div id="map"></div>
                       <script>
-                        var map = L.map('map', { zoomControl: true }).setView([${selectedLat}, ${selectedLng}], 15);
+                        var map = L.map('map', { zoomControl: true, tap: false }).setView([${mapStartCoords.lat}, ${mapStartCoords.lng}], 15);
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-                        var marker = L.marker([${selectedLat}, ${selectedLng}], {
-                          draggable: true
-                        }).addTo(map);
+                        var marker = L.marker(map.getCenter()).addTo(map);
 
                         function sendCoords(lat, lng) {
                           var payload = JSON.stringify({ lat: lat, lng: lng });
@@ -1168,58 +1315,114 @@ export default function StudentPortfolio() {
                           }
                         }
 
-                        map.on('click', function(e) {
-                          marker.setLatLng(e.latlng);
-                          sendCoords(e.latlng.lat, e.latlng.lng);
+                        map.on('move', function() {
+                          marker.setLatLng(map.getCenter());
                         });
 
-                        marker.on('dragend', function(e) {
-                          var position = marker.getLatLng();
-                          sendCoords(position.lat, position.lng);
+                        map.on('moveend', function() {
+                          var center = map.getCenter();
+                          sendCoords(center.lat, center.lng);
+                        });
+
+                        map.on('click', function(e) {
+                          map.panTo(e.latlng);
                         });
                       </script>
                     </body>
                     </html>
-                  `
-                }}
-                onMessage={(event) => {
-                  try {
-                    const data = JSON.parse(event.nativeEvent.data);
-                    if (data.lat && data.lng) {
-                      setSelectedLat(data.lat);
-                      setSelectedLng(data.lng);
+                  `}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  title="Bản đồ chọn vị trí"
+                />
+              ) : (
+                <WebView
+                  originWhitelist={['*']}
+                  source={{
+                    html: `
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                        <style>
+                          body { margin: 0; padding: 0; }
+                          #map { height: 100vh; width: 100vw; }
+                        </style>
+                      </head>
+                      <body>
+                        <div id="map"></div>
+                        <script>
+                          var map = L.map('map', { zoomControl: true, tap: false }).setView([${mapStartCoords.lat}, ${mapStartCoords.lng}], 15);
+                          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+                          var marker = L.marker(map.getCenter()).addTo(map);
+
+                          function sendCoords(lat, lng) {
+                            var payload = JSON.stringify({ lat: lat, lng: lng });
+                            if (window.ReactNativeWebView) {
+                              window.ReactNativeWebView.postMessage(payload);
+                            } else {
+                              window.parent.postMessage(payload, '*');
+                            }
+                          }
+
+                          map.on('move', function() {
+                            marker.setLatLng(map.getCenter());
+                          });
+
+                          map.on('moveend', function() {
+                            var center = map.getCenter();
+                            sendCoords(center.lat, center.lng);
+                          });
+
+                          map.on('click', function(e) {
+                            map.panTo(e.latlng);
+                          });
+                        </script>
+                      </body>
+                      </html>
+                    `
+                  }}
+                  onMessage={(event) => {
+                    try {
+                      const data = JSON.parse(event.nativeEvent.data);
+                      if (data.lat && data.lng) {
+                        setSelectedLat(data.lat);
+                        setSelectedLng(data.lng);
+                      }
+                    } catch (e) {
+                      console.log('Error parsing map webview message:', e);
                     }
-                  } catch (e) {
-                    console.log('Error parsing map webview message:', e);
-                  }
-                }}
-                style={{ flex: 1 }}
-              />
-            )}
-            <View style={{
-              position: 'absolute',
-              bottom: 20,
-              left: 20,
-              right: 20,
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              padding: 12,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: '#E5E9EB',
-              alignItems: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.1,
-              shadowRadius: 6,
-              elevation: 4
-            }}>
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.student }}>Di chuyển bản đồ hoặc kéo ghim đến đúng vị trí của bạn</Text>
-              <Text style={{ fontSize: 10, color: theme.colors.textMuted, marginTop: 4 }}>
-                Tọa độ hiện tại: {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
-              </Text>
+                  }}
+                  style={{ flex: 1 }}
+                />
+              )}
+              <View style={{
+                position: 'absolute',
+                bottom: 20,
+                left: 20,
+                right: 20,
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#E5E9EB',
+                alignItems: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 6,
+                elevation: 4
+              }}>
+                <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.student }}>Di chuyển bản đồ hoặc kéo ghim đến đúng vị trí của bạn</Text>
+                <Text style={{ fontSize: 10, color: theme.colors.textMuted, marginTop: 4 }}>
+                  Tọa độ hiện tại: {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
+                </Text>
+              </View>
             </View>
-          </View>
-        </SafeAreaView>
+          </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       {/* Menu lua chon Avatar */}
@@ -1315,193 +1518,261 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: 110,
   },
   profileHeaderCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    borderColor: '#E2E8F0',
+    marginBottom: 20,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
+    position: 'relative',
+    overflow: 'hidden',
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 16,
+    zIndex: 2,
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: theme.colors.student + '1A',
-    borderColor: theme.colors.student,
-    borderWidth: 2,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#FF6B001A',
+    borderColor: '#FF6B00',
+    borderWidth: 3,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderColor: theme.colors.student,
-    borderWidth: 2,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderColor: '#FFFFFF',
+    borderWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   avatarText: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: theme.colors.student,
+    color: '#FF6B00',
   },
   verifiedBadge: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
+    right: 2,
+    bottom: 2,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.colors.success,
+    backgroundColor: '#3B82F6', // Blue verification badge
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: theme.colors.white,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   verifiedText: {
-    color: theme.colors.white,
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
   },
   userName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E293B',
+    textAlign: 'center',
   },
   userRole: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-    marginBottom: theme.spacing.sm,
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   userBio: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
+    fontSize: 14,
+    color: '#475569',
     textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 6,
-    paddingHorizontal: theme.spacing.sm,
+    lineHeight: 20,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    fontStyle: 'italic',
   },
   editButton: {
-    marginTop: theme.spacing.md,
-    backgroundColor: theme.colors.student + '15',
-    borderColor: theme.colors.student,
-    borderWidth: 1,
-    borderRadius: theme.borderRadius.sm,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    marginTop: 20,
+    backgroundColor: '#FF6B0010',
+    borderColor: '#FF6B0030',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   editButtonText: {
-    color: theme.colors.student,
+    color: '#FF6B00',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.lg,
+    marginBottom: 24,
   },
   statBox: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     marginHorizontal: 4,
     alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  statBoxRating: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#EAB308',
+  },
+  statBoxShifts: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563EB',
+  },
+  statBoxPercent: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#10B981',
+  },
+  statIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
   },
   statLabel: {
-    fontSize: 9,
-    color: theme.colors.textMuted,
+    fontSize: 10,
+    color: '#64748B',
     textAlign: 'center',
     marginTop: 4,
+    fontWeight: '600',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
   },
   detailsCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    borderColor: '#E2E8F0',
+    marginBottom: 20,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
   },
   detailItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: theme.spacing.xs,
+    alignItems: 'center',
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '50',
+    borderBottomColor: '#F1F5F9',
+  },
+  detailLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   detailLabel: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '600',
   },
   detailValue: {
-    fontSize: 13,
-    color: theme.colors.text,
-    fontWeight: '500',
-  },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '700',
   },
   skillsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: theme.spacing.lg,
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
   skillBadge: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: theme.borderRadius.full,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     marginRight: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#E2E8F0',
   },
   featuredSkill: {
-    backgroundColor: theme.colors.student + '1A',
-    borderColor: theme.colors.student + '33',
+    backgroundColor: '#FF6B0010',
+    borderColor: '#FF6B0025',
   },
   skillText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
   },
   featuredSkillText: {
-    color: theme.colors.student,
-    fontWeight: 'bold',
+    color: '#FF6B00',
+    fontWeight: '700',
   },
   reviewsList: {
     width: '100%',
+    marginBottom: 20,
   },
   reviewCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -1538,42 +1809,48 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 18,
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
   },
   modalContent: {
     width: '100%',
-    maxWidth: 360,
-    maxHeight: '80%',
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
+    maxWidth: 380,
+    maxHeight: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  closeBtnCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   closeText: {
     fontSize: 18,
@@ -1581,25 +1858,28 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalForm: {
-    padding: theme.spacing.md,
+    padding: 20,
   },
   formGroup: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: 16,
   },
   label: {
     fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textMuted,
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.sm,
-    padding: 10,
-    fontSize: 13,
-    color: theme.colors.text,
-    backgroundColor: theme.colors.background,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#1E293B',
+    backgroundColor: '#F8FAFC',
   },
   textArea: {
     height: 80,
@@ -1608,41 +1888,48 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    padding: theme.spacing.md,
+    padding: 16,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingBottom: Platform.OS === 'ios' ? 24 : theme.spacing.md,
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
   },
   btnCancel: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: theme.borderRadius.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     marginRight: theme.spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   btnCancelText: {
-    color: theme.colors.textMuted,
+    color: '#64748B',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 14,
   },
   btnSave: {
-    backgroundColor: theme.colors.student,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: theme.borderRadius.sm,
+    backgroundColor: '#FF6B00',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   btnSaveDisabled: {
-    backgroundColor: theme.colors.textLight,
-    opacity: 0.6,
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   btnSaveText: {
-    color: theme.colors.white,
-    fontWeight: '600',
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
-  // Gender Selector Styles
   genderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1650,67 +1937,61 @@ const styles = StyleSheet.create({
   },
   genderOption: {
     flex: 1,
-    height: 40,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+    height: 44,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 4,
   },
   genderOptionActive: {
-    backgroundColor: theme.colors.student + '15',
-    borderColor: theme.colors.student,
+    backgroundColor: '#FF6B0015',
+    borderColor: '#FF6B00',
   },
   genderOptionText: {
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: '#64748B',
     fontWeight: '500',
   },
   genderOptionActiveText: {
-    color: theme.colors.student,
+    color: '#FF6B00',
     fontWeight: 'bold',
   },
-
-  // DatePicker styles
   datePickerBtn: {
-    height: 46,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+    height: 48,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
-    borderRadius: theme.borderRadius.sm,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
   },
   datePickerBtnText: {
     fontSize: 13,
-    color: theme.colors.text,
+    color: '#1E293B',
     fontWeight: '500',
   },
   calendarIcon: {
     fontSize: 16,
   },
-
-  // Dropdown selector styles
   dropdownBtn: {
-    height: 46,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+    height: 48,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
-    borderRadius: theme.borderRadius.sm,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
   },
   dropdownBtnText: {
     fontSize: 13,
-    color: theme.colors.text,
+    color: '#1E293B',
     fontWeight: '500',
   },
   dropdownIcon: {
@@ -1718,30 +1999,28 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   dropdownList: {
-    backgroundColor: theme.colors.white,
-    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
-    borderRadius: theme.borderRadius.sm,
-    marginTop: 2,
+    borderRadius: 12,
+    marginTop: 4,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   dropdownItem: {
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: theme.colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   dropdownItemText: {
     fontSize: 13,
-    color: theme.colors.text,
+    color: '#1E293B',
   },
-
-  // Custom Calendar Styles
   calOverlay: {
     position: 'absolute',
     top: 0,
@@ -1996,5 +2275,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  skillInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  btnAddSkillTag: {
+    backgroundColor: '#FF6B00',
+    width: 48,
+    height: 48,
+    borderRadius: theme.borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  skillTagsWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 6,
+  },
+  skillTagBadge: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FFD8A8',
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  skillTagText: {
+    color: '#D9480F',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  btnRemoveSkillTag: {
+    marginLeft: 6,
+    padding: 2,
+  },
+  noSkillsText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
 });
-

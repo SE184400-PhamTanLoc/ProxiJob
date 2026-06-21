@@ -423,3 +423,53 @@ export async function createPaymentSessionApi(orderId) {
     throw error;
   }
 }
+
+/**
+ * Login with Google ID Token
+ * POST /api/Auth/google (or your actual endpoint)
+ * @param {string} googleToken
+ * @returns {Promise<object>} { token, refreshToken, user }
+ */
+export async function loginWithGoogleApi(googleToken, role) {
+  try {
+    // =========================================================================
+    // --- PLACEHOLDER: DROP IN YOUR ACTUAL GOOGLE AUTH API CALL HERE ---
+    // =========================================================================
+    // const response = await fetch(`${API_BASE_URL}/api/Auth/google`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ token: googleToken, role: role })
+    // });
+    // const resData = await response.json().catch(() => ({}));
+    // if (!response.ok) {
+    //   throw new Error(resData.message || `Failed to login with Google: ${response.status}`);
+    // }
+    // return resData.data || resData; // Should return { token, refreshToken, user }
+    // =========================================================================
+
+    // --- Development Mock implementation for local testing ---
+    console.log('[ProxiJob Auth API] loginWithGoogleApi triggered with token:', googleToken, 'role:', role);
+    
+    // Simulating API loading latency
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const mockUser = {
+      id: role === 'employer' ? 'google-employer-id-999' : 'google-student-id-999',
+      email: role === 'employer' ? 'employer.google@gmail.com' : 'student.google@gmail.com',
+      name: role === 'employer' ? 'Google Employer' : 'Google Student',
+      role: role || 'student',
+      subscriptionTier: 'Standard',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'
+    };
+
+    return {
+      token: 'mock-google-access-token-123456',
+      refreshToken: 'mock-google-refresh-token-123456',
+      user: mockUser
+    };
+  } catch (error) {
+    console.log('[ProxiJob Auth API] loginWithGoogleApi error:', error.message);
+    throw error;
+  }
+}
+

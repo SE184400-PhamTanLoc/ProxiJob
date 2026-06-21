@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { useShiftsQuery, useCheckInMutation, useCheckOutMutation } from '../../hooks/queries';
 
 // Pure JS Haversine formula
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -30,9 +31,6 @@ const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
 
 export default function StudentCheckIn() {
   const { 
-    shifts, 
-    checkInShift, 
-    checkOutShift, 
     simulatedDistanceToActive, 
     setSimulatedDistanceToActive,
     studentCoords,
@@ -40,8 +38,49 @@ export default function StudentCheckIn() {
     navigationParams,
     showToast,
     STUDENT_MOCK_GPS,
-    user
+    user,
+    addNotification,
+    activeShift: contextActiveShift,
+    setActiveShift
   } = useContext(AppContext);
+
+  const { data: shifts = [] } = useShiftsQuery(user, studentCoords);
+  const checkInMutation = useCheckInMutation(user, showToast, addNotification);
+  const checkOutMutation = useCheckOutMutation(user, showToast, addNotification);
+
+  const checkInShift = async (shiftId, qrToken, latitude, longitude, photoUrl) => {
+    try {
+      const res = await checkInMutation.mutateAsync({ shiftId, qrToken, latitude, longitude, photoUrl });
+      const timekeepingId = res?.data?.timekeepingId || res?.data?.TimekeepingId || res?.timekeepingId || res?.TimekeepingId;
+      const targetShift = shifts.find(s => s.id === shiftId);
+      if (targetShift) {
+        const now = new Date();
+        const checkInTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        const updatedShift = {
+          ...targetShift,
+          status: 'checkin_active',
+          checkInTime,
+          timekeepingId
+        };
+        setActiveShift(updatedShift);
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const checkOutShift = async (shiftId, latitude, longitude, photoUrl) => {
+    try {
+      const targetShift = shifts.find(s => s.id === shiftId);
+      const timekeepingId = targetShift?.timekeepingId || contextActiveShift?.timekeepingId;
+      await checkOutMutation.mutateAsync({ timekeepingId, latitude, longitude, photoUrl });
+      setActiveShift(null);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
 
   const [selectedShiftForCheckIn, setSelectedShiftForCheckIn] = useState(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -54,7 +93,7 @@ export default function StudentCheckIn() {
   const shopLng = selectedShiftForCheckIn?.longitude || 106.6297;
 
   // Active shift
-  const activeShift = shifts.find(s => s.status === 'checkin_active');
+  const activeShift = contextActiveShift || shifts.find(s => s.status === 'checkin_active');
   const approvedShifts = shifts.filter(s => s.status === 'approved');
 
   // Keep selected shift in sync
@@ -443,7 +482,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: 120,
   },
   headerTitle: {
     fontSize: 28,
@@ -453,18 +492,20 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   simulatorCard: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
   },
   simulatorTitle: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: theme.colors.warning,
+    color: '#D97706',
     marginBottom: 6,
+    letterSpacing: 0.5,
   },
   simulatorText: {
     fontSize: 12,
@@ -474,9 +515,14 @@ const styles = StyleSheet.create({
   },
   simulateBtn: {
     height: 44,
-    borderRadius: theme.borderRadius.sm,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   simulateBtnActive: {
     backgroundColor: theme.colors.success,
@@ -517,42 +563,53 @@ const styles = StyleSheet.create({
   },
   briefCard: {
     backgroundColor: theme.colors.white,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    borderColor: '#F1F5F9',
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
   briefShop: {
     fontSize: 11,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
+    color: '#0A58CA',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   briefTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
     color: theme.colors.text,
-    marginTop: 2,
+    marginTop: 4,
     marginBottom: 8,
   },
   briefTime: {
     fontSize: 13,
     color: theme.colors.text,
-    marginVertical: 1,
+    marginVertical: 2,
   },
   briefRate: {
     fontSize: 13,
     color: theme.colors.success,
     fontWeight: 'bold',
-    marginVertical: 1,
+    marginVertical: 2,
   },
   mapCard: {
     backgroundColor: theme.colors.white,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    borderColor: '#F1F5F9',
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
   mapCardTitle: {
     fontSize: 13,
@@ -603,16 +660,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.white,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3,
   },
   ringRed: {
-    borderColor: theme.colors.danger + '22',
+    borderColor: '#FEE2E2',
+    shadowColor: theme.colors.danger,
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
   },
   ringGreen: {
-    borderColor: theme.colors.success + '22',
+    borderColor: '#D1FAE5',
+    shadowColor: theme.colors.success,
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
   },
   ringActiveWorking: {
     borderColor: theme.colors.success,
-    borderWidth: 6,
+    borderWidth: 8,
+    shadowColor: theme.colors.success,
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 6,
   },
   statusCircleContent: {
     alignItems: 'center',
@@ -633,7 +705,7 @@ const styles = StyleSheet.create({
   },
   statusValue: {
     fontSize: 32,
-    fontWeight: 'black',
+    fontWeight: '900',
     marginVertical: 4,
   },
   timerValue: {
@@ -665,20 +737,23 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     height: 52,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
+    width: '100%',
   },
   checkInBtn: {
     backgroundColor: theme.colors.student,
+    shadowColor: theme.colors.student,
   },
   checkOutBtn: {
     backgroundColor: theme.colors.danger,
+    shadowColor: theme.colors.danger,
   },
   disabledBtn: {
     backgroundColor: theme.colors.textLight,
@@ -687,14 +762,15 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: theme.colors.white,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   warningText: {
     fontSize: 11,
     color: theme.colors.danger,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 12,
     lineHeight: 16,
     paddingHorizontal: theme.spacing.sm,
   }

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AppProvider, AppContext } from "./src/context/AppContext";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { theme } from "./src/styles/theme";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
@@ -24,6 +25,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getAvatarSource, isValidAvatar } from "./src/utils/avatarHelper";
 
 const cacheBuster = Date.now();
+const queryClient = new QueryClient();
 
 function MainAppShell() {
   const {
@@ -35,6 +37,7 @@ function MainAppShell() {
     isEnterprise,
     navigateTo,
     showToast,
+    goBack,
   } = useContext(AppContext);
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -53,20 +56,23 @@ function MainAppShell() {
   }
 
   if (!user) {
-    if (currentScreen === "register") {
-      return <RegisterScreen />;
-    } else if (currentScreen === "forgot_password") {
-      return <ForgotPasswordScreen />;
-    } else {
-      return <LoginScreen />;
+    const guestAllowedScreens = ["student_dashboard", "job_detail"];
+    if (!guestAllowedScreens.includes(currentScreen)) {
+      if (currentScreen === "register") {
+        return <RegisterScreen />;
+      } else if (currentScreen === "forgot_password") {
+        return <ForgotPasswordScreen />;
+      } else {
+        return <LoginScreen />;
+      }
     }
   }
 
   // Count unread notifications
-  const unreadNotifsCount = notifications.filter((n) => !n.read).length;
-  const isStudent = user.role === "student";
+  const unreadNotifsCount = user ? notifications.filter((n) => !n.read).length : 0;
+  const isStudent = !user || user.role === "student";
 
-  const hideHeaderScreens = ["candidate_list", "job_detail"];
+  const hideHeaderScreens = ["candidate_list"];
   const showHeader = !hideHeaderScreens.includes(currentScreen);
 
   return (
@@ -91,6 +97,15 @@ function MainAppShell() {
           {/* Universal Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
+              {currentScreen === "job_detail" && (
+                <TouchableOpacity
+                  style={{ marginRight: 8, paddingVertical: 4, paddingRight: 4 }}
+                  onPress={goBack}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#FF6B00" />
+                </TouchableOpacity>
+              )}
               <Image
                 source={require("./src/img/proxijob logo.png")}
                 style={styles.headerLogo}
@@ -100,34 +115,49 @@ function MainAppShell() {
             </View>
 
             <View style={styles.headerRight}>
-              {/* Notification Button */}
-              <TouchableOpacity
-                style={styles.bellButton}
-                onPress={() => setNotifModalVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="notifications-outline" size={22} color="#1E293B" />
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>7</Text>
-                </View>
-              </TouchableOpacity>
+              {user ? (
+                <>
+                  {/* Notification Button */}
+                  <TouchableOpacity
+                    style={styles.bellButton}
+                    onPress={() => setNotifModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={unreadNotifsCount > 0 ? "notifications" : "notifications-outline"} size={22} color="#F59E0B" />
+                    {unreadNotifsCount > 0 && (
+                      <View style={styles.bellBadge}>
+                        <Text style={styles.bellBadgeText}>{unreadNotifsCount}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
 
-              {/* Avatar Button */}
-              <TouchableOpacity
-                style={styles.avatarTouch}
-                onPress={() => setAvatarMenuOpen(!avatarMenuOpen)}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={getAvatarSource(user?.avatarUrl, user?.gender, user?.name)}
-                  style={styles.headerAvatar}
-                />
-                {!isStudent && isEnterprise && (
-                  <View style={styles.crownBadge}>
-                    <Text style={styles.crownIcon}>👑</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+                  {/* Avatar Button */}
+                  <TouchableOpacity
+                    style={[styles.avatarTouch, isStudent ? styles.studentAvatarRing : styles.employerAvatarRing]}
+                    onPress={() => setAvatarMenuOpen(!avatarMenuOpen)}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={getAvatarSource(user?.avatarUrl, user?.gender, user?.name)}
+                      style={[styles.headerAvatar, { borderWidth: 0 }]}
+                    />
+                    {!isStudent && isEnterprise && (
+                      <View style={styles.crownBadge}>
+                        <Text style={styles.crownIcon}>👑</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.loginHeaderBtn}
+                  onPress={() => navigateTo('login')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="log-in-outline" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.loginHeaderBtnText}>Đăng nhập</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -266,12 +296,14 @@ function MainAppShell() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <View style={{ flex: 1 }}>
-          <MainAppShell />
-          <Toast />
-        </View>
-      </AppProvider>
+      <QueryClientProvider client={queryClient}>
+        <AppProvider>
+          <View style={{ flex: 1 }}>
+            <MainAppShell />
+            <Toast />
+          </View>
+        </AppProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
@@ -347,6 +379,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  studentAvatarRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  employerAvatarRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#0A58CA',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerAvatar: {
     width: 36,
@@ -563,6 +613,24 @@ const styles = StyleSheet.create({
   closeDropdownText: {
     fontSize: 16,
     color: "#64748B",
+    fontWeight: "bold",
+  },
+  loginHeaderBtn: {
+    backgroundColor: "#FF6B00",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#FF6B00",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  loginHeaderBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
     fontWeight: "bold",
   },
 });

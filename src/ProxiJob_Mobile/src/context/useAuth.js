@@ -8,7 +8,8 @@ import {
   getStoredToken,
   getStoredUser,
   getStoredRefreshToken,
-  refreshTokensApi
+  refreshTokensApi,
+  loginWithGoogleApi
 } from '../api/auth';
 
 export const translateError = (error) => {
@@ -116,6 +117,37 @@ export const useAuth = ({
     }
   }, [showToast, addNotification]);
 
+  const loginWithGoogle = useCallback(async (googleToken, role) => {
+    try {
+      setAuthLoading(true);
+      const { token, refreshToken, user: resUser } = await loginWithGoogleApi(googleToken, role);
+      await saveAuthSession(token, refreshToken, resUser);
+
+      setUser(resUser);
+
+      const userRole = resUser?.role || 'student';
+      const mappedRoleValue = userRole === 'student' ? 0 : 1;
+      setSelectedRole(mappedRoleValue);
+
+      if (userRole === 'student') {
+        setCurrentScreenRef.current?.('student_dashboard');
+        setNavigationStackRef.current?.(['student_dashboard']);
+      } else {
+        setCurrentScreenRef.current?.('employer_approvals');
+        setNavigationStackRef.current?.(['employer_approvals']);
+      }
+
+      addNotification('Bảo mật', `Đăng nhập bằng Google thành công với vai trò ${userRole === 'student' ? 'Sinh viên' : 'Chủ quán'}`, 'Vừa xong');
+      showToast(`Đăng nhập Google thành công!`, 'success');
+    } catch (error) {
+      console.log('[ProxiJob Login Google] Auth execution error:', error.message);
+      const friendlyMsg = translateError(error);
+      showToast(friendlyMsg, 'error');
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [showToast, addNotification]);
+
   const register = useCallback(async (fullName, email, password, confirmPassword, role) => {
     try {
       setAuthLoading(true);
@@ -214,6 +246,7 @@ export const useAuth = ({
     isEnterprise,
     setIsEnterprise,
     login,
+    loginWithGoogle,
     register,
     logout
   };
