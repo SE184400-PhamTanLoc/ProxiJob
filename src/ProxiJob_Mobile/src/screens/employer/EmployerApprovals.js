@@ -344,20 +344,13 @@ export default function EmployerApprovals() {
 
                     <TouchableOpacity
                       style={styles.actionLinkBtn}
-                      disabled={!hasApplicants}
                       onPress={() => navigateTo('candidate_list', { shiftId: shift.id })}
                     >
-                      <Text style={[
-                        styles.actionLinkText,
-                        !hasApplicants && styles.actionLinkTextDisabled
-                      ]}>
-                        {hasApplicants ? 'Xem ứng viên' : 'Chưa có ứng viên'}
+                      <Text style={styles.actionLinkText}>
+                        {hasApplicants ? `Xem ứng viên (${applicantCount})` : 'Tìm lân cận'}
                       </Text>
-                      <Text style={[
-                        styles.actionLinkChevron,
-                        !hasApplicants && styles.actionLinkChevronDisabled
-                      ]}>
-                        {hasApplicants ? ' ➔' : ' 🔒'}
+                      <Text style={styles.actionLinkChevron}>
+                        {hasApplicants ? ' ➔' : ' 🔍'}
                       </Text>
                     </TouchableOpacity>
                   </View>

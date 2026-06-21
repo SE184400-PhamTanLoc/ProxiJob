@@ -58,8 +58,10 @@ namespace ProxiJob.Identity.Application.Services
             profile.Gender = string.IsNullOrWhiteSpace(gender) ? null : gender.Trim();
             profile.Address = address.Trim();
             profile.City = city.Trim();
-            profile.Latitude = latitude;
-            profile.Longitude = longitude;
+            if (latitude.HasValue)
+                profile.Latitude = latitude;
+            if (longitude.HasValue)
+                profile.Longitude = longitude;
             profile.School = school.Trim();
             profile.Major = major.Trim();
             profile.YearOfStudy = yearOfStudy;

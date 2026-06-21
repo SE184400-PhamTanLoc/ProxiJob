@@ -238,6 +238,8 @@ export default function StudentPortfolio() {
         gender: profile?.gender || 'Nam',
         address: profile?.address || '',
         city: profile?.city || '',
+        latitude: profile?.latitude || null,
+        longitude: profile?.longitude || null,
         school: profile?.school || '',
         major: profile?.major || '',
         yearOfStudy: profile?.yearOfStudy || 1,

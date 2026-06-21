@@ -35,8 +35,20 @@ export const useLocation = () => {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           setGpsStatus('granted');
+          
+          // Thử lấy vị trí cuối cùng được ghi nhận trước (chạy cực nhanh trên emulator)
+          const lastKnown = await Location.getLastKnownPositionAsync({});
+          if (lastKnown) {
+            setStudentCoords({
+              latitude: lastKnown.coords.latitude,
+              longitude: lastKnown.coords.longitude,
+            });
+            return;
+          }
+
+          // Nếu không có, lấy vị trí hiện tại với độ chính xác vừa phải để tránh timeout
           const location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+            accuracy: Location.Accuracy.Low,
           });
           setStudentCoords({
             latitude: location.coords.latitude,
@@ -47,7 +59,7 @@ export const useLocation = () => {
           // Giữ mock GPS nếu bị từ chối
         }
       } catch (err) {
-        console.log('[useLocation] GPS error, using mock:', err);
+        console.log('[useLocation] GPS error, using mock:', err.message || err);
         setGpsStatus('error');
         // Giữ mock GPS nếu lỗi
       }

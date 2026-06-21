@@ -95,3 +95,31 @@ export async function updateStudentProfileApi(profileData) {
     }
 }
 
+/**
+ * Fetch all active student profiles (ReadyForWork)
+ * @returns {Promise<array>}
+ */
+export async function getActiveStudentProfilesApi() {
+    try {
+        const token = await getStoredToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE_URL}/student/profile/active`, {
+            method: 'GET',
+            headers,
+        });
+        const resData = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(resData.message || `Failed to fetch active student profiles: ${response.status}`);
+        }
+        return resData.data || resData;
+    } catch (error) {
+        console.log('[ProxiJob Auth API] getActiveStudentProfilesApi error:', error.message);
+        throw error;
+    }
+}
+

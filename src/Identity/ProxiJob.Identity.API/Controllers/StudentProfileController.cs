@@ -6,6 +6,7 @@ using ProxiJob.Identity.Application.Features.Students.Commands.CompleteStudentPr
 using ProxiJob.Identity.Application.Features.Students.Commands.RegisterStudentProfile;
 using ProxiJob.Identity.Application.Features.Students.Commands.UpdateMyStudentProfile;
 using ProxiJob.Identity.Application.Features.Students.Queries.GetMyStudentProfile;
+using ProxiJob.Identity.Application.Features.Students.Queries.GetActiveStudentProfiles;
 using ProxiJob.Identity.Application.Common.Messages;
 using ProxiJob.Shared.Contract;
 namespace ProxiJob.Identity.API.Controllers
@@ -105,6 +106,25 @@ namespace ProxiJob.Identity.API.Controllers
                 return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
             }
             catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
+            }
+        }
+
+        /// <summary>Lấy danh sách tất cả các ứng viên đang sẵn sàng nhận việc (dành cho chủ quán)</summary>
+        [HttpGet("active")]
+        public async Task<IActionResult> GetActiveProfiles(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var result = await _mediator.Send(new GetActiveStudentProfilesQuery(), cancellationToken);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
+            }
+            catch (Exception ex)
             {
                 return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
             }

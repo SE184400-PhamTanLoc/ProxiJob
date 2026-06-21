@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using ProxiJob.Identity.Domain.Models;
 
 namespace ProxiJob.Identity.Application.Common.Interfaces
@@ -8,5 +9,6 @@ namespace ProxiJob.Identity.Application.Common.Interfaces
         Task<StudentProfile?> GetByUserIdWithUserAsync(int userId, CancellationToken cancellationToken = default);
         Task AddAsync(StudentProfile profile, CancellationToken cancellationToken = default);
         Task UpdateAsync(StudentProfile profile, CancellationToken cancellationToken = default);
+        Task<List<StudentProfile>> GetActiveProfilesAsync(CancellationToken cancellationToken = default);
     }
 }

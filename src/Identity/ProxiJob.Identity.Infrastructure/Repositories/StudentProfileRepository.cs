@@ -2,6 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using ProxiJob.Identity.Application.Common.Interfaces;
 using ProxiJob.Identity.Domain.Models;
 using ProxiJob.Identity.Infrastructure.Data;
+using ProxiJob.Identity.Domain.Constants;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ProxiJob.Identity.Infrastructure.Repositories
 {
@@ -27,5 +32,11 @@ namespace ProxiJob.Identity.Infrastructure.Repositories
             _context.StudentProfiles.Update(profile);
             return Task.CompletedTask;
         }
+
+        public async Task<List<StudentProfile>> GetActiveProfilesAsync(CancellationToken cancellationToken = default)
+            => await _context.StudentProfiles
+                .Include(p => p.User)
+                .Where(p => p.ReadinessStatus == ProfileReadinessStatus.ReadyForWork)
+                .ToListAsync(cancellationToken);
     }
 }
