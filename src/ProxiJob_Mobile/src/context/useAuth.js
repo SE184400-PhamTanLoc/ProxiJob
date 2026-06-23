@@ -11,6 +11,7 @@ import {
   refreshTokensApi,
   loginWithGoogleApi
 } from '../api/auth';
+import { getBusinessProfileApi } from '../api/businessApi';
 
 export const translateError = (error) => {
   if (!error) return 'Đăng nhập không thành công. Vui lòng thử lại sau.';
@@ -84,6 +85,27 @@ export const useAuth = ({
     } else {
       setIsEnterprise(false);
     }
+  }, [user]);
+
+  useEffect(() => {
+    async function syncBusinessProfileAvatar() {
+      if (user && user.role === 'employer') {
+        try {
+          const profile = await getBusinessProfileApi();
+          if (profile && profile.avatarUrl) {
+            setUser(prev => {
+              if (prev && prev.avatarUrl !== profile.avatarUrl) {
+                return { ...prev, avatarUrl: profile.avatarUrl };
+              }
+              return prev;
+            });
+          }
+        } catch (e) {
+          console.log('[useAuth] Sync business avatar failed:', e.message);
+        }
+      }
+    }
+    syncBusinessProfileAvatar();
   }, [user]);
 
   const login = useCallback(async (email, password) => {

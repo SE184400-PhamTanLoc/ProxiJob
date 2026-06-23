@@ -22,10 +22,13 @@ import { getAvatarSource } from '../../utils/avatarHelper';
 import { useConversationsQuery } from '../../hooks/queries';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const EMPTY_ARRAY = [];
+
 export default function StudentChat() {
-  const { user, navigationParams, setNavigationParams } = useContext(AppContext);
+  const { user, navigationParams, setNavigationParams, setIsChatRoomActive } = useContext(AppContext);
   const insets = useSafeAreaInsets();
-  const { data: dbConversations = [], refetch: refetchConversations } = useConversationsQuery(user);
+  const { data: dbConversationsData, refetch: refetchConversations } = useConversationsQuery(user);
+  const dbConversations = dbConversationsData || EMPTY_ARRAY;
   const [searchQuery, setSearchQuery] = useState('');
   const [activeChat, setActiveChat] = useState(null);
   const [inputText, setInputText] = useState('');
@@ -34,11 +37,19 @@ export default function StudentChat() {
   const connectionRef = useRef(null);
   const activeChatRef = useRef(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [readChatStatus, setReadChatStatus] = useState({});
 
   // Keep ref in sync with activeChat state so SignalR handler always has latest value
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
+
+  // Reset active chat room state in navigation layout when unmounting this screen
+  useEffect(() => {
+    return () => {
+      setIsChatRoomActive(false);
+    };
+  }, []);
 
   // Real database conversations list
   const [conversations, setConversations] = useState([]);
@@ -62,7 +73,29 @@ export default function StudentChat() {
   useEffect(() => {
     if (dbConversations && dbConversations.length > 0) {
       setConversations(prev => {
-        const merged = [...dbConversations];
+        // Map dbConversations to override unread count if matching readChatStatus
+        const mappedDbConversations = dbConversations.map(item => {
+          const status = readChatStatus[item.id];
+          if (status && status.lastMessage === item.lastMessage && status.time === item.time) {
+            return { ...item, unread: 0 };
+          }
+          return item;
+        });
+
+        // If structurally identical, skip state update to prevent rendering loops
+        const hasChange = prev.length !== mappedDbConversations.length || 
+          mappedDbConversations.some((item, idx) => {
+            const prevItem = prev[idx];
+            return !prevItem || 
+                   prevItem.id !== item.id || 
+                   prevItem.lastMessage !== item.lastMessage || 
+                   prevItem.time !== item.time || 
+                   prevItem.unread !== item.unread;
+          });
+        
+        if (!hasChange) return prev;
+
+        const merged = [...mappedDbConversations];
         prev.forEach(p => {
           if (!merged.find(m => m.id === p.id)) {
             merged.push(p);
@@ -71,9 +104,9 @@ export default function StudentChat() {
         return merged;
       });
     } else if (dbConversations) {
-      setConversations([]);
+      setConversations(prev => prev.length === 0 ? prev : EMPTY_ARRAY);
     }
-  }, [dbConversations]);
+  }, [dbConversations, readChatStatus]);
 
   // Load conversations list from backend API
   const loadConversations = async () => {
@@ -143,14 +176,19 @@ export default function StudentChat() {
           if (active) {
             // Use ref to get latest activeChat without needing it in dependency array
             const currentChat = activeChatRef.current;
+            const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
             if (currentChat && currentChat.id === senderId.toString()) {
               const newMsg = {
                 id: (Date.now() + Math.random()).toString(),
                 sender: 'employer',
                 text: messageContent,
-                time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                time: timeStr
               };
               setMessages(prev => [...prev, newMsg]);
+              setReadChatStatus(prev => ({
+                ...prev,
+                [senderId.toString()]: { lastMessage: messageContent, time: timeStr }
+              }));
             }
             loadConversations();
           }
@@ -202,8 +240,15 @@ export default function StudentChat() {
 
       setActiveChat(prevActive => {
         if (prevActive && prevActive.id === pId) return prevActive;
+        setIsChatRoomActive(true);
         return tempChat;
       });
+
+      // Mark as read in status
+      setReadChatStatus(prev => ({
+        ...prev,
+        [pId]: { lastMessage: tempChat.lastMessage, time: tempChat.time }
+      }));
 
       loadMessages(pId);
       setNavigationParams({});
@@ -248,9 +293,14 @@ export default function StudentChat() {
 
   const handleSelectChat = (chat) => {
     setActiveChat(chat);
+    setIsChatRoomActive(true);
     loadMessages(chat.id);
 
-    // Mark unread as read in local view
+    // Mark unread as read in local view and store status
+    setReadChatStatus(prev => ({
+      ...prev,
+      [chat.id]: { lastMessage: chat.lastMessage, time: chat.time }
+    }));
     setConversations(prev =>
       prev.map(c => (c.id === chat.id ? { ...c, unread: 0 } : c))
     );
@@ -273,7 +323,7 @@ export default function StudentChat() {
         <View style={styles.chatContainer}>
           {/* Chat Room Header - fixed at top, never moves */}
           <View style={[styles.chatHeader, { paddingTop: Math.max(12, insets.top) }]}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => { setActiveChat(null); Keyboard.dismiss(); }}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => { setActiveChat(null); setIsChatRoomActive(false); Keyboard.dismiss(); }}>
               <Ionicons name="chevron-back" size={24} color="#1E293B" />
             </TouchableOpacity>
 
@@ -301,7 +351,7 @@ export default function StudentChat() {
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+            keyboardVerticalOffset={0}
           >
             {/* Messages List */}
             <ScrollView

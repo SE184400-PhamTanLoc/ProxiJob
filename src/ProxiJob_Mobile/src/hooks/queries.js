@@ -32,6 +32,29 @@ import {
 } from '../api/management';
 import { translateError } from '../context/useAuth';
 
+const formatTimeVN = (dateInput) => {
+  if (!dateInput) return '';
+  const str = typeof dateInput === 'string' ? dateInput : new Date(dateInput).toISOString();
+  const parts = str.split('T');
+  if (parts.length === 2) {
+    return parts[1].substring(0, 5);
+  }
+  return '';
+};
+
+const formatDateVN = (dateInput) => {
+  if (!dateInput) return '';
+  const str = typeof dateInput === 'string' ? dateInput : new Date(dateInput).toISOString();
+  const parts = str.split('T');
+  if (parts.length >= 1) {
+    const dateParts = parts[0].split('-');
+    if (dateParts.length === 3) {
+      return `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+    }
+  }
+  return '';
+};
+
 // ==========================================
 // 1. QUERIES FOR SHIFTS & APPLICATIONS
 // ==========================================
@@ -61,8 +84,8 @@ export const useShiftsQuery = (user, studentCoords) => {
                 latitude: job.latitude || job.location?.latitude || 0,
                 longitude: job.longitude || job.location?.longitude || 0,
                 address: job.address || job.location?.address || job.shopAddress || job.locationAddress || '',
-                date: new Date(s.startTime).toLocaleDateString('vi-VN'),
-                time: `${new Date(s.startTime).getHours().toString().padStart(2, '0')}:${new Date(s.startTime).getMinutes().toString().padStart(2, '0')} - ${new Date(s.endTime).getHours().toString().padStart(2, '0')}:${new Date(s.endTime).getMinutes().toString().padStart(2, '0')}`,
+                date: formatDateVN(s.startTime),
+                time: `${formatTimeVN(s.startTime)} - ${formatTimeVN(s.endTime)}`,
                 description: job.description || '',
                 requirements: job.requirements || '',
                 rating: 5.0,
@@ -164,7 +187,7 @@ export const useEmployerJobsQuery = (user) => {
                   const reason = a.introduction || 'Yêu cầu hủy ca làm việc / xin nghỉ phép';
                   const isSwap = reason.toLowerCase().includes('đổi') || reason.toLowerCase().includes('chuyển') || reason.toLowerCase().includes('sang') || reason.toLowerCase().includes('ca');
                   const requestType = isSwap ? 'swap' : 'leave';
-                  const shiftTime = `${new Date(s.startTime).getHours().toString().padStart(2, '0')}:${new Date(s.startTime).getMinutes().toString().padStart(2, '0')} - ${new Date(s.endTime).getHours().toString().padStart(2, '0')}:${new Date(s.endTime).getMinutes().toString().padStart(2, '0')}`;
+                  const shiftTime = `${formatTimeVN(s.startTime)} - ${formatTimeVN(s.endTime)}`;
 
                   let localStatus = 'pending';
                   if (a.status === 'CancelledApproved') {
@@ -178,7 +201,7 @@ export const useEmployerJobsQuery = (user) => {
                     staffName: staffName,
                     position: position,
                     type: requestType,
-                    shiftDate: new Date(s.startTime).toLocaleDateString('vi-VN'),
+                    shiftDate: formatDateVN(s.startTime),
                     shiftTime: shiftTime,
                     jobTitle: job.title,
                     reason: reason,
@@ -243,8 +266,8 @@ export const useEmployerJobsQuery = (user) => {
                 title: job.title,
                 shopName: job.categoryName || 'Cửa hàng',
                 hourlyRate: s.salary,
-                date: new Date(s.startTime).toLocaleDateString('vi-VN'),
-                time: `${new Date(s.startTime).getHours().toString().padStart(2, '0')}:${new Date(s.startTime).getMinutes().toString().padStart(2, '0')} - ${new Date(s.endTime).getHours().toString().padStart(2, '0')}:${new Date(s.endTime).getMinutes().toString().padStart(2, '0')}`,
+                date: formatDateVN(s.startTime),
+                time: `${formatTimeVN(s.startTime)} - ${formatTimeVN(s.endTime)}`,
                 description: '',
                 requirements: '',
                 rating: 5.0,
@@ -306,16 +329,35 @@ export const useStaffListQuery = (user) => {
       try {
         const res = await getEmployees();
         const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
-        const formattedList = list.map(emp => ({
-          id: emp.id,
-          userId: emp.userId,
-          name: emp.fullName,
-          role: emp.position || 'Nhân viên',
-          phone: emp.phoneNumber || 'Không có',
-          status: emp.status === 0 || emp.status === 'Active' ? 'idle' : 'terminated',
-          isExternal: emp.isExternal,
-          hourlyRate: emp.hourlyRate || 30000,
-          shiftsCount: emp.shiftsCount || 0
+        const formattedList = await Promise.all(list.map(async emp => {
+          let avatarUrl = '';
+          let gender = '';
+          if (emp.userId) {
+            try {
+              const profileRes = await fetch(`${IDENTITY_API_BASE_URL}/public/students/${emp.userId}/cv`);
+              if (profileRes.ok) {
+                const profileData = await profileRes.json();
+                const profile = profileData.data || profileData;
+                avatarUrl = profile.avatarUrl || '';
+                gender = profile.gender || '';
+              }
+            } catch (err) {
+              console.log(`Error fetching student profile for userId ${emp.userId}:`, err);
+            }
+          }
+          return {
+            id: emp.id,
+            userId: emp.userId,
+            name: emp.fullName,
+            role: emp.position || 'Nhân viên',
+            phone: emp.phoneNumber || 'Không có',
+            status: emp.status === 0 || emp.status === 'Active' ? 'idle' : 'terminated',
+            isExternal: emp.isExternal,
+            hourlyRate: emp.hourlyRate || 30000,
+            shiftsCount: emp.shiftsCount || 0,
+            avatarUrl,
+            gender
+          };
         }));
         return formattedList;
       } catch (err) {
@@ -324,6 +366,8 @@ export const useStaffListQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
+    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
 
@@ -355,6 +399,8 @@ export const useAttendanceLogsQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
+    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
 
@@ -372,6 +418,8 @@ export const usePayrollsQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
+    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
 
@@ -388,6 +436,8 @@ export const useSchedulesQuery = (dateStr) => {
       }
     },
     enabled: !!dateStr,
+    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
 
@@ -922,6 +972,7 @@ export const useConversationsQuery = (user) => {
       }));
     },
     enabled: !!user?.id,
-    staleTime: 10 * 1000,
+    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };

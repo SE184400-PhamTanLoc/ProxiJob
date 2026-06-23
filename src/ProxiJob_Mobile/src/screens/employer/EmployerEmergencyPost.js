@@ -11,7 +11,8 @@ import {
   Switch,
   ActivityIndicator,
   Modal,
-  Platform
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
@@ -19,6 +20,7 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getCategoriesApi, getSkillsApi } from '../../api/jobs';
 import { Ionicons } from '@expo/vector-icons';
+import { getBusinessProfileApi } from '../../api/businessApi';
 
 // ĐIỀN API KEY GOOGLE MAPS CỦA BẠN VÀO ĐÂY ĐỂ BẬT TỰ ĐỘNG GỢI Ý & TÌM KIẾM ĐỊA CHỈ GOOGLE MAPS
 const GOOGLE_MAPS_API_KEY = 'CvNapWs3C3Vt7ZTRZf0uZliN9v3q8TBJKxd2CEcW';
@@ -30,6 +32,45 @@ const cleanAddress = (rawAddress) => {
   // Remove postal codes (5-6 digit values preceded by comma and space)
   cleaned = cleaned.replace(/,\s*\d{5,6}\b/g, '');
   return cleaned.trim();
+};
+
+const reverseGeocode = async (lat, lng) => {
+  if (GOOGLE_MAPS_API_KEY) {
+    try {
+      const response = await fetch(
+        `https://rsapi.goong.io/Geocode?latlng=${lat},${lng}&api_key=${GOOGLE_MAPS_API_KEY}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'OK' && data.results && data.results.length > 0) {
+          return cleanAddress(data.results[0].formatted_address);
+        }
+      }
+    } catch (e) {
+      console.log('Goong reverse geocoding error:', e);
+    }
+  }
+
+  // Fallback to OSM Nominatim
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      if (data.display_name) {
+        return cleanAddress(data.display_name);
+      }
+      const road = data.address?.road || '';
+      const suburb = data.address?.suburb || data.address?.quarter || '';
+      const city = data.address?.city || data.address?.town || data.address?.state || '';
+      return [road, suburb, city].filter(Boolean).join(', ');
+    }
+  } catch (e) {
+    console.log('OSM reverse geocoding error:', e);
+  }
+  return '';
 };
 
 const fetchGeocode = async (q) => {
@@ -49,10 +90,10 @@ const fetchGeocode = async (q) => {
 };
 
 const geocodeAddressWithFallback = async (queryText) => {
-  // 1. Nếu có Google Key, thử geocode bằng dịch vụ thông minh trước
+  // 1. Thử geocode bằng dịch vụ Goong Maps trước
   if (GOOGLE_MAPS_API_KEY) {
     try {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(queryText)}&key=${GOOGLE_MAPS_API_KEY}&language=vi`;
+      const url = `https://rsapi.goong.io/Geocode?address=${encodeURIComponent(queryText)}&api_key=${GOOGLE_MAPS_API_KEY}`;
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -69,7 +110,7 @@ const geocodeAddressWithFallback = async (queryText) => {
         }
       }
     } catch (e) {
-      console.log('Smart geocoding API error:', e);
+      console.log('Goong geocoding API error:', e);
     }
   }
 
@@ -198,26 +239,8 @@ export default function EmployerEmergencyPost() {
       setLatitude(selectedLat.toString());
       setLongitude(selectedLng.toString());
 
-      // Reverse geocode chosen coordinates to get a human-readable address
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${selectedLat}&lon=${selectedLng}&format=json`,
-        { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        let displayAddress = '';
-        if (data.display_name) {
-          displayAddress = cleanAddress(data.display_name);
-        } else {
-          const road = data.address?.road || '';
-          const suburb = data.address?.suburb || data.address?.quarter || '';
-          const city = data.address?.city || data.address?.town || data.address?.state || '';
-          displayAddress = [road, suburb, city].filter(Boolean).join(', ');
-        }
-        setAddress(displayAddress || `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
-      } else {
-        setAddress(`Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
-      }
+      const displayAddress = await reverseGeocode(selectedLat, selectedLng);
+      setAddress(displayAddress || `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`);
       showToast('Đã định vị vị trí công việc thành công!', 'success');
     } catch (e) {
       console.log('Reverse geocoding error:', e);
@@ -317,7 +340,7 @@ export default function EmployerEmergencyPost() {
       setSuggestionsLoading(true);
       if (GOOGLE_MAPS_API_KEY) {
         const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+          `https://rsapi.goong.io/Place/AutoComplete?input=${encodeURIComponent(text)}&api_key=${GOOGLE_MAPS_API_KEY}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -364,7 +387,7 @@ export default function EmployerEmergencyPost() {
       let lon = 0;
       if (suggestion.isGoogle) {
         const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+          `https://rsapi.goong.io/Place/Detail?place_id=${suggestion.place_id}&api_key=${GOOGLE_MAPS_API_KEY}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -404,7 +427,7 @@ export default function EmployerEmergencyPost() {
     try {
       if (GOOGLE_MAPS_API_KEY) {
         const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+          `https://rsapi.goong.io/Place/AutoComplete?input=${encodeURIComponent(text)}&api_key=${GOOGLE_MAPS_API_KEY}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -449,7 +472,7 @@ export default function EmployerEmergencyPost() {
       let lon = 0;
       if (suggestion.isGoogle) {
         const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${suggestion.place_id}&key=${GOOGLE_MAPS_API_KEY}&language=vi`
+          `https://rsapi.goong.io/Place/Detail?place_id=${suggestion.place_id}&api_key=${GOOGLE_MAPS_API_KEY}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -529,6 +552,32 @@ export default function EmployerEmergencyPost() {
         }
       } catch (err) {
         console.log('Error loading skills from API:', err);
+      }
+
+      try {
+        const profile = await getBusinessProfileApi();
+        if (profile && profile.address) {
+          setAddress(profile.address);
+          
+          // Geocode profile address to find coordinates and center the map
+          try {
+            const result = await geocodeAddressWithFallback(profile.address);
+            if (result && result.data && result.data.length > 0) {
+              const lat = parseFloat(result.data[0].lat);
+              const lon = parseFloat(result.data[0].lon);
+              setLatitude(lat.toString());
+              setLongitude(lon.toString());
+              setSelectedLat(lat);
+              setSelectedLng(lon);
+              setMapInitLat(lat);
+              setMapInitLng(lon);
+            }
+          } catch (geoErr) {
+            console.log('Error geocoding prefilled address:', geoErr);
+          }
+        }
+      } catch (profileErr) {
+        console.log('Error loading business profile for prefilled address:', profileErr);
       } finally {
         setDataLoading(false);
       }
@@ -555,24 +604,9 @@ export default function EmployerEmergencyPost() {
 
       // Reverse geocode để lấy địa chỉ
       try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-          { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          let displayAddress = '';
-          if (data.display_name) {
-            displayAddress = cleanAddress(data.display_name);
-          } else {
-            const road = data.address?.road || '';
-            const suburb = data.address?.suburb || data.address?.quarter || '';
-            const city = data.address?.city || data.address?.town || data.address?.state || '';
-            displayAddress = [road, suburb, city].filter(Boolean).join(', ');
-          }
-          if (displayAddress) {
-            setAddress(displayAddress);
-          }
+        const displayAddress = await reverseGeocode(lat, lng);
+        if (displayAddress) {
+          setAddress(displayAddress);
         }
       } catch (geoErr) {
         console.log('Reverse geocoding error:', geoErr);
@@ -679,17 +713,17 @@ export default function EmployerEmergencyPost() {
   const currentCategoryName = categories.find(c => c.id.toString() === categoryId)?.name || 'Khác';
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.hBack} onPress={goBack}>
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Back Button */}
+        <TouchableOpacity style={styles.inlineBackBtn} onPress={goBack}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.hTitle}>Đăng tin tuyển dụng mới</Text>
-        <View style={{ width: 44 }} />
-      </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Title & Page Header */}
         <View style={styles.pageHeader}>
           <Text style={styles.pageTitle}>Đăng tin tuyển dụng mới</Text>
@@ -1032,6 +1066,7 @@ export default function EmployerEmergencyPost() {
           </Text>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Map Picker Modal */}
       <Modal
@@ -1292,7 +1327,7 @@ export default function EmployerEmergencyPost() {
           </View>
         </SafeAreaView>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1732,4 +1767,20 @@ const styles = StyleSheet.create({
   },
   hBack: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   hTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
+  inlineBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
 });

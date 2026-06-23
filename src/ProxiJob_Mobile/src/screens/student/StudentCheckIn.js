@@ -14,6 +14,8 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { useShiftsQuery, useCheckInMutation, useCheckOutMutation } from '../../hooks/queries';
 
+const EMPTY_ARRAY = [];
+
 // Pure JS Haversine formula
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371000; // Earth radius in meters
@@ -44,7 +46,8 @@ export default function StudentCheckIn() {
     setActiveShift
   } = useContext(AppContext);
 
-  const { data: shifts = [] } = useShiftsQuery(user, studentCoords);
+  const { data: shiftsData } = useShiftsQuery(user, studentCoords);
+  const shifts = shiftsData || EMPTY_ARRAY;
   const checkInMutation = useCheckInMutation(user, showToast, addNotification);
   const checkOutMutation = useCheckOutMutation(user, showToast, addNotification);
 

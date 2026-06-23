@@ -125,7 +125,7 @@ export default function EmployerHRM() {
     const isFirst = index === 0;
     const isExpanded = !!expandedIds[staff.id];
     // Premium Bento Avatar Image
-    const avatarSource = getAvatarSource(null, staff.gender, staff.name);
+    const avatarSource = getAvatarSource(staff.avatarUrl, staff.gender, staff.name);
 
     return (
       <TouchableOpacity
@@ -302,7 +302,7 @@ export default function EmployerHRM() {
     ];
     const shiftState = shiftStates[index % shiftStates.length];
     const isCompleted = index % 3 === 2; // Third card has reduced opacity
-    const avatarSource = getAvatarSource(null, staff.gender, staff.name);
+    const avatarSource = getAvatarSource(staff.avatarUrl, staff.gender, staff.name);
 
     return (
       <TouchableOpacity
@@ -513,7 +513,7 @@ export default function EmployerHRM() {
       {/* Add Staff Modal */}
       <Modal
         visible={modalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
@@ -1124,39 +1124,50 @@ const styles = StyleSheet.create({
   // ─── Modal ────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingBottom: 40,
+    borderRadius: 24,
+    paddingBottom: 24,
+    width: '100%',
+    maxWidth: 340,
     maxHeight: '85%',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 20,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F4F6',
   },
   modalTitle: {
     fontFamily: FONT_EXTRABOLD,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: getFontWeight('800'),
     color: '#181C1E',
     letterSpacing: -0.3,
   },
   modalSubtitle: {
     fontFamily: FONT_REGULAR,
-    fontSize: 12,
+    fontSize: 11,
     color: '#5A4136',
     opacity: 0.6,
-    marginTop: 3,
+    marginTop: 2,
   },
   modalCloseBtn: {
     width: 32,
@@ -1173,8 +1184,8 @@ const styles = StyleSheet.create({
     fontWeight: getFontWeight('700'),
   },
   modalForm: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   inputLabel: {
     fontFamily: FONT_EXTRABOLD,

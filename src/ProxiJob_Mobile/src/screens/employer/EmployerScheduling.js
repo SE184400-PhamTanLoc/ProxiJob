@@ -22,6 +22,8 @@ import {
   useStaffListQuery
 } from '../../hooks/queries';
 
+const EMPTY_ARRAY = [];
+
 function getCurrentWeekDays() {
   const today = new Date();
   const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
@@ -59,13 +61,15 @@ export default function EmployerScheduling() {
     showToast
   } = useContext(AppContext);
 
-  const { data: staffList = [] } = useStaffListQuery(user);
+  const { data: staffListData } = useStaffListQuery(user);
+  const staffList = staffListData || EMPTY_ARRAY;
 
   const [weekDays, setWeekDays] = useState([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
   const activeDateStr = weekDays[selectedDayIndex]?.apiDateStr;
-  const { data: schedulesList = [] } = useSchedulesQuery(activeDateStr);
+  const { data: schedulesListData } = useSchedulesQuery(activeDateStr);
+  const schedulesList = schedulesListData || EMPTY_ARRAY;
 
   const addEmployeeScheduleMutation = useAddEmployeeScheduleMutation(user, showToast);
   const removeEmployeeScheduleMutation = useRemoveEmployeeScheduleMutation(user, showToast);
@@ -389,7 +393,7 @@ export default function EmployerScheduling() {
             const badgeBg = isPrimaryBadge ? 'rgba(255, 107, 0, 0.1)' : 'rgba(91, 0, 223, 0.1)';
             const badgeTextColor = isPrimaryBadge ? '#FF6B00' : '#5B00DF';
 
-            const avatarSource = getAvatarSource(null, staff?.gender, assignedStaffName);
+            const avatarSource = getAvatarSource(staff?.avatarUrl, staff?.gender, assignedStaffName);
 
             if (isAssigned) {
               return (
@@ -512,7 +516,7 @@ export default function EmployerScheduling() {
 
             <ScrollView contentContainerStyle={styles.modalList} showsVerticalScrollIndicator={false}>
               {filteredStaff.map((staff) => {
-                const avatarSource = getAvatarSource(null, staff.gender, staff.name);
+                const avatarSource = getAvatarSource(staff.avatarUrl, staff.gender, staff.name);
                 const slotSchedule = (localSchedules || []).find(s => s.note === assigningShift?.slotId);
                 const isSelected = slotSchedule && slotSchedule.employeeId === staff.id;
 
@@ -564,17 +568,15 @@ export default function EmployerScheduling() {
       {/* Add Shift Modal */}
       <Modal
         visible={addShiftModalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => {
           setAddShiftModalVisible(false);
           resetNewShiftForm();
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
-
+        <View style={styles.centeredModalOverlay}>
+          <View style={styles.centeredModalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Thêm ca làm việc mới</Text>
               <TouchableOpacity
@@ -588,7 +590,7 @@ export default function EmployerScheduling() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.addShiftForm} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={styles.centeredModalForm} keyboardShouldPersistTaps="handled">
               <Text style={styles.inputLabel}>Tên ca làm việc</Text>
               <TextInput
                 style={styles.formInput}
@@ -1042,6 +1044,33 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     paddingBottom: 40,
     maxHeight: '80%',
+  },
+  centeredModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  centeredModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingBottom: 24,
+    width: '100%',
+    maxWidth: 340,
+    maxHeight: '85%',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  centeredModalForm: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   modalHandle: {
     width: 48,

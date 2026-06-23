@@ -38,6 +38,7 @@ function MainAppShell() {
     navigateTo,
     showToast,
     goBack,
+    isChatRoomActive,
   } = useContext(AppContext);
 
   const getHeaderTitle = (screen) => {
@@ -90,8 +91,8 @@ function MainAppShell() {
   const unreadNotifsCount = user ? notifications.filter((n) => !n.read).length : 0;
   const isStudent = !user || user.role === "student";
 
-  const hideHeaderScreens = ["candidate_list", "payment_qr", "upgrade_package", "employer_emergency_post"];
-  const showHeader = !hideHeaderScreens.includes(currentScreen);
+  const hideHeaderScreens = ["candidate_list", "payment_qr", "upgrade_package", "employer_emergency_post", "employer_profile"];
+  const showHeader = !hideHeaderScreens.includes(currentScreen) && !isChatRoomActive;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -239,7 +240,7 @@ function MainAppShell() {
                   activeOpacity={0.6}
                   onPress={() => {
                     setAvatarMenuOpen(false);
-                    showToast("Profile quán đang được thiết lập", "info");
+                    navigateTo("employer_profile");
                   }}
                 >
                   <Ionicons name="storefront-outline" size={18} color="#64748B" style={styles.dropdownItemIcon} />

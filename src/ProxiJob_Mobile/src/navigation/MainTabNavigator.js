@@ -30,17 +30,19 @@ import EmployerMonitor from '../screens/employer/EmployerMonitor';
 import PayrollSettlementScreen from '../screens/employer/PayrollSettlementScreen';
 import PaymentQRScreen from '../screens/employer/PaymentQRScreen';
 import EmployerChat from '../screens/employer/EmployerChat';
+import EmployerProfileScreen from '../screens/employer/EmployerProfileScreen';
 
 export default function MainTabNavigator({ isStudent }) {
-  const { currentScreen, navigateTo } = useContext(AppContext);
+  const { currentScreen, navigateTo, isChatRoomActive } = useContext(AppContext);
 
   const hideTabBarScreens = [
     'employer_emergency_post',
     'candidate_list',
     'upgrade_package',
-    'job_detail'
+    'job_detail',
+    'employer_profile'
   ];
-  const showTabBar = !hideTabBarScreens.includes(currentScreen);
+  const showTabBar = !hideTabBarScreens.includes(currentScreen) && !isChatRoomActive;
 
   // Render Student Screens based on global currentScreen state
   const renderStudentContent = () => {
@@ -87,6 +89,8 @@ export default function MainTabNavigator({ isStudent }) {
         return <PayrollSettlementScreen />;
       case 'payment_qr':
         return <PaymentQRScreen />;
+      case 'employer_profile':
+        return <EmployerProfileScreen />;
       default:
         return <EmployerApprovals />;
     }

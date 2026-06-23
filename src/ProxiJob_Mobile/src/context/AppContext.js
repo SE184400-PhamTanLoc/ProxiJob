@@ -3,6 +3,7 @@ import { useToast } from "./useToast";
 import { useLocation } from "./useLocation";
 import { useAuth } from "./useAuth";
 import { useNavigation } from "./useNavigation";
+import { useShifts } from "./useShifts";
 
 export const AppContext = createContext();
 
@@ -12,6 +13,7 @@ export const AppProvider = ({ children }) => {
 
   // Create refs to avoid circular dependencies and stale closures
   const navigationRef = useRef(null);
+  const shiftsStateRef = useRef(null);
 
   // Set up authentication
   const authState = useAuth({
@@ -22,7 +24,7 @@ export const AppProvider = ({ children }) => {
     setNavigationStack: (stack) =>
       navigationRef.current?.setNavigationStack(stack),
     onLogoutResets: () => {
-      setActiveShift(null);
+      shiftsStateRef.current?.setActiveShift(null);
       locationState.setSimulatedDistanceToActive(3200);
     },
   });
@@ -35,15 +37,24 @@ export const AppProvider = ({ children }) => {
   );
   navigationRef.current = navigationState;
 
-  // In-memory active check-in session state
-  const [activeShift, setActiveShift] = useState(null);
+  // Set up shifts state
+  const shiftsState = useShifts({
+    user: authState.user,
+    STUDENT_MOCK_GPS: locationState.STUDENT_MOCK_GPS,
+    showToast: toastState.showToast,
+    addNotification: toastState.addNotification,
+  });
+  shiftsStateRef.current = shiftsState;
 
   // Static review state for backward compatibility
   const [reviews, setReviews] = useState([]);
+  const [isChatRoomActive, setIsChatRoomActive] = useState(false);
 
   return (
     <AppContext.Provider
       value={{
+        isChatRoomActive,
+        setIsChatRoomActive,
         // Auth State & Actions
         user: authState.user,
         setUser: authState.setUser,
@@ -91,9 +102,27 @@ export const AppProvider = ({ children }) => {
         navigateTo: navigationState.navigateTo,
         goBack: navigationState.goBack,
 
-        // Active shift check-in session (keeps track of in-memory active check-in session details)
-        activeShift,
-        setActiveShift,
+        // Shifts State & Actions
+        shifts: shiftsState.shifts,
+        setShifts: shiftsState.setShifts,
+        activeShift: shiftsState.activeShift,
+        setActiveShift: shiftsState.setActiveShift,
+        employerJobs: shiftsState.employerJobs,
+        setEmployerJobs: shiftsState.setEmployerJobs,
+        leaveRequests: shiftsState.leaveRequests,
+        setLeaveRequests: shiftsState.setLeaveRequests,
+        loadShifts: shiftsState.loadShifts,
+        loadMyApplications: shiftsState.loadMyApplications,
+        loadEmployerJobs: shiftsState.loadEmployerJobs,
+        applyToShift: shiftsState.applyToShift,
+        checkInShift: shiftsState.checkInShift,
+        checkOutShift: shiftsState.checkOutShift,
+        createEmergencyShift: shiftsState.createEmergencyShift,
+        createJobPostWizard: shiftsState.createJobPostWizard,
+        updateJobPostWizard: shiftsState.updateJobPostWizard,
+        deleteJobPost: shiftsState.deleteJobPost,
+        approveStudentApplication: shiftsState.approveStudentApplication,
+        rejectStudentApplication: shiftsState.rejectStudentApplication,
 
         // Reviews (backward-compatible mock state)
         reviews,
