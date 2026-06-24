@@ -15,7 +15,7 @@ import { AppContext } from '../../context/AppContext';
 import * as Font from 'expo-font';
 import { getAvatarSource } from '../../utils/avatarHelper';
 import { handleCallUser } from '../../utils/callHelper';
-import { useStaffListQuery, useAddStaffMemberMutation, useRemoveStaffMemberMutation } from '../../hooks/queries';
+import { useStaffListQuery, useAddStaffMemberMutation, useRemoveStaffMemberMutation, useUpdateStaffMemberMutation } from '../../hooks/queries';
 
 export default function EmployerHRM() {
   const {
@@ -27,6 +27,7 @@ export default function EmployerHRM() {
   const { data: staffList = [], isLoading: loadingStaff, refetch: loadStaffList } = useStaffListQuery(user);
   const addStaffMutation = useAddStaffMemberMutation(user, showToast);
   const removeStaffMutation = useRemoveStaffMemberMutation(user, showToast);
+  const updateStaffMutation = useUpdateStaffMemberMutation(user, showToast);
 
   const [activeTab, setActiveTab] = useState('internal'); // 'internal' | 'single'
   const [modalVisible, setModalVisible] = useState(false);
@@ -37,6 +38,7 @@ export default function EmployerHRM() {
   const [deletingId, setDeletingId] = useState(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [expandedIds, setExpandedIds] = useState({});
+  const [editingStaff, setEditingStaff] = useState(null);
 
   const toggleExpand = (id) => {
     setExpandedIds(prev => ({
@@ -74,25 +76,51 @@ export default function EmployerHRM() {
   const internalStaff = (staffList || []).filter(s => !s.isExternal);
   const externalStaff = (staffList || []).filter(s => s.isExternal);
 
-  const handleAddStaff = async () => {
+  const handleSaveStaff = async () => {
     if (newStaffName.trim() && newStaffRole.trim() && newStaffPhone.trim()) {
       setIsAdding(true);
       try {
-        await addStaffMutation.mutateAsync({
-          name: newStaffName,
-          role: newStaffRole,
-          phone: newStaffPhone
-        });
+        if (editingStaff) {
+          await updateStaffMutation.mutateAsync({
+            id: editingStaff.id,
+            name: newStaffName,
+            role: newStaffRole,
+            phone: newStaffPhone
+          });
+        } else {
+          await addStaffMutation.mutateAsync({
+            name: newStaffName,
+            role: newStaffRole,
+            phone: newStaffPhone
+          });
+        }
         setNewStaffName('');
         setNewStaffRole('');
         setNewStaffPhone('');
+        setEditingStaff(null);
         setModalVisible(false);
       } catch (err) {
-        console.log('Error adding staff:', err);
+        console.log('Error saving staff:', err);
       } finally {
         setIsAdding(false);
       }
     }
+  };
+
+  const handleEditPress = (staff) => {
+    setEditingStaff(staff);
+    setNewStaffName(staff.name);
+    setNewStaffRole(staff.role);
+    setNewStaffPhone(staff.phone);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setNewStaffName('');
+    setNewStaffRole('');
+    setNewStaffPhone('');
+    setEditingStaff(null);
+    setModalVisible(false);
   };
 
   const handleDelete = async (id) => {
@@ -219,21 +247,34 @@ export default function EmployerHRM() {
                   <Text style={styles.metaValueText}>{staff.phone}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.deleteBtnFull}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleDelete(staff.id);
-                  }}
-                  disabled={isDeleting}
-                  activeOpacity={0.8}
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator size="small" color="#BA1A1A" />
-                  ) : (
-                    <Text style={styles.deleteBtnText}>XÓA NHÂN VIÊN</Text>
-                  )}
-                </TouchableOpacity>
+                <View style={styles.buttonsRow}>
+                  <TouchableOpacity
+                    style={styles.editBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleEditPress(staff);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.editBtnText}>✏️ Chỉnh sửa</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDelete(staff.id);
+                    }}
+                    disabled={isDeleting}
+                    activeOpacity={0.8}
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator size="small" color="#BA1A1A" />
+                    ) : (
+                      <Text style={styles.deleteBtnText}>🗑️ Xóa</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <View style={styles.accordionInnerCard}>
@@ -267,21 +308,34 @@ export default function EmployerHRM() {
                   </View>
                 )}
 
-                <TouchableOpacity
-                  style={styles.deleteBtnFull}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleDelete(staff.id);
-                  }}
-                  disabled={isDeleting}
-                  activeOpacity={0.8}
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator size="small" color="#BA1A1A" />
-                  ) : (
-                    <Text style={styles.deleteBtnText}>XÓA NHÂN VIÊN</Text>
-                  )}
-                </TouchableOpacity>
+                <View style={styles.buttonsRow}>
+                  <TouchableOpacity
+                    style={styles.editBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleEditPress(staff);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.editBtnText}>✏️ Chỉnh sửa</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDelete(staff.id);
+                    }}
+                    disabled={isDeleting}
+                    activeOpacity={0.8}
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator size="small" color="#BA1A1A" />
+                    ) : (
+                      <Text style={styles.deleteBtnText}>🗑️ Xóa</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -510,24 +564,24 @@ export default function EmployerHRM() {
         <View style={styles.fabPlusVertical} />
       </TouchableOpacity>
 
-      {/* Add Staff Modal */}
+      {/* Add/Edit Staff Modal */}
       <Modal
         visible={modalVisible}
         animationType="fade"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={handleCloseModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Thêm Nhân Viên Mới</Text>
-                <Text style={styles.modalSubtitle}>Thêm nhân viên cố định vào hệ thống</Text>
+                <Text style={styles.modalTitle}>{editingStaff ? 'Chỉnh Sửa Nhân Viên' : 'Thêm Nhân Viên Mới'}</Text>
+                <Text style={styles.modalSubtitle}>{editingStaff ? 'Cập nhật thông tin nhân viên cố định' : 'Thêm nhân viên cố định vào hệ thống'}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
-                onPress={() => setModalVisible(false)}
+                onPress={handleCloseModal}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
@@ -573,14 +627,14 @@ export default function EmployerHRM() {
                   styles.submitBtn,
                   (!newStaffName.trim() || !newStaffRole.trim() || !newStaffPhone.trim()) && styles.submitBtnDisabled
                 ]}
-                onPress={handleAddStaff}
+                onPress={handleSaveStaff}
                 disabled={isAdding || !newStaffName.trim() || !newStaffRole.trim() || !newStaffPhone.trim()}
                 activeOpacity={0.85}
               >
                 {isAdding ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.submitBtnText}>Xác nhận thêm nhân viên</Text>
+                  <Text style={styles.submitBtnText}>{editingStaff ? 'Lưu thay đổi' : 'Xác nhận thêm nhân viên'}</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -1233,5 +1287,32 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: getFontWeight('800'),
+  },
+  buttonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  editBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+    paddingVertical: 10,
+    borderRadius: 9999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtnText: {
+    fontFamily: FONT_BOLD,
+    fontSize: 12,
+    fontWeight: getFontWeight('700'),
+    color: '#FF6B00',
+  },
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: '#ffdad6',
+    paddingVertical: 10,
+    borderRadius: 9999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

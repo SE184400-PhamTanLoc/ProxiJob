@@ -123,3 +123,60 @@ export async function getActiveStudentProfilesApi() {
     }
 }
 
+/**
+ * Activate student profile (set ReadyForWork)
+ * @returns {Promise<object>}
+ */
+export async function activateStudentProfileApi() {
+    try {
+        const token = await getStoredToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE_URL}/student/profile/activate`, {
+            method: 'POST',
+            headers,
+        });
+        const resData = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(resData.message || `Failed to activate student profile: ${response.status}`);
+        }
+        return resData.data || resData;
+    } catch (error) {
+        console.log('[ProxiJob Auth API] activateStudentProfileApi error:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Deactivate student profile (set Inactive / not ready for work)
+ * @returns {Promise<object>}
+ */
+export async function deactivateStudentProfileApi() {
+    try {
+        const token = await getStoredToken();
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE_URL}/student/profile/deactivate`, {
+            method: 'POST',
+            headers,
+        });
+        const resData = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(resData.message || `Failed to deactivate student profile: ${response.status}`);
+        }
+        return resData.data || resData;
+    } catch (error) {
+        console.log('[ProxiJob Auth API] deactivateStudentProfileApi error:', error.message);
+        throw error;
+    }
+}
+
+

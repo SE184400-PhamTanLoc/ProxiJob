@@ -11,6 +11,7 @@ import {
   RefreshControl,
   TextInput,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ import { useShiftsQuery } from '../../hooks/queries';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import { getStudentProfileApi, activateStudentProfileApi, deactivateStudentProfileApi } from '../../api/studentApi';
 
 const getLeftBorderColor = (index) => {
   const colors = ['#8B5CF6', '#C2410C', '#0D9488', '#2563EB', '#EC4899'];
@@ -85,8 +87,65 @@ export default function StudentDashboard() {
   const [profileAddress, setProfileAddress] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const toggleAnim = useRef(new Animated.Value(0)).current;
+  const ITEMS_PER_PAGE = 7;
 
   const isProfileAddressSetRef = useRef(false);
+
+  // Fetch initial availability status from profile
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      try {
+        const profile = await getStudentProfileApi();
+        const isReady = profile?.readinessStatus === 'ReadyForWork';
+        setIsAvailable(isReady);
+        Animated.timing(toggleAnim, {
+          toValue: isReady ? 1 : 0,
+          duration: 0,
+          useNativeDriver: false,
+        }).start();
+      } catch (err) {
+        console.log('[StudentDashboard] Error fetching availability:', err);
+      }
+    };
+    if (user) fetchAvailability();
+  }, [user]);
+
+  const handleToggleAvailability = async () => {
+    if (availabilityLoading) return;
+    setAvailabilityLoading(true);
+    const newState = !isAvailable;
+    try {
+      if (newState) {
+        await activateStudentProfileApi();
+      } else {
+        await deactivateStudentProfileApi();
+      }
+      setIsAvailable(newState);
+      Animated.spring(toggleAnim, {
+        toValue: newState ? 1 : 0,
+        friction: 5,
+        tension: 40,
+        useNativeDriver: false,
+      }).start();
+      if (showToast) {
+        showToast(
+          newState ? 'Đã bật sẵn sàng nhận việc! 🟢' : 'Đã tạm ngưng nhận việc 🔴',
+          newState ? 'success' : 'info'
+        );
+      }
+    } catch (err) {
+      console.log('[StudentDashboard] Toggle availability error:', err);
+      if (showToast) {
+        showToast(err.message || 'Không thể thay đổi trạng thái', 'error');
+      }
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
 
   const handleSelectLocation = async (lat, lng, addressName) => {
     const coords = { latitude: lat, longitude: lng };
@@ -275,6 +334,11 @@ export default function StudentDashboard() {
     reverseGeocode();
   }, [studentCoords]);
 
+  // Reset page when search query, radius or shifts change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, radius, shifts.length]);
+
   // Distance processor
   const processedShifts = (shifts || []).map(shift => {
     if (!shift.latitude || !shift.longitude || (shift.latitude === 0 && shift.longitude === 0)) {
@@ -307,6 +371,12 @@ export default function StudentDashboard() {
   const closestShift = filteredShifts.filter(s => !s.noGps).length > 0
     ? [...filteredShifts].filter(s => !s.noGps).sort((a, b) => a.distanceKm - b.distanceKm)[0]
     : null;
+
+  const totalPages = Math.ceil(filteredShifts.length / ITEMS_PER_PAGE);
+  const paginatedShifts = filteredShifts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const renderShiftCard = (shift, index) => {
     const isApplied = shift.status === 'applied';
@@ -596,117 +666,87 @@ export default function StudentDashboard() {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <View style={styles.header}>
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeGreeting}>Chào bạn, {user?.name || 'Sinh viên'} 👋</Text>
-          <Text style={styles.welcomeSubtitle}>Hôm nay bạn muốn tìm công việc gì?</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.gpsIndicator}
-          onPress={() => setLocationModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="location" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
-          <Text style={styles.gpsText} numberOfLines={1} ellipsizeMode="tail">{getGpsLabel()}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Top Search bar and advanced filter toggle */}
-      <View style={styles.topSearchWrapper}>
-        <View style={styles.searchBarRow}>
-          <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm việc gần bạn..."
-              placeholderTextColor="#94A3B8"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
-                <Ionicons name="close-circle" size={16} color="#94A3B8" />
-              </TouchableOpacity>
-            )}
-          </View>
+        <View style={styles.headerTopRow}>
           <TouchableOpacity
-            style={[styles.filterBtn, filterVisible && styles.filterBtnActive]}
-            onPress={() => setFilterVisible(!filterVisible)}
+            style={styles.gpsIndicator}
+            onPress={() => setLocationModalVisible(true)}
             activeOpacity={0.8}
           >
-            <Ionicons name="options-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-            <Text style={styles.filterBtnText}>Lọc</Text>
+            <Ionicons name="location" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
+            <Text style={styles.gpsText} numberOfLines={1} ellipsizeMode="tail">{getGpsLabel()}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.availabilityPill,
+              isAvailable ? styles.availabilityPillActive : styles.availabilityPillInactive,
+            ]}
+            onPress={handleToggleAvailability}
+            activeOpacity={0.85}
+            disabled={availabilityLoading}
+          >
+            <View style={styles.availabilityPillContent}>
+              <View style={[styles.availabilityDot, { backgroundColor: isAvailable ? '#22C55E' : '#94A3B8' }]} />
+              <Text style={[styles.availabilityPillLabel, { color: isAvailable ? '#166534' : '#475569' }]}>
+                {isAvailable ? 'Sẵn sàng nhận việc' : 'Chưa sẵn sàng'}
+              </Text>
+              {availabilityLoading && (
+                <ActivityIndicator size="small" color={isAvailable ? '#166534' : '#475569'} style={{ marginLeft: 6 }} />
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 
-        {/* Collapsible Search Radius Drawer */}
-        {filterVisible && (
-          <View style={[styles.filterDrawer, theme.shadows.light]}>
-            <View style={styles.sliderHeader}>
-              <Text style={styles.sliderTitle}>Phạm vi tìm kiếm</Text>
-              <Text style={styles.sliderValue}>{radius === 999.0 ? 'Tất cả' : `${radius.toFixed(1)} km`}</Text>
-            </View>
-            <View style={styles.sliderTrackContainer}>
-              <TouchableOpacity
-                style={[styles.radiusOption, radius === 999.0 && styles.activeRadius]}
-                onPress={() => setRadius(999.0)}
-              >
-                <Text style={[styles.radiusOptionText, radius === 999.0 && styles.activeRadiusText]}>Tất cả</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radiusOption, radius === 3.0 && styles.activeRadius]}
-                onPress={() => setRadius(3.0)}
-              >
-                <Text style={[styles.radiusOptionText, radius === 3.0 && styles.activeRadiusText]}>3km</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radiusOption, radius === 5.0 && styles.activeRadius]}
-                onPress={() => setRadius(5.0)}
-              >
-                <Text style={[styles.radiusOptionText, radius === 5.0 && styles.activeRadiusText]}>5km</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.radiusOption, radius === 10.0 && styles.activeRadius]}
-                onPress={() => setRadius(10.0)}
-              >
-                <Text style={[styles.radiusOptionText, radius === 10.0 && styles.activeRadiusText]}>10km</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.headerSubControlRow}>
+          {/* View mode toggle - List vs Map */}
+          <View style={styles.viewToggleSegmented}>
+            <TouchableOpacity
+              style={[styles.toggleSegmentBtn, viewMode === 'list' && styles.activeSegmentBtn]}
+              onPress={() => setViewMode('list')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="list-outline" size={14} color={viewMode === 'list' ? '#FFFFFF' : '#64748B'} style={{ marginRight: 4 }} />
+              <Text style={[styles.segmentBtnText, viewMode === 'list' && styles.activeSegmentBtnText]}>Danh sách</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleSegmentBtn, viewMode === 'map' && styles.activeSegmentBtn]}
+              onPress={() => setViewMode('map')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="map-outline" size={14} color={viewMode === 'map' ? '#FFFFFF' : '#64748B'} style={{ marginRight: 4 }} />
+              <Text style={[styles.segmentBtnText, viewMode === 'map' && styles.activeSegmentBtnText]}>Bản đồ Radar</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* View mode toggle - List vs Map */}
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'list' && styles.activeToggle]}
-            onPress={() => setViewMode('list')}
-            activeOpacity={0.7}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="list-outline" size={16} color={viewMode === 'list' ? theme.colors.student : '#64748B'} style={{ marginRight: 6 }} />
-              <Text style={[styles.toggleText, viewMode === 'list' && styles.activeToggleText]}>Danh sách</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'map' && styles.activeToggle]}
-            onPress={() => setViewMode('map')}
-            activeOpacity={0.7}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="map-outline" size={16} color={viewMode === 'map' ? theme.colors.student : '#64748B'} style={{ marginRight: 6 }} />
-              <Text style={[styles.toggleText, viewMode === 'map' && styles.activeToggleText]}>Bản đồ Radar</Text>
-            </View>
-          </TouchableOpacity>
+          {/* Search Radius chips */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radiusChipsScroll}>
+            <TouchableOpacity
+              style={[styles.radiusChip, radius === 999.0 && styles.radiusChipActive]}
+              onPress={() => setRadius(999.0)}
+            >
+              <Text style={[styles.radiusChipText, radius === 999.0 && styles.radiusChipTextActive]}>Tất cả</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.radiusChip, radius === 3.0 && styles.radiusChipActive]}
+              onPress={() => setRadius(3.0)}
+            >
+              <Text style={[styles.radiusChipText, radius === 3.0 && styles.radiusChipTextActive]}>3km</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.radiusChip, radius === 5.0 && styles.radiusChipActive]}
+              onPress={() => setRadius(5.0)}
+            >
+              <Text style={[styles.radiusChipText, radius === 5.0 && styles.radiusChipTextActive]}>5km</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.radiusChip, radius === 10.0 && styles.radiusChipActive]}
+              onPress={() => setRadius(10.0)}
+            >
+              <Text style={[styles.radiusChipText, radius === 10.0 && styles.radiusChipTextActive]}>10km</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
-
-      {closestShift && (
-        <View style={styles.closestShiftBanner}>
-          <Ionicons name="compass-outline" size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-          <Text style={styles.closestShiftBannerText}>
-            Ca làm gần nhất: <Text style={{ fontWeight: 'bold' }}>{closestShift.title}</Text> ({closestShift.shopName}) cách bạn chỉ <Text style={{ fontWeight: 'bold', color: theme.colors.student }}>{closestShift.distanceKm} km</Text>!
-          </Text>
-        </View>
-      )}
 
       {viewMode === 'list' ? (
         <ScrollView
@@ -720,6 +760,14 @@ export default function StudentDashboard() {
             />
           }
         >
+          {closestShift && (
+            <View style={[styles.closestShiftBanner, { marginHorizontal: 0, marginTop: 4, marginBottom: 12 }]}>
+              <Ionicons name="compass-outline" size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.closestShiftBannerText}>
+                Ca làm gần nhất: <Text style={{ fontWeight: 'bold' }}>{closestShift.title}</Text> ({closestShift.shopName}) cách bạn chỉ <Text style={{ fontWeight: 'bold', color: theme.colors.student }}>{closestShift.distanceKm} km</Text>!
+              </Text>
+            </View>
+          )}
           {filteredShifts.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="search-outline" size={48} color={theme.colors.textLight} style={{ marginBottom: 12 }} />
@@ -735,7 +783,36 @@ export default function StudentDashboard() {
               )}
             </View>
           ) : (
-            filteredShifts.map(renderShiftCard)
+            <>
+              {paginatedShifts.map(renderShiftCard)}
+              {totalPages > 1 && (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+                    disabled={currentPage === 1}
+                    onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  >
+                    <Ionicons name="chevron-back" size={18} color={currentPage === 1 ? '#94A3B8' : '#FF6B00'} />
+                    <Text style={[styles.pageBtnText, currentPage === 1 && styles.pageBtnTextDisabled]}>Trước</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.pageIndicator}>
+                    <Text style={styles.pageIndicatorText}>
+                      Trang <Text style={{fontWeight: 'bold', color: '#FF6B00'}}>{currentPage}</Text> / {totalPages}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+                    disabled={currentPage === totalPages}
+                    onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  >
+                    <Text style={[styles.pageBtnText, currentPage === totalPages && styles.pageBtnTextDisabled]}>Sau</Text>
+                    <Ionicons name="chevron-forward" size={18} color={currentPage === totalPages ? '#94A3B8' : '#FF6B00'} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       ) : (
@@ -874,41 +951,30 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+  },
+  headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  welcomeSection: {
-    flex: 1,
-    marginRight: 8,
-  },
-  welcomeGreeting: {
-    fontFamily: 'System',
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#181C1E',
-  },
-  welcomeSubtitle: {
-    fontSize: 12,
-    color: '#5A4136',
-    opacity: 0.8,
-    marginTop: 2,
+    gap: 8,
   },
   gpsIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.primary + '1A',
-    paddingVertical: 6,
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary + '0A',
+    height: 34,
     paddingHorizontal: 10,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: 17,
     borderWidth: 1,
-    borderColor: theme.colors.primary + '33',
-    maxWidth: 160,
+    borderColor: theme.colors.primary + '22',
+    flex: 1,
   },
   gpsSymbol: {
     fontSize: 12,
@@ -919,6 +985,100 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: theme.colors.primary,
     flexShrink: 1,
+  },
+  availabilityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    flex: 1,
+  },
+  availabilityPillActive: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
+  },
+  availabilityPillInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  availabilityPillContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availabilityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  availabilityPillLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  headerSubControlRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  viewToggleSegmented: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 2,
+    alignItems: 'center',
+    height: 32,
+  },
+  toggleSegmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    height: 28,
+  },
+  activeSegmentBtn: {
+    backgroundColor: '#FF6B00',
+  },
+  segmentBtnText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  activeSegmentBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  radiusChipsScroll: {
+    gap: 4,
+    alignItems: 'center',
+  },
+  radiusChip: {
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    height: 28,
+    justifyContent: 'center',
+  },
+  radiusChipActive: {
+    backgroundColor: '#FF6B0015',
+    borderColor: '#FF6B00',
+  },
+  radiusChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  radiusChipTextActive: {
+    color: '#FF6B00',
+    fontWeight: '700',
   },
   sliderHeader: {
     flexDirection: 'row',
@@ -1451,7 +1611,7 @@ const styles = StyleSheet.create({
   },
   /* Map View Mode Styles */
   mapViewContainer: {
-    height: 520,
+    flex: 1,
     marginHorizontal: 16,
     borderRadius: 24,
     overflow: 'hidden',
@@ -1459,7 +1619,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
     position: 'relative',
-    marginBottom: Platform.OS === 'ios' ? 100 : 90,
+    marginBottom: Platform.OS === 'ios' ? 110 : 100,
   },
   gpsFloatingButton: {
     position: 'absolute',
@@ -1544,70 +1704,7 @@ const styles = StyleSheet.create({
     maxWidth: 110,
   },
   /* Top Unified Search Styles */
-  topSearchWrapper: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    marginBottom: 8,
-  },
-  searchBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  searchBox: {
-    flex: 1,
-    height: 44,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#1E293B',
-    fontSize: 14,
-    fontWeight: '500',
-    paddingVertical: Platform.OS === 'ios' ? 8 : 4,
-  },
-  filterBtn: {
-    width: 72,
-    height: 44,
-    backgroundColor: '#FF6B00',
-    borderRadius: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  filterBtnActive: {
-    backgroundColor: '#C2410C',
-  },
-  filterBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  filterDrawer: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    marginTop: 8,
-    marginBottom: 4,
-  },
+  /* Removed Top Unified Search Styles for cleaner layout */
   guestButton: {
     padding: 12,
     borderRadius: 8,
@@ -1619,5 +1716,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1E293B',
     fontWeight: '600',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  pageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FFEBE0',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  pageBtnDisabled: {
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pageBtnText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FF6B00',
+    marginHorizontal: 4,
+  },
+  pageBtnTextDisabled: {
+    color: '#94A3B8',
+  },
+  pageIndicator: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+  },
+  pageIndicatorText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
   },
 });

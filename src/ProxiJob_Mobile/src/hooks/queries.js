@@ -20,10 +20,12 @@ import {
   getEmployees,
   createEmployee,
   deleteEmployee,
+  updateEmployee,
   getTimekeepingLogs,
   getSchedules,
   createSchedule,
   deleteSchedule,
+  getMySchedules,
   getPayrolls,
   calculatePayroll,
   approvePayroll,
@@ -123,6 +125,90 @@ export const useShiftsQuery = (user, studentCoords) => {
               }
               return shift;
             });
+
+            // Fetch manually assigned schedules for the student
+            const today = new Date();
+            const fromDateObj = new Date(today);
+            fromDateObj.setDate(today.getDate() - 30);
+            const toDateObj = new Date(today);
+            toDateObj.setDate(today.getDate() + 90);
+            
+            const formatDateStr = (d) => {
+              return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+            };
+            
+            const fromDate = formatDateStr(fromDateObj);
+            const toDate = formatDateStr(toDateObj);
+
+            try {
+              const myScheds = await getMySchedules(fromDate, toDate);
+              const scheds = Array.isArray(myScheds) ? myScheds : (Array.isArray(myScheds?.data) ? myScheds.data : (myScheds?.items || []));
+              
+              for (const sched of scheds) {
+                // If it is generated from an approved application, we already have it in baseShifts (matched by JobShiftId)
+                if (sched.jobShiftId && baseShifts.some(shift => shift.id === sched.jobShiftId)) {
+                  // Ensure status is 'approved' or 'completed' depending on application state
+                  const existing = baseShifts.find(shift => shift.id === sched.jobShiftId);
+                  if (existing && existing.status !== 'checkin_active' && existing.status !== 'completed') {
+                    existing.status = 'approved';
+                  }
+                  continue;
+                }
+
+                // If not in baseShifts, it is a custom manual schedule. Let's create a virtual shift!
+                let slotName = 'Ca làm việc';
+                if (sched.note === 'morning') slotName = 'Ca Sáng';
+                else if (sched.note === 'afternoon') slotName = 'Ca Chiều';
+                else if (sched.note === 'evening') slotName = 'Ca Tối';
+                else if (sched.note && sched.note.startsWith('custom_')) slotName = 'Ca Tự Chọn';
+                else if (sched.note) slotName = sched.note;
+
+                const title = `Lịch phân công: ${slotName}`;
+
+                // Try to resolve the shopName and address by finding a job created by this business/employer
+                let shopName = 'Cửa hàng đối tác';
+                let address = 'Tại địa chỉ quán';
+                let latitude = 10.8261;
+                let longitude = 106.6297;
+                
+                const matchingJob = jobPosts.find(j => String(j.createdBy) === String(sched.businessId));
+                if (matchingJob) {
+                  shopName = matchingJob.categoryName || 'Cửa hàng';
+                  address = matchingJob.address || matchingJob.location?.address || '';
+                  latitude = matchingJob.latitude || matchingJob.location?.latitude || latitude;
+                  longitude = matchingJob.longitude || matchingJob.location?.longitude || longitude;
+                }
+
+                baseShifts.push({
+                  id: `sched_${sched.id}`, // virtual id to avoid overlaps
+                  jobPostId: null,
+                  startTime: sched.startTime,
+                  endTime: sched.endTime,
+                  title,
+                  shopName,
+                  hourlyRate: sched.jobShiftSalary || 28000,
+                  latitude,
+                  longitude,
+                  address,
+                  date: formatDateVN(sched.startTime),
+                  time: `${formatTimeVN(sched.startTime)} - ${formatTimeVN(sched.endTime)}`,
+                  description: `Ca làm việc theo phân lịch của quán ngày ${formatDateVN(sched.startTime)}.`,
+                  requirements: 'Vui lòng đến đúng giờ.',
+                  rating: 5.0,
+                  reviewsCount: 1,
+                  status: 'approved', // Manually scheduled means it is pre-approved!
+                  isEmergency: false,
+                  auditFields: {
+                    createdBy: 'System',
+                    updatedBy: 'System',
+                    deletedBy: ''
+                  }
+                });
+              }
+            } catch (schedErr) {
+              console.log('Error merging student schedules in useShiftsQuery:', schedErr);
+            }
+
           } catch (appErr) {
             console.log('Error merging applications inside useShiftsQuery:', appErr);
           }
@@ -817,6 +903,29 @@ export const useRemoveStaffMemberMutation = (user, showToast) => {
     },
     onError: (err) => {
       showToast('Xóa nhân viên thất bại: ' + translateError(err), 'error');
+    }
+  });
+};
+
+export const useUpdateStaffMemberMutation = (user, showToast) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name, role, phone }) => {
+      if (!user) throw new Error('Vui lòng đăng nhập.');
+      return updateEmployee(id, {
+        fullName: name,
+        position: role,
+        phoneNumber: phone,
+        paymentType: 0,
+        hourlyRate: 30000
+      });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['staffList'] });
+      showToast(`Đã cập nhật thông tin nhân viên ${variables.name}!`, 'success');
+    },
+    onError: (err) => {
+      showToast('Cập nhật nhân viên thất bại: ' + translateError(err), 'error');
     }
   });
 };

@@ -518,15 +518,6 @@ export default function EmployerProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Premium custom back-button header */}
-      <View style={[styles.header, { paddingTop: Math.max(8, insets.top) }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={goBack} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hồ Sơ Của Quán</Text>
-        <View style={{ width: 32 }} />
-      </View>
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -885,7 +876,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 16,
-    paddingBottom: 48,
+    paddingBottom: 140,
   },
   // Section 1: Header Profile Card & Avatar Picker Section
   bentoHeaderCard: {

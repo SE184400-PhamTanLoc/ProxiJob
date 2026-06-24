@@ -11,6 +11,7 @@ import {
   TextInput
 } from 'react-native';
 import { AppContext } from '../../context/AppContext';
+import { Ionicons } from '@expo/vector-icons';
 import * as Font from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAvatarSource } from '../../utils/avatarHelper';
@@ -326,9 +327,9 @@ export default function CandidateListScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top, height: 60 + insets.top }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, paddingBottom: 12 }]}>
         <TouchableOpacity style={styles.headerBackBtn} onPress={goBack} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
+          <Ionicons name="arrow-back" size={20} color="#5A4136" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>ỨNG VIÊN CHỜ DUYỆT</Text>
         <View style={{ width: 36 }} />
@@ -437,8 +438,28 @@ export default function CandidateListScreen() {
                           source={getAvatarSource(app.studentAvatarUrl || app.StudentAvatarUrl, null, app.studentName)}
                           style={styles.premiumCardAvatar}
                         />
-                        <View style={[styles.premiumMatchBadge, { backgroundColor: isHighMatch ? '#300066' : '#5B00DF' }]}>
-                          <Text style={styles.premiumMatchBadgeText}>{matchIcon} {matchPercentage}% Phù hợp</Text>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <View style={[styles.premiumMatchBadge, { backgroundColor: isHighMatch ? '#300066' : '#5B00DF', marginBottom: 8 }]}>
+                            <Text style={styles.premiumMatchBadgeText}>{matchIcon} {matchPercentage}% Phù hợp</Text>
+                          </View>
+                          <View style={styles.premiumActionsRow}>
+                            <TouchableOpacity
+                              style={styles.premiumCircleBtn}
+                              activeOpacity={0.7}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                navigateTo('employer_chat', {
+                                  partnerId: app.studentId,
+                                  partnerName: app.studentName,
+                                  partnerPhone: '',
+                                  partnerAvatar: app.studentAvatarUrl || app.StudentAvatarUrl,
+                                  partnerGender: undefined
+                                });
+                              }}
+                            >
+                              <Text style={{ fontSize: 14 }}>💬</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       </View>
 
@@ -624,7 +645,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7FAFC',
   },
   header: {
-    height: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

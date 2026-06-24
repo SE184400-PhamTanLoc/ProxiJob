@@ -49,6 +49,31 @@ export async function createEmployee(payload) {
 }
 
 /**
+ * Update an existing employee manually in the HRM roster
+ * @param {number} id 
+ * @param {object} payload 
+ * @returns {Promise<object>}
+ */
+export async function updateEmployee(id, payload) {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${MANAGEMENT_API_BASE_URL}/employees/${id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update employee: ${response.status}`);
+    }
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Management API] updateEmployee error:', error);
+    throw error;
+  }
+}
+
+/**
  * Terminate/Delete an employee from the roster
  * @param {number} id 
  * @returns {Promise<object>}
@@ -346,6 +371,27 @@ export async function deleteSchedule(id) {
     return resData.data !== undefined ? resData.data : resData;
   } catch (error) {
     console.log('[ProxiJob Management API] deleteSchedule error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch employee's own schedules
+ * @param {string} fromDate format YYYY-MM-DD
+ * @param {string} toDate format YYYY-MM-DD
+ * @returns {Promise<object>}
+ */
+export async function getMySchedules(fromDate, toDate) {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${MANAGEMENT_API_BASE_URL}/schedules/my-schedules?fromDate=${fromDate}&toDate=${toDate}`, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch my schedules: ${response.status}`);
+    }
+    const resData = await response.json();
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Management API] getMySchedules error:', error);
     throw error;
   }
 }

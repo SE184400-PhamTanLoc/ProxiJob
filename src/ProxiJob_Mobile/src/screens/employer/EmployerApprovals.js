@@ -59,6 +59,19 @@ export default function EmployerApprovals() {
   const shifts = employerData.shifts || [];
   const leaveRequests = employerData.leaveRequests || [];
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeSegment, shifts.length]);
+
+  const totalPages = Math.ceil(shifts.length / ITEMS_PER_PAGE);
+  const paginatedShifts = shifts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   // Mutations
   const deleteJobPostMutation = useDeleteJobPostMutation(user, showToast);
   const updateJobPostWizardMutation = useUpdateJobPostWizardMutation(user, showToast);
@@ -292,102 +305,139 @@ export default function EmployerApprovals() {
         {activeSegment === 'job_posts' ? (
           /* Job Posts Management Tab */
           <View style={styles.cardsWrapper}>
-            {shifts.map((shift, index) => {
-              const applicantCount = shift.applicantCount !== undefined ? shift.applicantCount : (shift.status === 'applied' ? 1 : 0);
-              const hasApplicants = applicantCount > 0;
-              const leftBorderColor = getLeftBorderColor(index);
-              const cardViews = (shift.applicantCount || 0) * 15 + 120;
-              
-              return (
+            {shifts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>📬</Text>
+                <Text style={styles.emptyText}>Chưa có bài đăng nào hết</Text>
+                <Text style={styles.emptySub}>Bấm vào nút "+" ở góc dưới bên phải để bắt đầu tạo tin tuyển dụng mới.</Text>
+              </View>
+            ) : (
+              paginatedShifts.map((shift, index) => {
+                const applicantCount = shift.applicantCount !== undefined ? shift.applicantCount : (shift.status === 'applied' ? 1 : 0);
+                const hasApplicants = applicantCount > 0;
+                const leftBorderColor = getLeftBorderColor(index);
+                const cardViews = (shift.applicantCount || 0) * 15 + 120;
+                
+                return (
+                  <TouchableOpacity
+                    key={shift.id}
+                    style={styles.cardShadowContainer}
+                    activeOpacity={0.9}
+                    onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
+                  >
+                    <View style={[
+                      styles.cardContent,
+                      { borderLeftColor: leftBorderColor, borderLeftWidth: 6 }
+                    ]}>
+                      <View style={styles.cardTopRow}>
+                        <View style={styles.logoAndName}>
+                          <View style={[styles.shopLogoCircle, { backgroundColor: getShopBgColor(shift.shopName) }]}>
+                            <Text style={[styles.shopLogoText, { color: getShopTextColor(shift.shopName) }]}>
+                              {getShopInitials(shift.shopName)}
+                            </Text>
+                          </View>
+                          <View style={styles.viewCountRow}>
+                            <Ionicons name="eye-outline" size={13} color="#64748B" style={{ marginRight: 2 }} />
+                            <Text style={styles.viewCountText}>
+                              {cardViews >= 1000 ? (cardViews / 1000).toFixed(1) + 'k' : cardViews} lượt xem
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.cardActionsRow}>
+                          <TouchableOpacity
+                            style={[styles.cardActionBtn, { marginRight: 8 }]}
+                            onPress={() => handleEditPress(shift)}
+                          >
+                            <Text style={styles.cardActionIcon}>✏️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.cardActionBtn, styles.cardActionBtnDelete]}
+                            onPress={() => handleDeletePress(shift)}
+                          >
+                            <Text style={styles.cardActionIcon}>🗑️</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <Text style={styles.jobTitleText} numberOfLines={2}>{shift.title}</Text>
+                      <Text style={styles.shopSubtitleText} numberOfLines={1}>{shift.shopName}</Text>
+
+                      <View style={styles.timeInfoRow}>
+                        <Ionicons name="calendar-outline" size={13} color="#64748B" style={{ marginRight: 4 }} />
+                        <Text style={styles.timeInfoText}>{shift.date} • {shift.time}</Text>
+                      </View>
+
+                      <View style={styles.cardFooterRow}>
+                        <View style={styles.salaryAndStatus}>
+                          <Text style={styles.salaryText}>
+                            {(shift.hourlyRate).toLocaleString('vi-VN')} đ/h
+                          </Text>
+                          <Text style={[
+                            styles.statusText,
+                            shift.status === 'completed' && { color: '#64748B' },
+                            shift.status === 'checkin_active' && { color: '#10B981' },
+                            shift.status === 'approved' && { color: '#0A58CA' }
+                          ]}>
+                            • {shift.status === 'completed'
+                              ? 'Đã hoàn thành'
+                              : shift.status === 'checkin_active'
+                                ? 'Sinh viên đang làm'
+                                : shift.status === 'approved'
+                                  ? 'Đã duyệt hồ sơ'
+                                  : 'Đang hiển thị'}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.viewCandidatesBtn}
+                          onPress={() => navigateTo('candidate_list', { shiftId: shift.id })}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.viewCandidatesBtnText}>
+                            {hasApplicants ? `Xem ứng viên (${applicantCount})` : 'Tìm lân cận'}
+                          </Text>
+                          {hasApplicants ? (
+                            <Ionicons name="chevron-forward" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                          ) : (
+                            <Ionicons name="search" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <View style={styles.paginationContainer}>
                 <TouchableOpacity
-                  key={shift.id}
-                  style={styles.cardShadowContainer}
-                  activeOpacity={0.9}
-                  onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
+                  style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+                  disabled={currentPage === 1}
+                  onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 >
-                  <View style={[
-                    styles.cardContent,
-                    { borderLeftColor: leftBorderColor, borderLeftWidth: 6 }
-                  ]}>
-                    <View style={styles.cardTopRow}>
-                      <View style={styles.logoAndName}>
-                        <View style={[styles.shopLogoCircle, { backgroundColor: getShopBgColor(shift.shopName) }]}>
-                          <Text style={[styles.shopLogoText, { color: getShopTextColor(shift.shopName) }]}>
-                            {getShopInitials(shift.shopName)}
-                          </Text>
-                        </View>
-                        <View style={styles.viewCountRow}>
-                          <Ionicons name="eye-outline" size={13} color="#64748B" style={{ marginRight: 2 }} />
-                          <Text style={styles.viewCountText}>
-                            {cardViews >= 1000 ? (cardViews / 1000).toFixed(1) + 'k' : cardViews} lượt xem
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.cardActionsRow}>
-                        <TouchableOpacity
-                          style={[styles.cardActionBtn, { marginRight: 8 }]}
-                          onPress={() => handleEditPress(shift)}
-                        >
-                          <Text style={styles.cardActionIcon}>✏️</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.cardActionBtn, styles.cardActionBtnDelete]}
-                          onPress={() => handleDeletePress(shift)}
-                        >
-                          <Text style={styles.cardActionIcon}>🗑️</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <Text style={styles.jobTitleText} numberOfLines={2}>{shift.title}</Text>
-                    <Text style={styles.shopSubtitleText} numberOfLines={1}>{shift.shopName}</Text>
-
-                    <View style={styles.timeInfoRow}>
-                      <Ionicons name="calendar-outline" size={13} color="#64748B" style={{ marginRight: 4 }} />
-                      <Text style={styles.timeInfoText}>{shift.date} • {shift.time}</Text>
-                    </View>
-
-                    <View style={styles.cardFooterRow}>
-                      <View style={styles.salaryAndStatus}>
-                        <Text style={styles.salaryText}>
-                          {(shift.hourlyRate).toLocaleString('vi-VN')} đ/h
-                        </Text>
-                        <Text style={[
-                          styles.statusText,
-                          shift.status === 'completed' && { color: '#64748B' },
-                          shift.status === 'checkin_active' && { color: '#10B981' },
-                          shift.status === 'approved' && { color: '#0A58CA' }
-                        ]}>
-                          • {shift.status === 'completed'
-                            ? 'Đã hoàn thành'
-                            : shift.status === 'checkin_active'
-                              ? 'Sinh viên đang làm'
-                              : shift.status === 'approved'
-                                ? 'Đã duyệt hồ sơ'
-                                : 'Đang hiển thị'}
-                        </Text>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.viewCandidatesBtn}
-                        onPress={() => navigateTo('candidate_list', { shiftId: shift.id })}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.viewCandidatesBtnText}>
-                          {hasApplicants ? `Xem ứng viên (${applicantCount})` : 'Tìm lân cận'}
-                        </Text>
-                        {hasApplicants ? (
-                          <Ionicons name="chevron-forward" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                        ) : (
-                          <Ionicons name="search" size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <Ionicons name="chevron-back" size={18} color={currentPage === 1 ? '#94A3B8' : '#0A58CA'} />
+                  <Text style={[styles.pageBtnText, currentPage === 1 && styles.pageBtnTextDisabled]}>Trước</Text>
                 </TouchableOpacity>
-              );
-            })}
+
+                <View style={styles.pageIndicator}>
+                  <Text style={styles.pageIndicatorText}>
+                    Trang <Text style={{fontWeight: 'bold', color: '#0A58CA'}}>{currentPage}</Text> / {totalPages}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+                  disabled={currentPage === totalPages}
+                  onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                >
+                  <Text style={[styles.pageBtnText, currentPage === totalPages && styles.pageBtnTextDisabled]}>Sau</Text>
+                  <Ionicons name="chevron-forward" size={18} color={currentPage === totalPages ? '#94A3B8' : '#0A58CA'} />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ) : (
           /* Leaves / Swaps Tab */
@@ -1524,5 +1574,56 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  pageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E0EBFF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    shadowColor: '#0A58CA',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  pageBtnDisabled: {
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  pageBtnText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#0A58CA',
+    marginHorizontal: 4,
+  },
+  pageBtnTextDisabled: {
+    color: '#94A3B8',
+  },
+  pageIndicator: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+  },
+  pageIndicatorText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
   },
 });

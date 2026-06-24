@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProxiJob.Identity.Application.Features.Students.Commands.CompleteStudentProfile;
+using ProxiJob.Identity.Application.Features.Students.Commands.DeactivateStudentProfile;
 using ProxiJob.Identity.Application.Features.Students.Commands.RegisterStudentProfile;
 using ProxiJob.Identity.Application.Features.Students.Commands.UpdateMyStudentProfile;
 using ProxiJob.Identity.Application.Features.Students.Queries.GetMyStudentProfile;
@@ -111,6 +112,25 @@ namespace ProxiJob.Identity.API.Controllers
             }
         }
 
+        /// <summary>Tạm ngưng nhận việc (chuyển về Inactive)</summary>
+        [HttpPost("deactivate")]
+        public async Task<IActionResult> DeactivateProfile(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var result = await _mediator.Send(new DeactivateStudentProfileCommand(), cancellationToken);
+                return Ok(ApiResponse<object>.Success(result, StatusCodes.Status200OK));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(ApiResponse.Fail(StatusCodes.Status401Unauthorized, ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse.Fail(StatusCodes.Status400BadRequest, ex.Message));
+            }
+        }
+
         /// <summary>Lấy danh sách tất cả các ứng viên đang sẵn sàng nhận việc (dành cho chủ quán)</summary>
         [HttpGet("active")]
         public async Task<IActionResult> GetActiveProfiles(CancellationToken cancellationToken)
@@ -131,3 +151,4 @@ namespace ProxiJob.Identity.API.Controllers
         }
     }
 }
+

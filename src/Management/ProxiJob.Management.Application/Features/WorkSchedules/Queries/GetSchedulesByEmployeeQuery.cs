@@ -39,12 +39,14 @@ public class GetSchedulesByEmployeeQueryHandler : IRequestHandler<GetSchedulesBy
         }
 
         var schedules = await _context.WorkSchedules
+            .Include(ws => ws.Employee)
             .Where(ws => ws.EmployeeId == request.EmployeeId && ws.Date >= request.FromDate && ws.Date <= request.ToDate)
             .OrderBy(ws => ws.StartTime)
             .Select(ws => new WorkScheduleDto
             {
                 Id = ws.Id,
                 EmployeeId = ws.EmployeeId,
+                BusinessId = ws.Employee.BusinessId,
                 JobShiftId = ws.JobShiftId,
                 JobShiftSalary = ws.JobShiftSalary,
                 Date = ws.Date,

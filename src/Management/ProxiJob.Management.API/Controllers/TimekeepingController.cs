@@ -54,23 +54,37 @@ public class TimekeepingController : ApiControllerBase
     }
 
     [HttpPost("api/timekeeping/check-in")]
-    [Authorize(Roles = "Employee")] // Only employee can check in
+    [Authorize(Roles = "Student,Employee")] // Only employee/student can check in
     public async Task<IActionResult> CheckIn([FromBody] CheckInCommand command)
     {
-        command.UserId = GetUserId();
-        command.CreatedBy = GetCurrentUser();
-        var id = await _mediator.Send(command);
-        return Ok(new { TimekeepingId = id });
+        try
+        {
+            command.UserId = GetUserId();
+            command.CreatedBy = GetCurrentUser();
+            var id = await _mediator.Send(command);
+            return Ok(new { TimekeepingId = id });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ProxiJob.Management.API.Common.ApiResponse.FailureResponse(ex.Message));
+        }
     }
 
     [HttpPost("api/timekeeping/check-out")]
-    [Authorize(Roles = "Employee")]
+    [Authorize(Roles = "Student,Employee")]
     public async Task<IActionResult> CheckOut([FromBody] CheckOutCommand command)
     {
-        command.UserId = GetUserId();
-        command.UpdatedBy = GetCurrentUser();
-        await _mediator.Send(command);
-        return Ok();
+        try
+        {
+            command.UserId = GetUserId();
+            command.UpdatedBy = GetCurrentUser();
+            await _mediator.Send(command);
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ProxiJob.Management.API.Common.ApiResponse.FailureResponse(ex.Message));
+        }
     }
 
     [HttpPost("api/timekeeping/manual")]

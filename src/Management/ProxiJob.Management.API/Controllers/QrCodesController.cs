@@ -9,7 +9,6 @@ using ProxiJob.Management.Application.Features.QrCodes.Queries;
 namespace ProxiJob.Management.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Business")]
 public class QrCodesController : ApiControllerBase
 {
     private readonly IMediator _mediator;
@@ -32,6 +31,19 @@ public class QrCodesController : ApiControllerBase
         {
             return businessId;
         }
+
+        // Resolve BusinessId for employees/students
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "UserId" || c.Type == "sub" || c.Type == "nameid");
+        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var userId))
+        {
+            var context = HttpContext.RequestServices.GetRequiredService<IManagementDbContext>();
+            var employee = context.Employees.FirstOrDefault(e => e.UserId == userId);
+            if (employee != null)
+            {
+                return employee.BusinessId;
+            }
+        }
+
         return 1; // Default for development
     }
 
@@ -41,6 +53,7 @@ public class QrCodesController : ApiControllerBase
     }
 
     [HttpPost("api/qr-code/generate")]
+    [Authorize(Roles = "Business")]
     public async Task<IActionResult> GenerateQrCode()
     {
         var command = new GenerateQrCodeCommand
@@ -53,6 +66,7 @@ public class QrCodesController : ApiControllerBase
     }
 
     [HttpGet("api/qr-code")]
+    [Authorize(Roles = "Business,Student,Employee")]
     public async Task<IActionResult> GetQrCode()
     {
         var query = new GetQrCodeByBusinessQuery
@@ -65,6 +79,7 @@ public class QrCodesController : ApiControllerBase
     }
 
     [HttpPatch("api/qr-code/radius")]
+    [Authorize(Roles = "Business")]
     public async Task<IActionResult> UpdateRadius([FromBody] UpdateQrRadiusCommand command)
     {
         command.BusinessId = GetBusinessId();

@@ -35,6 +35,7 @@ public class GetSchedulesByBusinessQueryHandler : IRequestHandler<GetSchedulesBy
             {
                 Id = ws.Id,
                 EmployeeId = ws.EmployeeId,
+                BusinessId = ws.Employee.BusinessId,
                 JobShiftId = ws.JobShiftId,
                 JobShiftSalary = ws.JobShiftSalary,
                 Date = ws.Date,

@@ -5,7 +5,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Animated,
   Dimensions,
@@ -15,6 +14,7 @@ import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getPlansApi, purchasePlanApi } from '../../api/auth';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -29,6 +29,7 @@ const FEATURE_ROWS = [
 
 export default function UpgradePackageScreen() {
   const { navigateTo, showToast, user, goBack } = useContext(AppContext);
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(null);
   const [plans, setPlans] = useState([]);
   const [fetchingPlans, setFetchingPlans] = useState(true);
@@ -99,9 +100,9 @@ export default function UpgradePackageScreen() {
   const premium = plans.find(p => p.planName === 'Premium');
 
   return (
-    <SafeAreaView style={s.container}>
+    <View style={s.container}>
       {/* Header */}
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: insets.top + 12, paddingBottom: 12 }]}>
         <TouchableOpacity style={s.hBack} onPress={goBack}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
@@ -298,7 +299,7 @@ export default function UpgradePackageScreen() {
           )}
         </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -447,7 +448,6 @@ const s = StyleSheet.create({
   bracketBL: { position: 'absolute', bottom: 12, left: 12, width: 14, height: 14, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderColor: '#FF6B00', borderBottomLeftRadius: 4 },
   bracketBR: { position: 'absolute', bottom: 12, right: 12, width: 14, height: 14, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderColor: '#FF6B00', borderBottomRightRadius: 4 },
   header: {
-    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

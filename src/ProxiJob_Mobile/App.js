@@ -42,21 +42,7 @@ function MainAppShell() {
   } = useContext(AppContext);
 
   const getHeaderTitle = (screen) => {
-    switch (screen) {
-      case "employer_chat":
-      case "student_chat":
-        return "Trò Chuyện";
-      case "employer_hrm":
-        return "Nhân Sự";
-      case "employer_scheduling":
-        return "Xếp Lịch";
-      case "employer_monitor":
-        return "GPS Live";
-      case "payroll_settlement":
-        return "Quyết Toán";
-      default:
-        return null;
-    }
+    return null;
   };
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -91,7 +77,10 @@ function MainAppShell() {
   const unreadNotifsCount = user ? notifications.filter((n) => !n.read).length : 0;
   const isStudent = !user || user.role === "student";
 
-  const hideHeaderScreens = ["candidate_list", "payment_qr", "upgrade_package", "employer_emergency_post", "employer_profile"];
+  const tier = user?.subscriptionTier?.toLowerCase() || '';
+  const hasStandard = tier === 'standard' || tier === 'premium' || tier === 'enterprise';
+
+  const hideHeaderScreens = ["candidate_list", "payment_qr", "upgrade_package", "employer_emergency_post"];
   const showHeader = !hideHeaderScreens.includes(currentScreen) && !isChatRoomActive;
 
   return (
@@ -116,7 +105,7 @@ function MainAppShell() {
           {/* Universal Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              {(currentScreen === "job_detail" || currentScreen === "upgrade_package" || currentScreen === "payment_qr") && (
+              {(currentScreen === "job_detail" || currentScreen === "upgrade_package" || currentScreen === "payment_qr" || (currentScreen === "employer_profile" && hasStandard)) && (
                 <TouchableOpacity
                   style={{ marginRight: 8, paddingVertical: 4, paddingRight: 4 }}
                   onPress={goBack}

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,13 +7,16 @@ import {
   SafeAreaView,
   Platform,
   TouchableOpacity,
-  Image
+  Image,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { getAvatarSource } from '../../utils/avatarHelper';
 import { useAttendanceLogsQuery, useStaffListQuery } from '../../hooks/queries';
+import { getQrCode, generateQrCode, updateQrRadius } from '../../api/management';
 
 // Pure JS Haversine formula
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -41,7 +44,69 @@ export default function EmployerMonitor() {
 
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
-  React.useEffect(() => {
+  // QR Code Management States
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [loadingQr, setLoadingQr] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState(false);
+
+  const loadQrCode = async () => {
+    setLoadingQr(true);
+    try {
+      const data = await getQrCode();
+      setQrCodeData(data);
+    } catch (err) {
+      console.log('Error fetching QR code:', err);
+    } finally {
+      setLoadingQr(false);
+    }
+  };
+
+  useEffect(() => {
+    loadQrCode();
+  }, []);
+
+  const handleGenerateQr = async () => {
+    setGeneratingQr(true);
+    try {
+      await generateQrCode();
+      await loadQrCode();
+      if (Platform.OS === 'web') {
+        alert('Mã QR đã được làm mới thành công! Token mới đã được cập nhật.');
+      } else {
+        Alert.alert('Thành công', 'Mã QR đã được làm mới thành công! Token mới đã được cập nhật.');
+      }
+    } catch (err) {
+      console.log('Error generating QR code:', err);
+      if (Platform.OS === 'web') {
+        alert('Lỗi tạo mã QR: ' + err.message);
+      } else {
+        Alert.alert('Thất bại', 'Lỗi tạo mã QR: ' + err.message);
+      }
+    } finally {
+      setGeneratingQr(false);
+    }
+  };
+
+  const handleUpdateRadius = async (newRadius) => {
+    try {
+      await updateQrRadius(newRadius);
+      setQrCodeData(prev => prev ? { ...prev, allowedRadiusMeters: newRadius } : null);
+      if (Platform.OS === 'web') {
+        alert(`Đã cập nhật bán kính điểm danh thành ${newRadius}m!`);
+      } else {
+        Alert.alert('Thành công', `Đã cập nhật bán kính điểm danh thành ${newRadius}m!`);
+      }
+    } catch (err) {
+      console.log('Error updating radius:', err);
+      if (Platform.OS === 'web') {
+        alert('Lỗi cập nhật bán kính: ' + err.message);
+      } else {
+        Alert.alert('Thất bại', 'Lỗi cập nhật bán kính: ' + err.message);
+      }
+    }
+  };
+
+  useEffect(() => {
     // Set up polling to update logs from database every 5 seconds
     const interval = setInterval(() => {
       refetchAttendanceLogs();
@@ -298,6 +363,84 @@ export default function EmployerMonitor() {
             );
           })
         )}
+
+        {/* QR Code Setup Card */}
+        <View style={styles.qrManagementBentoCard}>
+          <Text style={styles.qrCardTitle}>⚙️ Thiết lập Mã QR Điểm Danh</Text>
+          <Text style={styles.qrCardDesc}>
+            Mã QR này được dùng để đặt tại quầy thu ngân của quán. Sinh viên ở trong bán kính GPS và quét mã này để hoàn thành điểm danh.
+          </Text>
+
+          {loadingQr ? (
+            <ActivityIndicator color={theme.colors.student} style={{ marginVertical: 20 }} />
+          ) : qrCodeData ? (
+            <View style={styles.qrDetailsContainer}>
+              {/* Real QR Visual */}
+              <View style={styles.qrCodeVisualBox}>
+                <View style={styles.qrRealCodeContainer}>
+                  <Image 
+                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData.qrToken)}` }}
+                    style={styles.qrCodeImage}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.qrMetaRow}>
+                <Text style={styles.qrMetaLabel}>Token hiện tại:</Text>
+                <Text style={styles.qrMetaVal} numberOfLines={1}>{qrCodeData.qrToken}</Text>
+              </View>
+
+              {/* Allowed geofence radius selector */}
+              <View style={styles.radiusSelectorSection}>
+                <Text style={styles.radiusLabel}>Bán kính GPS cho phép:</Text>
+                <View style={styles.radiusBtnRow}>
+                  {[50, 100, 200].map((radius) => (
+                    <TouchableOpacity
+                      key={radius}
+                      style={[
+                        styles.radiusSelectBtn,
+                        qrCodeData.allowedRadiusMeters === radius && styles.radiusSelectBtnActive
+                      ]}
+                      onPress={() => handleUpdateRadius(radius)}
+                    >
+                      <Text style={[
+                        styles.radiusSelectText,
+                        qrCodeData.allowedRadiusMeters === radius && styles.radiusSelectTextActive
+                      ]}>
+                        {radius}m
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <TouchableOpacity
+                style={[styles.regenerateQrBtn, generatingQr && { opacity: 0.6 }]}
+                disabled={generatingQr}
+                onPress={handleGenerateQr}
+              >
+                <Text style={styles.regenerateQrBtnText}>
+                  {generatingQr ? 'Đang tạo mới...' : '🔄 Làm mới Mã QR (Đổi Token)'}
+                </Text>
+              </TouchableOpacity>
+              
+              <Text style={styles.qrSecurityTip}>
+                🔒 Nhấn "Làm mới Mã QR" sau mỗi ngày làm việc để tránh tình trạng sinh viên chụp lại mã và tự điểm danh từ xa.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.noQrContainer}>
+              <Text style={styles.noQrText}>Quán của bạn chưa tạo mã QR điểm danh.</Text>
+              <TouchableOpacity
+                style={styles.regenerateQrBtn}
+                onPress={handleGenerateQr}
+              >
+                <Text style={styles.regenerateQrBtnText}>⚡ Khởi tạo mã QR ngay</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -544,5 +687,151 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'transparent',
+  },
+  qrManagementBentoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 32,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 30,
+    elevation: 3,
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  qrCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 6,
+  },
+  qrCardDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  qrDetailsContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  qrCodeVisualBox: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  qrRealCodeContainer: {
+    width: 200,
+    height: 200,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 2,
+  },
+  qrCodeImage: {
+    width: 176,
+    height: 176,
+    resizeMode: 'contain',
+  },
+  qrMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  qrMetaLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  qrMetaVal: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '700',
+    maxWidth: 200,
+  },
+  radiusSelectorSection: {
+    width: '100%',
+    marginVertical: 16,
+  },
+  radiusLabel: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  radiusBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  radiusSelectBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radiusSelectBtnActive: {
+    backgroundColor: '#0F172A',
+  },
+  radiusSelectText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#475569',
+  },
+  radiusSelectTextActive: {
+    color: '#FFFFFF',
+  },
+  regenerateQrBtn: {
+    backgroundColor: theme.colors.student,
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: theme.colors.student,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  regenerateQrBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  qrSecurityTip: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 15,
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
+  noQrContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  noQrText: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 12,
   }
 });

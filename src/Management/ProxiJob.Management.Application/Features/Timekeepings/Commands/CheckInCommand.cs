@@ -46,13 +46,13 @@ public class CheckInCommandHandler : IRequestHandler<CheckInCommand, int>
             throw new Exception("Employee not found for this business.");
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
         var workSchedule = await _context.WorkSchedules
             .FirstOrDefaultAsync(ws => ws.EmployeeId == employee.Id && ws.Date == today, cancellationToken);
 
         if (workSchedule == null)
         {
-            throw new Exception("No work schedule found for today.");
+            throw new Exception($"No work schedule found for today ({today:yyyy-MM-dd}).");
         }
 
         var hasTimekeeping = await _context.Timekeepings
@@ -65,8 +65,9 @@ public class CheckInCommandHandler : IRequestHandler<CheckInCommand, int>
 
         TimekeepingStatus status = TimekeepingStatus.OnTime;
         var now = DateTime.UtcNow;
+        var nowLocal = now.AddHours(7);
 
-        if (now > workSchedule.StartTime.AddMinutes(15))
+        if (nowLocal > workSchedule.StartTime.AddMinutes(15))
         {
             status = TimekeepingStatus.Late;
         }

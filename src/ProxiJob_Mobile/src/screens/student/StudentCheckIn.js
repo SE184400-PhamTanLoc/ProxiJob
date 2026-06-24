@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,13 +6,17 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Animated,
+  Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { useShiftsQuery, useCheckInMutation, useCheckOutMutation } from '../../hooks/queries';
+import { getQrCode } from '../../api/management';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const EMPTY_ARRAY = [];
 
@@ -50,6 +54,7 @@ export default function StudentCheckIn() {
   const shifts = shiftsData || EMPTY_ARRAY;
   const checkInMutation = useCheckInMutation(user, showToast, addNotification);
   const checkOutMutation = useCheckOutMutation(user, showToast, addNotification);
+  const [permission, requestPermission] = useCameraPermissions();
 
   const checkInShift = async (shiftId, qrToken, latitude, longitude, photoUrl) => {
     try {
@@ -88,8 +93,16 @@ export default function StudentCheckIn() {
   const [selectedShiftForCheckIn, setSelectedShiftForCheckIn] = useState(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [cameraScanned, setCameraScanned] = useState(false);
-  const [scanningCamera, setScanningCamera] = useState(false);
+
+  // New 2FA QR Flow States
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showSuccessCard, setShowSuccessCard] = useState(false);
+  const [successInfo, setSuccessInfo] = useState(null);
+
+  // Animated values
+  const laserAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   // Shop coordinates (Default to FPT Polytechnic HCM for the thesis defense presentation)
   const shopLat = selectedShiftForCheckIn?.latitude || 10.8261;
@@ -104,36 +117,36 @@ export default function StudentCheckIn() {
     if (activeShift) {
       setSelectedShiftForCheckIn(activeShift);
       setIsTimerRunning(true);
-      setCameraScanned(true); 
     } else if (navigationParams?.shiftId) {
       const targetShift = shifts.find(s => s.id === navigationParams.shiftId);
       if (targetShift) {
         setSelectedShiftForCheckIn(targetShift);
         setIsTimerRunning(false);
         setTimerSeconds(0);
-        setCameraScanned(false);
       }
     } else if (approvedShifts.length > 0 && !selectedShiftForCheckIn) {
       setSelectedShiftForCheckIn(approvedShifts[0]);
       setIsTimerRunning(false);
       setTimerSeconds(0);
-      setCameraScanned(false);
     } else if (approvedShifts.length === 0 && !activeShift) {
       setSelectedShiftForCheckIn(null);
       setIsTimerRunning(false);
       setTimerSeconds(0);
-      setCameraScanned(false);
     }
   }, [shifts, activeShift, navigationParams]);
 
-  // Sync initial student coordinates based on simulatedDistanceToActive
+  // Sync simulated distance dynamically when studentCoords or selectedShift changes
   useEffect(() => {
-    if (simulatedDistanceToActive > 100) {
-      setStudentCoords({ latitude: 10.8550, longitude: 106.6300 }); // Far coords (~3.2km)
-    } else {
-      setStudentCoords({ latitude: 10.8265, longitude: 106.6302 }); // Near coords (~45m)
+    if (studentCoords && selectedShiftForCheckIn) {
+      const dist = calculateHaversineDistance(
+        studentCoords.latitude,
+        studentCoords.longitude,
+        shopLat,
+        shopLng
+      );
+      setSimulatedDistanceToActive(dist);
     }
-  }, []);
+  }, [studentCoords, selectedShiftForCheckIn]);
 
   // Timer effect
   useEffect(() => {
@@ -148,6 +161,49 @@ export default function StudentCheckIn() {
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
+  // Laser line animation loop
+  useEffect(() => {
+    if (showQRScanner) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(laserAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(laserAnim, {
+            toValue: 0,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      laserAnim.setValue(0);
+    }
+  }, [showQRScanner]);
+
+  // Success Pop-up animation trigger
+  useEffect(() => {
+    if (showSuccessCard) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 6,
+          useNativeDriver: true
+        })
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.8);
+    }
+  }, [showSuccessCard]);
+
   const formatTimer = (totalSecs) => {
     const hrs = Math.floor(totalSecs / 3600).toString().padStart(2, '0');
     const mins = Math.floor((totalSecs % 3600) / 60).toString().padStart(2, '0');
@@ -160,61 +216,92 @@ export default function StudentCheckIn() {
     if (isCurrentlyFar) {
       const nearCoords = { latitude: 10.8265, longitude: 106.6302 }; // Near FPT Polytechnic
       setStudentCoords(nearCoords);
-      const dist = calculateHaversineDistance(nearCoords.latitude, nearCoords.longitude, shopLat, shopLng);
-      setSimulatedDistanceToActive(dist);
       showToast('Đã di chuyển vào vùng an toàn của quán!', 'success');
     } else {
       const farCoords = { latitude: 10.8550, longitude: 106.6300 }; // Far away
       setStudentCoords(farCoords);
-      const dist = calculateHaversineDistance(farCoords.latitude, farCoords.longitude, shopLat, shopLng);
-      setSimulatedDistanceToActive(dist);
       showToast('Đã di chuyển ra xa cửa hàng!', 'info');
     }
   };
 
-  const handleScanCamera = () => {
-    setScanningCamera(true);
-    setTimeout(() => {
-      setScanningCamera(false);
-      setCameraScanned(true);
-      showToast('Xác thực khuôn mặt thành công!', 'success');
-    }, 1200);
-  };
-
-  const handleCheckIn = () => {
-    if (selectedShiftForCheckIn) {
-      const lat = studentCoords?.latitude || 10.8265;
-      const lng = studentCoords?.longitude || 106.6302;
-      checkInShift(
-        selectedShiftForCheckIn.id,
-        'default-qr-token',
-        lat,
-        lng,
-        user?.avatarUrl || ''
-      );
-      setIsTimerRunning(true);
+  const handleTriggerQRScan = async () => {
+    setShowQRScanner(true);
+    
+    // Try to auto-request permission
+    if (!permission || !permission.granted) {
+      try {
+        await requestPermission();
+      } catch (err) {
+        console.log('Error requesting camera permissions:', err);
+      }
     }
   };
 
-  const handleCheckOut = () => {
-    if (selectedShiftForCheckIn) {
-      const lat = studentCoords?.latitude || 10.8265;
-      const lng = studentCoords?.longitude || 106.6302;
-      checkOutShift(
+  const handleQRScanSuccess = async (scannedToken) => {
+    setShowQRScanner(false);
+    
+    const lat = studentCoords?.latitude || 10.8265;
+    const lng = studentCoords?.longitude || 106.6302;
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    if (!activeShift) {
+      // Check-In
+      const success = await checkInShift(
+        selectedShiftForCheckIn.id,
+        scannedToken || 'shop-qr-code-token',
+        lat,
+        lng,
+        ''
+      );
+      if (success) {
+        let isLate = false;
+        if (selectedShiftForCheckIn.startTime) {
+          const schedStart = new Date(selectedShiftForCheckIn.startTime);
+          const limitTime = new Date(schedStart.getTime() + 15 * 60 * 1000);
+          if (now > limitTime) {
+            isLate = true;
+          }
+        }
+        
+        setSuccessInfo({
+          type: 'CHECK-IN',
+          title: 'CHECK-IN THÀNH CÔNG 🎉',
+          timestamp: timeStr,
+          status: isLate ? 'Vào Muộn' : 'Đúng Giờ',
+          statusColor: isLate ? '#EF4444' : '#10B981',
+          shopName: selectedShiftForCheckIn.shopName,
+          shiftTitle: selectedShiftForCheckIn.title
+        });
+        setShowSuccessCard(true);
+      }
+    } else {
+      // Check-Out
+      const success = await checkOutShift(
         selectedShiftForCheckIn.id,
         lat,
         lng,
-        user?.avatarUrl || ''
+        ''
       );
-      setIsTimerRunning(false);
-      setTimerSeconds(0);
-      setCameraScanned(false);
-      
-      // Reset coordinates to far away
-      const farCoords = { latitude: 10.8550, longitude: 106.6300 };
-      setStudentCoords(farCoords);
-      const dist = calculateHaversineDistance(farCoords.latitude, farCoords.longitude, shopLat, shopLng);
-      setSimulatedDistanceToActive(dist);
+      if (success) {
+        setSuccessInfo({
+          type: 'CHECK-OUT',
+          title: 'CHECK-OUT THÀNH CÔNG 🎉',
+          timestamp: timeStr,
+          status: 'Hoàn Thành',
+          statusColor: '#0052CC',
+          shopName: selectedShiftForCheckIn.shopName,
+          shiftTitle: selectedShiftForCheckIn.title
+        });
+        
+        // Reset coordinates to far away after a small delay
+        setTimeout(() => {
+          const farCoords = { latitude: 10.8550, longitude: 106.6300 };
+          setStudentCoords(farCoords);
+        }, 800);
+
+        setShowSuccessCard(true);
+      }
     }
   };
 
@@ -409,71 +496,173 @@ export default function StudentCheckIn() {
 
             {/* Actions Grid */}
             <View style={styles.actionsContainer}>
-              {!activeShift ? (
-                /* Check-In Flow */
-                <View style={{width: '100%'}}>
-                  {!cameraScanned ? (
-                    <TouchableOpacity
-                      style={[
-                        styles.actionBtn,
-                        { backgroundColor: theme.colors.student },
-                        scanningCamera && { opacity: 0.6 }
-                      ]}
-                      disabled={scanningCamera}
-                      onPress={handleScanCamera}
-                    >
-                      {scanningCamera ? (
-                        <ActivityIndicator color={theme.colors.white} />
-                      ) : (
-                        <Text style={styles.actionBtnText}>📸 QUÉT KHUÔN MẶT (CAMERA VERIFICATION)</Text>
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.actionBtn, 
-                        styles.checkInBtn,
-                        (!isWithinRadius) && styles.disabledBtn
-                      ]}
-                      disabled={!isWithinRadius}
-                      onPress={handleCheckIn}
-                    >
-                      <Text style={styles.actionBtnText}>⚡ BẮT ĐẦU CA LÀM (CHECK-IN)</Text>
-                    </TouchableOpacity>
-                  )}
+              <View style={{width: '100%'}}>
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    isWithinRadius ? styles.checkInBtn : styles.disabledBtn
+                  ]}
+                  disabled={!isWithinRadius}
+                  onPress={handleTriggerQRScan}
+                >
+                  <Text style={styles.actionBtnText}>
+                    {isWithinRadius ? '📸 QUÉT MÃ QR TẠI QUẦY' : 'Bạn đang ở quá xa quán để điểm danh'}
+                  </Text>
+                </TouchableOpacity>
 
-                  {!isWithinRadius && (
-                    <Text style={styles.warningText}>
-                      ⚠️ Hãy sử dụng "Giả lập GPS" để di chuyển đến cửa hàng trước khi bấm điểm danh vào ca.
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                /* Check-Out Flow */
-                <View style={{width: '100%'}}>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionBtn, 
-                      styles.checkOutBtn,
-                      !isWithinRadius && styles.disabledBtn
-                    ]}
-                    disabled={!isWithinRadius}
-                    onPress={handleCheckOut}
-                  >
-                    <Text style={styles.actionBtnText}>🏁 KẾT THÚC CA LÀM (CHECK-OUT)</Text>
-                  </TouchableOpacity>
-                  {!isWithinRadius && (
-                    <Text style={styles.warningText}>
-                      ⚠️ Bạn không thể check-out nếu đi ra ngoài bán kính 100m của quán trong giờ làm.
-                    </Text>
-                  )}
-                </View>
-              )}
+                {!isWithinRadius && (
+                  <Text style={styles.warningText}>
+                    ⚠️ Hãy sử dụng "Giả lập GPS" để di chuyển vào bán kính 100m của quán để thực hiện điểm danh.
+                  </Text>
+                )}
+              </View>
             </View>
 
           </View>
         )}
       </ScrollView>
+
+      {/* QR Code Scanner Overlay Simulator */}
+      <Modal
+        visible={showQRScanner}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowQRScanner(false)}
+      >
+        <View style={styles.scannerOverlay}>
+          {permission && permission.granted && (
+            <CameraView
+              style={StyleSheet.absoluteFillObject}
+              facing="back"
+              barcodeScannerSettings={{
+                barcodeTypes: ['qr'],
+              }}
+              onBarcodeScanned={async (event) => {
+                if (event.data) {
+                  handleQRScanSuccess(event.data);
+                }
+              }}
+            />
+          )}
+
+          <SafeAreaView style={styles.scannerSafe}>
+            {/* Header */}
+            <View style={styles.scannerHeader}>
+              <Text style={styles.scannerTitle}>QUÉT MÃ QR TẠI QUẦY</Text>
+              <TouchableOpacity 
+                style={styles.scannerCloseBtn}
+                onPress={() => setShowQRScanner(false)}
+              >
+                <Text style={styles.scannerCloseBtnText}>✕ Đóng</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Viewfinder Area */}
+            <View style={styles.viewfinderContainer}>
+              {(!permission || !permission.granted) ? (
+                <View style={styles.permissionPromptBox}>
+                  <Text style={styles.permissionPromptTitle}>Yêu cầu Camera 📸</Text>
+                  <Text style={styles.permissionPromptText}>
+                    Chúng tôi cần bạn cấp quyền truy cập camera để quét mã QR điểm danh trực tiếp tại quầy của cửa hàng.
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.requestPermissionBtn} 
+                    onPress={requestPermission}
+                  >
+                    <Text style={styles.requestPermissionBtnText}>Cho phép truy cập Camera</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.viewfinder}>
+                  {/* Viewfinder Corners */}
+                  <View style={[styles.corner, styles.cornerTL]} />
+                  <View style={[styles.corner, styles.cornerTR]} />
+                  <View style={[styles.corner, styles.cornerBL]} />
+                  <View style={[styles.corner, styles.cornerBR]} />
+                  
+                  {/* Animated Laser Line */}
+                  <Animated.View style={[
+                    styles.laserLine,
+                    {
+                      transform: [{
+                        translateY: laserAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 200]
+                        })
+                      }]
+                    }
+                  ]} />
+                </View>
+              )}
+            </View>
+
+            {/* Bottom Actions */}
+            <View style={styles.scannerBottom}>
+              <Text style={styles.scannerInstructions}>
+                {(!permission || !permission.granted) 
+                  ? 'Vui lòng cho phép quyền truy cập camera để bắt đầu quét mã.' 
+                  : 'Di chuyển camera đến mã QR của cửa hàng để tiến hành điểm danh.'}
+              </Text>
+              {permission && permission.granted && (
+                <>
+                  <ActivityIndicator color={theme.colors.student} style={{ marginVertical: 12 }} />
+                  <Text style={styles.scannerSubtext}>Đang tự động nhận diện mã...</Text>
+                </>
+              )}
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* Success Confirmation Card Modal */}
+      <Modal
+        visible={showSuccessCard}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => setShowSuccessCard(false)}
+      >
+        <View style={styles.successOverlay}>
+          <Animated.View style={[
+            styles.successCard,
+            theme.shadows.dark,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }]
+            }
+          ]}>
+            <Text style={styles.successEmoji}>🎉</Text>
+            <Text style={styles.successTitle}>{successInfo?.title}</Text>
+            
+            <View style={styles.successDetails}>
+              <View style={styles.successDetailRow}>
+                <Text style={styles.successDetailLabel}>Cửa hàng:</Text>
+                <Text style={styles.successDetailVal}>{successInfo?.shopName}</Text>
+              </View>
+              <View style={styles.successDetailRow}>
+                <Text style={styles.successDetailLabel}>Ca làm:</Text>
+                <Text style={styles.successDetailVal}>{successInfo?.shiftTitle}</Text>
+              </View>
+              <View style={styles.successDetailRow}>
+                <Text style={styles.successDetailLabel}>Thời gian:</Text>
+                <Text style={styles.successDetailVal}>{successInfo?.timestamp}</Text>
+              </View>
+              <View style={styles.successDetailRow}>
+                <Text style={styles.successDetailLabel}>Trạng thái:</Text>
+                <View style={[styles.successStatusBadge, { backgroundColor: successInfo?.statusColor }]}>
+                  <Text style={styles.successStatusText}>{successInfo?.status}</Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.successOkBtn}
+              onPress={() => setShowSuccessCard(false)}
+            >
+              <Text style={styles.successOkBtnText}>Xác nhận</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -776,5 +965,247 @@ const styles = StyleSheet.create({
     marginTop: 12,
     lineHeight: 16,
     paddingHorizontal: theme.spacing.sm,
+  },
+  scannerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scannerSafe: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  scannerHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    marginTop: Platform.OS === 'ios' ? 0 : 20,
+  },
+  scannerTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  scannerCloseBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  scannerCloseBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  viewfinderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewfinder: {
+    width: 220,
+    height: 220,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'transparent',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  corner: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: theme.colors.student,
+  },
+  cornerTL: {
+    top: -2,
+    left: -2,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+  },
+  cornerTR: {
+    top: -2,
+    right: -2,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+  },
+  cornerBL: {
+    bottom: -2,
+    left: -2,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+  },
+  cornerBR: {
+    bottom: -2,
+    right: -2,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+  },
+  laserLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: '#FF6B00',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  scannerBottom: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    marginBottom: 20,
+  },
+  scannerInstructions: {
+    color: '#FFF',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 8,
+    opacity: 0.8,
+  },
+  scannerSubtext: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    marginBottom: 16,
+  },
+  manualScanBtn: {
+    backgroundColor: theme.colors.student,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    shadowColor: theme.colors.student,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  manualScanBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  successOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  successCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    width: '100%',
+    maxWidth: 340,
+    padding: 28,
+    alignItems: 'center',
+  },
+  successEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  successDetails: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 24,
+  },
+  successDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  successDetailLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
+  },
+  successDetailVal: {
+    fontSize: 13,
+    color: theme.colors.text,
+    fontWeight: '700',
+  },
+  successStatusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  successStatusText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  successOkBtn: {
+    backgroundColor: '#0F172A',
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  successOkBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  permissionPromptBox: {
+    width: 280,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  permissionPromptTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  permissionPromptText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  requestPermissionBtn: {
+    backgroundColor: theme.colors.student,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  requestPermissionBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: 'bold',
   }
 });
