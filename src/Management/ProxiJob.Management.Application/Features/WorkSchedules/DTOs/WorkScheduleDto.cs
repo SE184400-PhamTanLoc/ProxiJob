@@ -13,4 +13,8 @@ public class WorkScheduleDto
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public string? Note { get; set; }
+    public string? TimekeepingStatus { get; set; }
+    public DateTime? ActualCheckInTime { get; set; }
+    public DateTime? ActualCheckOutTime { get; set; }
+    public int? TimekeepingId { get; set; }
 }

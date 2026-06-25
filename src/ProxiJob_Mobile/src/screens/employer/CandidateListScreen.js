@@ -190,10 +190,27 @@ export default function CandidateListScreen() {
           activeOpacity={0.9}
           onPress={() => toggleExpand(`candidate_${cand.userId}`)}
         >
-          {/* Top Row: Avatar on left, Chat/Call Actions on right */}
-          <View style={styles.premiumCardTopRow}>
+          {/* Top Profile Header */}
+          <View style={styles.premiumCardProfileHeader}>
             <Image source={avatarSource} style={styles.premiumCardAvatar} />
             
+            <View style={styles.premiumCardProfileInfo}>
+              <Text style={styles.premiumCardName} numberOfLines={1}>{cand.fullName}</Text>
+              
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                <Text style={styles.premiumCardSubtitle} numberOfLines={1}>
+                  {cand.major || 'Sinh viên'} • {expText}
+                </Text>
+                <View style={[styles.premiumStatusBadge, { marginLeft: 8 }]}>
+                  <Text style={styles.premiumStatusText}>ONLINE</Text>
+                </View>
+              </View>
+              
+              <Text style={[styles.premiumCardSubtitle, { color: '#94A3B8', marginTop: 2 }]} numberOfLines={1}>
+                📍 {cand.distanceKm === Infinity ? 'Không rõ vị trí' : `Cách ${cand.distanceKm} km`}
+              </Text>
+            </View>
+
             <View style={styles.premiumActionsRow}>
               {cand.phoneNumber ? (
                 <TouchableOpacity
@@ -204,7 +221,7 @@ export default function CandidateListScreen() {
                     handleCallUser(cand.phoneNumber);
                   }}
                 >
-                  <Text style={{ fontSize: 14 }}>📞</Text>
+                  <Ionicons name="call" size={16} color="#0A58CA" />
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
@@ -216,30 +233,19 @@ export default function CandidateListScreen() {
                     partnerId: cand.userId,
                     partnerName: cand.fullName,
                     partnerPhone: cand.phoneNumber,
-                    partnerGender: cand.gender
+                    partnerGender: cand.gender,
+                    fromScreen: 'candidate_list',
+                    fromShiftId: shiftId
                   });
                 }}
               >
-                <Text style={{ fontSize: 14 }}>💬</Text>
+                <Ionicons name="chatbubble-ellipses" size={16} color="#FF6B00" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Name */}
-          <Text style={styles.premiumCardName}>{cand.fullName}</Text>
-
-          {/* Subtitle: Distance & Experience & Online */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 4, marginBottom: 12 }}>
-            <Text style={styles.premiumCardSubtitle} numberOfLines={1}>
-              {cand.major || 'Sinh viên'} • {expText} • {cand.distanceKm === Infinity ? 'Không rõ vị trí' : `${cand.distanceKm} km`}
-            </Text>
-            <View style={[styles.premiumStatusBadge, { marginLeft: 8 }]}>
-              <Text style={styles.premiumStatusText}>ONLINE</Text>
-            </View>
-          </View>
-
           {/* Skill Tags */}
-          <View style={styles.premiumSkillsRow}>
+          <View style={[styles.premiumSkillsRow, { marginTop: 12 }]}>
             {skillList.slice(0, 3).map((skill, idx) => (
               <View key={idx} style={styles.premiumSkillPill}>
                 <Text style={styles.premiumSkillText}>{skill}</Text>
@@ -432,47 +438,47 @@ export default function CandidateListScreen() {
                       activeOpacity={0.9}
                       onPress={() => toggleExpand(`app_${app.id}`)}
                     >
-                      {/* Top Row: Avatar & Match Badge */}
-                      <View style={styles.premiumCardTopRow}>
+                      {/* Top Profile Header */}
+                      <View style={styles.premiumCardProfileHeader}>
                         <Image
                           source={getAvatarSource(app.studentAvatarUrl || app.StudentAvatarUrl, null, app.studentName)}
                           style={styles.premiumCardAvatar}
                         />
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <View style={[styles.premiumMatchBadge, { backgroundColor: isHighMatch ? '#300066' : '#5B00DF', marginBottom: 8 }]}>
+                        
+                        <View style={styles.premiumCardProfileInfo}>
+                          <Text style={styles.premiumCardName} numberOfLines={1}>{app.studentName}</Text>
+                          <Text style={styles.premiumCardSubtitle} numberOfLines={1}>
+                            {app.studentMajor || 'Sinh viên'} • {expText}
+                          </Text>
+                          <View style={[styles.premiumMatchBadge, { backgroundColor: isHighMatch ? '#300066' : '#5B00DF', marginTop: 6, alignSelf: 'flex-start' }]}>
                             <Text style={styles.premiumMatchBadgeText}>{matchIcon} {matchPercentage}% Phù hợp</Text>
                           </View>
-                          <View style={styles.premiumActionsRow}>
-                            <TouchableOpacity
-                              style={styles.premiumCircleBtn}
-                              activeOpacity={0.7}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                navigateTo('employer_chat', {
-                                  partnerId: app.studentId,
-                                  partnerName: app.studentName,
-                                  partnerPhone: '',
-                                  partnerAvatar: app.studentAvatarUrl || app.StudentAvatarUrl,
-                                  partnerGender: undefined
-                                });
-                              }}
-                            >
-                              <Text style={{ fontSize: 14 }}>💬</Text>
-                            </TouchableOpacity>
-                          </View>
+                        </View>
+
+                        <View style={styles.premiumActionsRow}>
+                          <TouchableOpacity
+                            style={styles.premiumCircleBtn}
+                            activeOpacity={0.7}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              navigateTo('employer_chat', {
+                                partnerId: app.studentId,
+                                partnerName: app.studentName,
+                                partnerPhone: '',
+                                partnerAvatar: app.studentAvatarUrl || app.StudentAvatarUrl,
+                                partnerGender: undefined,
+                                fromScreen: 'candidate_list',
+                                fromShiftId: shiftId
+                              });
+                            }}
+                          >
+                            <Ionicons name="chatbubble-ellipses" size={16} color="#FF6B00" />
+                          </TouchableOpacity>
                         </View>
                       </View>
 
-                      {/* Name */}
-                      <Text style={styles.premiumCardName}>{app.studentName}</Text>
-
-                      {/* Subtitle: Job role / Major & Experience */}
-                      <Text style={styles.premiumCardSubtitle}>
-                        {app.studentMajor || 'Sinh viên'} • {expText}
-                      </Text>
-
                       {/* Skills Tags */}
-                      <View style={styles.premiumSkillsRow}>
+                      <View style={[styles.premiumSkillsRow, { marginTop: 12 }]}>
                         {skillList.slice(0, 3).map((skill, sIdx) => (
                           <View key={sIdx} style={styles.premiumSkillPill}>
                             <Text style={styles.premiumSkillText}>{skill}</Text>
@@ -1407,36 +1413,45 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  premiumCardProfileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  premiumCardProfileInfo: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
   premiumCardAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 16,
     backgroundColor: '#F1F4F6',
   },
   premiumMatchBadge: {
-    borderRadius: 24,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   premiumMatchBadgeText: {
     fontFamily: FONT_BOLD,
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   premiumCardName: {
     fontFamily: FONT_EXTRABOLD,
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: getFontWeight('800'),
     color: '#1E293B',
-    marginTop: 16,
   },
   premiumCardSubtitle: {
     fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    color: '#475569',
+    fontSize: 12,
+    color: '#64748B',
   },
   premiumStatusBadge: {
     backgroundColor: 'rgba(16, 185, 129, 0.1)',

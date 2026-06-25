@@ -354,6 +354,41 @@ export default function StudentDashboard() {
     return { ...shift, distanceKm: distKm, noGps: false };
   });
 
+  // Find the absolute newest creation date in processedShifts
+  const dates = processedShifts
+    .map(s => s.createdAt && typeof s.createdAt === 'string' ? s.createdAt.split('T')[0] : '')
+    .filter(Boolean);
+  const newestDate = dates.length > 0 ? dates.sort().reverse()[0] : '';
+
+  // Helper to sort shifts:
+  // - Emergency shifts on the newest date go to the absolute top.
+  // - Otherwise, sort by date descending (newest date first).
+  // - If same date, and it is the newest date, prioritize emergency shifts.
+  // - Otherwise, sort by creation time descending.
+  const compareShifts = (a, b) => {
+    const dateA = a.createdAt && typeof a.createdAt === 'string' ? a.createdAt.split('T')[0] : '';
+    const dateB = b.createdAt && typeof b.createdAt === 'string' ? b.createdAt.split('T')[0] : '';
+
+    const isNewestEmergencyA = a.isEmergency && dateA === newestDate;
+    const isNewestEmergencyB = b.isEmergency && dateB === newestDate;
+
+    if (isNewestEmergencyA && !isNewestEmergencyB) return -1;
+    if (!isNewestEmergencyA && isNewestEmergencyB) return 1;
+
+    if (dateA !== dateB) {
+      return dateB.localeCompare(dateA);
+    }
+
+    if (dateA === newestDate) {
+      if (a.isEmergency && !b.isEmergency) return -1;
+      if (!a.isEmergency && b.isEmergency) return 1;
+    }
+
+    const timeA = new Date(a.createdAt || a.startTime || 0).getTime();
+    const timeB = new Date(b.createdAt || b.startTime || 0).getTime();
+    return timeB - timeA;
+  };
+
   // Dynamic filter query
   const filteredShifts = processedShifts
     .filter(shift => {
@@ -366,10 +401,10 @@ export default function StudentDashboard() {
 
       return matchRadius && matchQuery;
     })
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .sort(compareShifts);
 
   const closestShift = filteredShifts.filter(s => !s.noGps).length > 0
-    ? [...filteredShifts].filter(s => !s.noGps).sort((a, b) => a.distanceKm - b.distanceKm)[0]
+    ? filteredShifts.filter(s => !s.noGps)[0]
     : null;
 
   const totalPages = Math.ceil(filteredShifts.length / ITEMS_PER_PAGE);
@@ -528,7 +563,7 @@ export default function StudentDashboard() {
         <div id="map"></div>
         <script>
           var map = L.map('map', { zoomControl: false, tap: false }).setView([${lat}, ${lng}], 15);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+          L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { attribution: 'Google Maps' }).addTo(map);
 
           L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -798,7 +833,7 @@ export default function StudentDashboard() {
 
                   <View style={styles.pageIndicator}>
                     <Text style={styles.pageIndicatorText}>
-                      Trang <Text style={{fontWeight: 'bold', color: '#FF6B00'}}>{currentPage}</Text> / {totalPages}
+                      Trang <Text style={{ fontWeight: 'bold', color: '#FF6B00' }}>{currentPage}</Text> / {totalPages}
                     </Text>
                   </View>
 

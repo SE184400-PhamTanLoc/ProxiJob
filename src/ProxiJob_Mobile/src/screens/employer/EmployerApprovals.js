@@ -10,7 +10,8 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
@@ -56,8 +57,45 @@ export default function EmployerApprovals() {
 
   // TanStack Query
   const { data: employerData = { shifts: [], leaveRequests: [], employerJobs: [] }, isLoading, refetch } = useEmployerJobsQuery(user);
-  const shifts = employerData.shifts || [];
+  const rawShifts = employerData.shifts || [];
   const leaveRequests = employerData.leaveRequests || [];
+
+  // Find the absolute newest creation date in rawShifts
+  const dates = rawShifts
+    .map(s => s.createdAt && typeof s.createdAt === 'string' ? s.createdAt.split('T')[0] : '')
+    .filter(Boolean);
+  const newestDate = dates.length > 0 ? dates.sort().reverse()[0] : '';
+
+  // Helper to sort shifts:
+  // - Emergency shifts on the newest date go to the absolute top.
+  // - Otherwise, sort by date descending (newest date first).
+  // - If same date, and it is the newest date, prioritize emergency shifts.
+  // - Otherwise, sort by creation time descending.
+  const compareShifts = (a, b) => {
+    const dateA = a.createdAt && typeof a.createdAt === 'string' ? a.createdAt.split('T')[0] : '';
+    const dateB = b.createdAt && typeof b.createdAt === 'string' ? b.createdAt.split('T')[0] : '';
+
+    const isNewestEmergencyA = a.isEmergency && dateA === newestDate;
+    const isNewestEmergencyB = b.isEmergency && dateB === newestDate;
+
+    if (isNewestEmergencyA && !isNewestEmergencyB) return -1;
+    if (!isNewestEmergencyA && isNewestEmergencyB) return 1;
+
+    if (dateA !== dateB) {
+      return dateB.localeCompare(dateA);
+    }
+
+    if (dateA === newestDate) {
+      if (a.isEmergency && !b.isEmergency) return -1;
+      if (!a.isEmergency && b.isEmergency) return 1;
+    }
+
+    const timeA = new Date(a.createdAt || a.startTime || 0).getTime();
+    const timeB = new Date(b.createdAt || b.startTime || 0).getTime();
+    return timeB - timeA;
+  };
+
+  const shifts = [...rawShifts].sort(compareShifts);
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
@@ -102,6 +140,7 @@ export default function EmployerApprovals() {
   const [editingJobId, setEditingJobId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editCategoryId, setEditCategoryId] = useState('5');
+  const [editCustomCategory, setEditCustomCategory] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editRequirements, setEditRequirements] = useState('');
   const [editAddress, setEditAddress] = useState('');
@@ -168,7 +207,18 @@ export default function EmployerApprovals() {
       setEditRequirements(originalJob.requirements || '');
 
       const cat = categories.find(c => c.name === originalJob.categoryName);
-      setEditCategoryId(cat ? String(cat.id) : '6');
+      const catIdStr = cat ? String(cat.id) : '6';
+      setEditCategoryId(catIdStr);
+
+      const isOther = catIdStr === '6' || catIdStr === '9999' || (cat && cat.name.toLowerCase() === 'khác');
+      let extractedCustom = '';
+      if (isOther && originalJob.description?.startsWith('[Danh mục khác:')) {
+        const match = originalJob.description.match(/^\[Danh mục khác:\s*([^\]]+)\]/);
+        if (match) {
+          extractedCustom = match[1].trim();
+        }
+      }
+      setEditCustomCategory(extractedCustom);
 
       setEditAddress(originalJob.location?.address || '');
       setEditLatitude(String(originalJob.location?.latitude || ''));
@@ -189,6 +239,13 @@ export default function EmployerApprovals() {
 
   // Handle Submit Edit
   const handleSubmitEdit = async () => {
+    const selectedCat = categories.find(c => c.id.toString() === editCategoryId);
+    const isOtherCat = selectedCat && (selectedCat.name.toLowerCase() === 'khác' || selectedCat.name.toLowerCase() === 'other' || editCategoryId === '9999');
+
+    if (isOtherCat && !editCustomCategory.trim()) {
+      showToast('Vui lòng nhập tên danh mục khác!', 'warning');
+      return;
+    }
     if (!editTitle.trim()) {
       showToast('Vui lòng nhập tiêu đề!', 'warning');
       return;
@@ -202,15 +259,33 @@ export default function EmployerApprovals() {
       return;
     }
 
+    let finalTitle = editTitle;
+    let finalDescription = editDescription;
+
+    // Clean up old custom categories prefix/suffix to prevent duplicates
+    finalTitle = finalTitle.replace(/\s*\([^)]+\)\s*$/, '');
+    finalDescription = finalDescription.replace(/^\[Danh mục khác:\s*[^\]]+\]\n\n/, '');
+
+    if (isOtherCat && editCustomCategory.trim()) {
+      finalTitle = `${finalTitle} (${editCustomCategory.trim()})`;
+      finalDescription = `[Danh mục khác: ${editCustomCategory.trim()}]\n\n${finalDescription}`;
+    }
+
+    let finalCategoryId = editCategoryId;
+    if (editCategoryId === '9999') {
+      const realOther = categories.find(c => c.name.toLowerCase() === 'khác' && c.id !== 9999);
+      finalCategoryId = realOther ? realOther.id.toString() : '6';
+    }
+
     try {
       setSavingEdit(true);
       await updateJobPostWizardMutation.mutateAsync({
         jobPostId: editingJobId,
         data: {
-          title: editTitle,
-          description: editDescription,
+          title: finalTitle,
+          description: finalDescription,
           requirements: editRequirements,
-          categoryId: editCategoryId,
+          categoryId: finalCategoryId,
           address: editAddress,
           latitude: editLatitude,
           longitude: editLongitude,
@@ -224,6 +299,9 @@ export default function EmployerApprovals() {
       setSavingEdit(false);
     }
   };
+
+  const selectedCat = categories.find(c => c.id.toString() === editCategoryId);
+  const isOtherCat = selectedCat && (selectedCat.name.toLowerCase() === 'khác' || selectedCat.name.toLowerCase() === 'other' || editCategoryId === '9999');
 
   // Toggle skill
   const handleSkillToggle = (skillId) => {
@@ -346,16 +424,18 @@ export default function EmployerApprovals() {
 
                         <View style={styles.cardActionsRow}>
                           <TouchableOpacity
-                            style={[styles.cardActionBtn, { marginRight: 8 }]}
+                            style={[styles.cardActionBtn, { marginRight: 8, backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
                             onPress={() => handleEditPress(shift)}
+                            activeOpacity={0.7}
                           >
-                            <Text style={styles.cardActionIcon}>✏️</Text>
+                            <Ionicons name="pencil" size={15} color="#2563EB" />
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={[styles.cardActionBtn, styles.cardActionBtnDelete]}
+                            style={[styles.cardActionBtn, styles.cardActionBtnDelete, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }]}
                             onPress={() => handleDeletePress(shift)}
+                            activeOpacity={0.7}
                           >
-                            <Text style={styles.cardActionIcon}>🗑️</Text>
+                            <Ionicons name="trash" size={15} color="#EF4444" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -581,12 +661,12 @@ export default function EmployerApprovals() {
         visible={editModalVisible}
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalOverlay}>
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chỉnh sửa bài đăng</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.closeModalBtn}>
-                <Text style={styles.closeModalIcon}>✕</Text>
+                <Ionicons name="close" size={20} color="#5A4136" />
               </TouchableOpacity>
             </View>
 
@@ -596,8 +676,18 @@ export default function EmployerApprovals() {
                 <Text style={styles.modalLoaderText}>Đang tải chi tiết bài đăng...</Text>
               </View>
             ) : (
-              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-                <View style={styles.modalFormGroup}>
+              <ScrollView 
+                style={styles.modalScrollView} 
+                contentContainerStyle={styles.modalScrollViewContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* CARD 1: Thông tin cơ bản */}
+                <View style={styles.modalSectionCard}>
+                  <View style={styles.modalSectionHeader}>
+                    <Ionicons name="information-circle-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+                    <Text style={styles.modalSectionTitle}>Thông tin cơ bản</Text>
+                  </View>
+
                   <Text style={styles.modalInputLabel}>Tiêu đề công việc</Text>
                   <TextInput
                     style={styles.modalPremiumInput}
@@ -631,7 +721,28 @@ export default function EmployerApprovals() {
                     })}
                   </View>
 
-                  <Text style={styles.modalInputLabel}>Mô tả công việc</Text>
+                  {isOtherCat && (
+                    <View style={{ marginTop: 4 }}>
+                      <Text style={styles.modalInputLabel}>Nhập danh mục khác</Text>
+                      <TextInput
+                        style={styles.modalPremiumInput}
+                        placeholder="Ví dụ: Rửa bát, Phụ bếp..."
+                        placeholderTextColor="#94A3B8"
+                        value={editCustomCategory}
+                        onChangeText={setEditCustomCategory}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                {/* CARD 2: Nội dung mô tả */}
+                <View style={styles.modalSectionCard}>
+                  <View style={styles.modalSectionHeader}>
+                    <Ionicons name="document-text-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+                    <Text style={styles.modalSectionTitle}>Mô tả công việc</Text>
+                  </View>
+
+                  <Text style={styles.modalInputLabel}>Mô tả chi tiết</Text>
                   <TextInput
                     style={[styles.modalPremiumInput, styles.modalTextArea]}
                     value={editDescription}
@@ -652,8 +763,16 @@ export default function EmployerApprovals() {
                     placeholder="Nhập yêu cầu đối với ứng viên..."
                     placeholderTextColor="#94A3B8"
                   />
+                </View>
 
-                  <Text style={styles.modalInputLabel}>Địa chỉ làm việc</Text>
+                {/* CARD 3: Địa điểm làm việc */}
+                <View style={styles.modalSectionCard}>
+                  <View style={styles.modalSectionHeader}>
+                    <Ionicons name="location-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+                    <Text style={styles.modalSectionTitle}>Địa chỉ làm việc</Text>
+                  </View>
+
+                  <Text style={styles.modalInputLabel}>Địa chỉ chi tiết</Text>
                   <TextInput
                     style={styles.modalPremiumInput}
                     value={editAddress}
@@ -661,9 +780,16 @@ export default function EmployerApprovals() {
                     placeholder="Nhập địa chỉ làm việc..."
                     placeholderTextColor="#94A3B8"
                   />
+                </View>
 
-                  {/* Skills Section */}
-                  <Text style={styles.modalInputLabel}>Kỹ năng yêu cầu</Text>
+                {/* CARD 4: Kỹ năng cần thiết */}
+                <View style={styles.modalSectionCard}>
+                  <View style={styles.modalSectionHeader}>
+                    <Ionicons name="flash-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+                    <Text style={styles.modalSectionTitle}>Kỹ năng yêu cầu</Text>
+                  </View>
+
+                  <Text style={styles.modalInputLabel}>Chọn kỹ năng (có thể chọn nhiều)</Text>
                   <View style={styles.modalSkillsContainer}>
                     {skillsList.map((skill) => {
                       const isSelected = editSelectedSkills.includes(skill.id);
@@ -711,7 +837,7 @@ export default function EmployerApprovals() {
               </TouchableOpacity>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
 
       {/* Custom Delete Confirmation Modal */}
@@ -767,6 +893,10 @@ export default function EmployerApprovals() {
     </View>
   );
 }
+
+const FONT_REGULAR = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-Regular';
+const FONT_BOLD = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-Bold';
+const FONT_EXTRABOLD = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-ExtraBold';
 
 const styles = StyleSheet.create({
   container: {
@@ -962,18 +1092,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   cardActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EEF1F3',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E9EB',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
   cardActionBtnDelete: {
-    backgroundColor: '#FFDAD6',
-    borderColor: '#FFDAD6',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
   },
   cardActionIcon: {
     fontSize: 14,
@@ -1282,39 +1412,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   cardActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EEF1F3',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E9EB',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
   cardActionBtnDelete: {
-    backgroundColor: '#FFDAD6',
-    borderColor: '#FFDAD6',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
   },
   cardActionIcon: {
     fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(24, 28, 30, 0.6)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)', // Deep slate overlay
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 32,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: '85%',
+    borderRadius: 24,
+    width: '100%',
+    height: '82%',
     display: 'flex',
     flexDirection: 'column',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 24,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1326,9 +1460,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E9EB',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#181C1E',
+    color: '#0F172A',
+    fontFamily: FONT_EXTRABOLD,
   },
   closeModalBtn: {
     width: 32,
@@ -1345,30 +1480,63 @@ const styles = StyleSheet.create({
   },
   modalScrollView: {
     flex: 1,
-    paddingHorizontal: 24,
+    backgroundColor: '#F8FAFC',
+  },
+  modalScrollViewContent: {
+    paddingHorizontal: 16,
     paddingTop: 16,
+    paddingBottom: 24,
+  },
+  modalSectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  modalSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 8,
+  },
+  modalSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+    fontFamily: FONT_EXTRABOLD,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   modalFormGroup: {
     marginBottom: 20,
   },
   modalInputLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 1,
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+    fontFamily: FONT_BOLD,
     textTransform: 'uppercase',
   },
   modalPremiumInput: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 14,
-    color: '#1E293B',
-    fontWeight: '500',
+    color: '#0F172A',
+    fontFamily: FONT_REGULAR,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   modalTextArea: {
@@ -1381,23 +1549,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalCategoryPill: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 99,
-    backgroundColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
     marginRight: 8,
     marginBottom: 8,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   modalCategoryPillActive: {
-    backgroundColor: '#FF6B001F',
+    backgroundColor: '#FF6B0010',
     borderColor: '#FF6B00',
   },
   modalCategoryPillText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
+    fontFamily: FONT_BOLD,
   },
   modalCategoryPillTextActive: {
     color: '#FF6B00',
@@ -1410,21 +1579,22 @@ const styles = StyleSheet.create({
   modalSkillPill: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 99,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     marginRight: 8,
     marginBottom: 8,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   modalSkillPillActive: {
-    backgroundColor: '#FF6B001F',
+    backgroundColor: '#FF6B0010',
     borderColor: '#FF6B00',
   },
   modalSkillPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
+    fontFamily: FONT_BOLD,
   },
   modalSkillPillTextActive: {
     color: '#FF6B00',
@@ -1450,6 +1620,7 @@ const styles = StyleSheet.create({
     color: '#5A4136',
     fontSize: 14,
     fontWeight: '800',
+    fontFamily: FONT_BOLD,
   },
   modalSaveBtn: {
     flex: 2,
@@ -1468,6 +1639,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+    fontFamily: FONT_EXTRABOLD,
   },
   modalLoaderContainer: {
     flex: 1,

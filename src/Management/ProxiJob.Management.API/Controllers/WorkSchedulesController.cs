@@ -145,12 +145,29 @@ public class WorkSchedulesController : ApiControllerBase
                 {
                     Id = ws.Id,
                     EmployeeId = ws.EmployeeId,
+                    BusinessId = ws.Employee.BusinessId,
                     JobShiftId = ws.JobShiftId,
                     JobShiftSalary = ws.JobShiftSalary,
                     Date = ws.Date,
                     StartTime = ws.StartTime,
                     EndTime = ws.EndTime,
-                    Note = ws.Note
+                    Note = ws.Note,
+                    TimekeepingStatus = _context.Timekeepings
+                        .Where(t => t.WorkScheduleId == ws.Id)
+                        .Select(t => t.Status.ToString())
+                        .FirstOrDefault(),
+                    ActualCheckInTime = _context.Timekeepings
+                        .Where(t => t.WorkScheduleId == ws.Id)
+                        .Select(t => (DateTime?)t.CheckInTime)
+                        .FirstOrDefault(),
+                    ActualCheckOutTime = _context.Timekeepings
+                        .Where(t => t.WorkScheduleId == ws.Id)
+                        .Select(t => (DateTime?)t.CheckOutTime)
+                        .FirstOrDefault(),
+                    TimekeepingId = _context.Timekeepings
+                        .Where(t => t.WorkScheduleId == ws.Id)
+                        .Select(t => (int?)t.Id)
+                        .FirstOrDefault()
                 })
                 .ToListAsync();
 

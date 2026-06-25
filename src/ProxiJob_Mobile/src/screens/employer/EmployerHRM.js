@@ -216,7 +216,8 @@ export default function EmployerHRM() {
                       partnerId: staff.userId,
                       partnerName: staff.name,
                       partnerPhone: staff.phone,
-                      partnerGender: staff.gender
+                      partnerGender: staff.gender,
+                      fromScreen: 'employer_hrm'
                     });
                   } else {
                     navigateTo('employer_chat');
@@ -423,7 +424,8 @@ export default function EmployerHRM() {
                       partnerId: staff.userId,
                       partnerName: staff.name,
                       partnerPhone: staff.phone,
-                      partnerGender: staff.gender
+                      partnerGender: staff.gender,
+                      fromScreen: 'employer_hrm'
                     });
                   } else {
                     navigateTo('employer_chat');

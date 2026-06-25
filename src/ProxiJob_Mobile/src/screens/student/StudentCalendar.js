@@ -5,13 +5,16 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Platform
+  Platform,
+  Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { useShiftsQuery } from '../../hooks/queries';
 import { Ionicons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
 
 function getCurrentWeekDays() {
   const today = new Date();
@@ -129,13 +132,13 @@ export default function StudentCalendar() {
 
   const getTimelineLabel = () => {
     if (!selectedDay) return 'Tuần này';
-    return `Tuần này (Tháng ${selectedDay.month}, ${selectedDay.fullYear})`;
+    return `Tháng ${selectedDay.month}, ${selectedDay.fullYear}`;
   };
 
   const getDaySummaryTitle = () => {
     if (!selectedDay) return 'Lịch trình';
     const dayName = selectedDay.name === 'CN' ? 'Chủ Nhật' : `Thứ ${selectedDay.name.slice(1)}`;
-    return `Lịch trình: ${dayName} (${selectedDay.date}/${selectedDay.fullYear})`;
+    return `${dayName}, ${selectedDay.date.split('/')[0]} tháng ${selectedDay.month}`;
   };
 
   const renderShiftItem = (shift) => {
@@ -144,85 +147,108 @@ export default function StudentCalendar() {
     const isApplied = shift.status === 'applied';
     const isApproved = shift.status === 'approved';
 
-    // Left border color indicating status: Orange for approved/working, Yellow for applied/waiting, Gray for completed
-    let leftBorderColor = '#94A3B8';
-    if (isApproved || isWorking) {
-      leftBorderColor = '#FF6B00';
+    // Left indicator border and visual colors
+    let statusColor = '#94A3B8';
+    let statusText = 'CHỜ DUYỆT';
+    let badgeBg = '#F1F5F9';
+    let badgeText = '#475569';
+
+    if (isWorking) {
+      statusColor = '#10B981';
+      statusText = 'ĐANG LÀM VIỆC';
+      badgeBg = '#ECFDF5';
+      badgeText = '#10B981';
+    } else if (isApproved) {
+      statusColor = '#FF6B00';
+      statusText = 'ĐÃ DUYỆT';
+      badgeBg = '#FFF3EB';
+      badgeText = '#FF6B00';
     } else if (isApplied) {
-      leftBorderColor = '#FFD200';
+      statusColor = '#F59E0B';
+      statusText = 'CHỜ DUYỆT';
+      badgeBg = '#FEF3C7';
+      badgeText = '#D97706';
+    } else if (isCompleted) {
+      statusColor = '#64748B';
+      statusText = 'HOÀN THÀNH';
+      badgeBg = '#F8FAFC';
+      badgeText = '#64748B';
     }
 
     return (
-      <View key={shift.id} style={[styles.shiftCard, { borderLeftColor: leftBorderColor, borderLeftWidth: 6 }]}>
-        {/* Top row: Status pill badge + Ellipsis vertical icon */}
+      <View key={shift.id} style={[styles.shiftCard, { borderLeftColor: statusColor }]}>
+        {/* Top: Status Badges & Quick Action */}
         <View style={styles.cardHeaderRow}>
-          <View style={[
-            styles.statusBadge,
-            isWorking && styles.badgeWorking,
-            isCompleted && styles.badgeCompleted,
-            isApplied && styles.badgeApplied,
-            isApproved && styles.badgeApproved
-          ]}>
-            <Text style={[
-              styles.statusText,
-              isWorking && styles.textWorking,
-              isCompleted && styles.textCompleted,
-              isApplied && styles.textApplied,
-              isApproved && styles.textApproved
-            ]}>
-              {isWorking ? 'ĐANG LÀM' : isCompleted ? 'HOÀN THÀNH' : isApplied ? 'ĐANG CHỜ' : 'ĐÃ DUYỆT'}
-            </Text>
+          <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.statusText, { color: badgeText }]}>{statusText}</Text>
           </View>
-          <TouchableOpacity style={styles.ellipsisButton} activeOpacity={0.7}>
-            <Ionicons name="ellipsis-vertical" size={18} color="#64748B" />
+          <TouchableOpacity style={styles.ellipsisButton} activeOpacity={0.6}>
+            <Ionicons name="ellipsis-horizontal" size={18} color="#94A3B8" />
           </TouchableOpacity>
         </View>
 
-        {/* Middle row: Job title + Location row (Pin icon + Shop name & District) */}
-        <View style={styles.cardBodyContainer}>
-          <Text style={styles.shiftTitle}>{shift.title}</Text>
-          <View style={styles.locationContainer}>
-            <Ionicons name="location-sharp" size={14} color="#FF6B00" style={{ marginRight: 4 }} />
-            <Text style={styles.shiftShopName}>
-              {shift.shopName}, {getDistrict(shift.address) || 'Q. 1'}
-            </Text>
+        {/* Title */}
+        <Text style={styles.shiftTitle}>{shift.title}</Text>
+
+        {/* Location & Brand */}
+        <View style={styles.cardInfoRow}>
+          <View style={styles.iconCircleBg}>
+            <Ionicons name="storefront-outline" size={14} color="#FF6B00" />
           </View>
+          <Text style={styles.infoText} numberOfLines={1}>
+            {shift.shopName}
+          </Text>
         </View>
 
-        {/* Divider line */}
+        <View style={styles.cardInfoRow}>
+          <View style={styles.iconCircleBg}>
+            <Ionicons name="location-outline" size={14} color="#64748B" />
+          </View>
+          <Text style={styles.infoText} numberOfLines={1}>
+            {shift.address}
+          </Text>
+        </View>
+
+        {/* Divider */}
         <View style={styles.cardDivider} />
 
-        {/* Bottom row: Left column: Date & Time range. Right column: Money earnings (value + unit below) */}
+        {/* Bottom Metadata & Earnings */}
         <View style={styles.cardFooterRow}>
-          <View style={styles.footerLeftColumn}>
-            <Text style={styles.footerDateLabel}>{getShiftDateLabel(shift.startTime)}</Text>
-            <Text style={styles.footerTimeRange}>{shift.time}</Text>
+          <View style={styles.timeMeta}>
+            <Ionicons name="time-outline" size={15} color="#FF6B00" style={{ marginRight: 6 }} />
+            <Text style={styles.timeText}>{shift.time}</Text>
           </View>
-          <View style={styles.footerRightColumn}>
-            <Text style={styles.footerEarningsValue}>
-              {(shift.hourlyRate * 4).toLocaleString('vi-VN')}
+          <View style={styles.earningsWrapper}>
+            <Text style={styles.earningsLabelText}>Lương ước tính</Text>
+            <Text style={styles.earningsValueText}>
+              {(shift.hourlyRate * 4).toLocaleString('vi-VN')}đ
             </Text>
-            <Text style={styles.footerEarningsUnit}>VND</Text>
           </View>
         </View>
 
-        {/* Check-In Action Button (preserved for non-completed shifts with polished styling) */}
+        {/* Interactive Action Button for non-completed */}
         {!isCompleted && (
-          <View style={{ marginTop: 14 }}>
-            <TouchableOpacity
-              style={[
-                styles.checkInActionBtn,
-                isWorking && { backgroundColor: theme.colors.success },
-                isApplied && { backgroundColor: theme.colors.textLight }
-              ]}
-              disabled={isApplied}
-              onPress={() => navigateTo('student_checkin', { shiftId: shift.id })}
-            >
-              <Text style={styles.checkInActionText}>
-                {isWorking ? '⚡ Xem phiên điểm danh GPS' : isApplied ? '⏳ Đang chờ chủ quán duyệt hồ sơ...' : '📍 Điểm danh GPS'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              isWorking && styles.actionButtonActive,
+              isApplied && styles.actionButtonDisabled
+            ]}
+            disabled={isApplied}
+            activeOpacity={0.8}
+            onPress={() => navigateTo('student_checkin', { shiftId: shift.id })}
+          >
+            <Ionicons
+              name={isWorking ? "flash-outline" : isApplied ? "hourglass-outline" : "location-outline"}
+              size={16}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.actionButtonText}>
+              {isWorking ? 'Xem phiên điểm danh GPS' : isApplied ? 'Chờ duyệt hồ sơ...' : 'Điểm danh GPS ngay'}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -230,94 +256,145 @@ export default function StudentCalendar() {
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
-      {/* Earnings Header */}
-      <View style={styles.earningsCard}>
-        <Text style={styles.earningsLabel}>Tổng thu nhập dự kiến tháng này</Text>
-        <Text style={styles.earningsValue}>{totalEarnings.toLocaleString('vi-VN')} đ</Text>
-        <View style={styles.earningsSubRow}>
-          <Text style={styles.earningsSubText}>Đã hoàn tất: {completedEarnings.toLocaleString('vi-VN')} đ</Text>
-          <Text style={styles.earningsSubText}>Sắp tới: {projectedEarnings.toLocaleString('vi-VN')} đ</Text>
+      {/* Sleek Custom Top Navigation Bar */}
+      <View style={styles.headerContainer}>
+        <View>
+          <Text style={styles.headerTitle}>Lịch làm việc</Text>
+          <Text style={styles.headerSubtitle}>Chào ngày mới! Xem lịch trình của bạn</Text>
         </View>
+        <TouchableOpacity style={styles.headerBadge} activeOpacity={0.7} onPress={() => loadMyApplications()}>
+          <Text style={styles.headerBadgeText}>Làm mới</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Week Day Header Slider */}
-      <View style={styles.weekTimeline}>
-        <Text style={styles.timelineLabel}>{getTimelineLabel()}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
-          {weekDays.map((day, idx) => {
-            const isSelected = selectedDayIndex === idx;
-            const dayHasShift = shifts.some(s => isSameDate(s.startTime, day.apiDateStr));
-            return (
-              <TouchableOpacity
-                key={idx}
-                style={[
-                  styles.dayHeaderCell,
-                  isSelected && styles.selectedDayHeaderCell,
-                  day.isToday && !isSelected && styles.todayHeaderCell
-                ]}
-                onPress={() => setSelectedDayIndex(idx)}
-              >
-                <Text style={[
-                  styles.dayNameText,
-                  isSelected && styles.selectedDayNameText,
-                  day.isToday && { color: theme.colors.student }
-                ]}>
-                  {day.name}
-                </Text>
-                <Text style={[
-                  styles.dayDateText,
-                  isSelected && styles.selectedDayDateText
-                ]}>
-                  {day.date.split('/')[0]}
-                </Text>
-                {isSelected && <View style={styles.activeIndicatorDot} />}
-                {day.isToday && !isSelected && <View style={styles.todayIndicatorDot} />}
-                {dayHasShift && (
-                  <View style={[
-                    styles.shiftDot,
-                    isSelected && { backgroundColor: theme.colors.white }
-                  ]} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Earnings Card with Modern FinTech Styling */}
+        <View style={styles.earningsCard}>
+          {/* Abstract backgrounds bubbles for visual depth */}
+          <View style={styles.cardBubbleLeft} />
+          <View style={styles.cardBubbleRight} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Day Summary Header */}
-        <View style={styles.daySummary}>
-          <Text style={styles.summaryTitle}>{getDaySummaryTitle()}</Text>
-          {selectedDay?.isToday && <Text style={styles.todayTag}>Hôm nay</Text>}
+          <View style={styles.earningsHeader}>
+            <View>
+              <Text style={styles.earningsTitle}>Thu nhập tháng này</Text>
+              <Text style={styles.earningsSubTitle}>Tổng thu nhập ước tính của bạn</Text>
+            </View>
+            <View style={styles.walletIconContainer}>
+              <Ionicons name="wallet" size={24} color="#FFFFFF" />
+            </View>
+          </View>
+
+          <Text style={styles.earningsMainValue}>{totalEarnings.toLocaleString('vi-VN')}đ</Text>
+
+          <View style={styles.earningsFooter}>
+            <View style={styles.earningsSplit}>
+              <Ionicons name="checkmark-circle" size={14} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+              <Text style={styles.earningsSplitText}>Đã nhận: {completedEarnings.toLocaleString('vi-VN')}đ</Text>
+            </View>
+            <View style={styles.earningsSplitDivider} />
+            <View style={styles.earningsSplit}>
+              <Ionicons name="calendar" size={14} color="rgba(255,255,255,0.7)" style={{ marginRight: 4 }} />
+              <Text style={styles.earningsSplitText}>Chờ nhận: {projectedEarnings.toLocaleString('vi-VN')}đ</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Tab Selection */}
+        {/* Elegant Week Timeline Navigation */}
+        <View style={styles.timelineSection}>
+          <View style={styles.timelineHeader}>
+            <Text style={styles.timelineHeading}>{getTimelineLabel()}</Text>
+            <TouchableOpacity style={styles.todayButton} onPress={() => {
+              const todayIdx = weekDays.findIndex(d => d.isToday);
+              if (todayIdx >= 0) setSelectedDayIndex(todayIdx);
+            }}>
+              <Text style={styles.todayButtonText}>Hôm nay</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
+            {weekDays.map((day, idx) => {
+              const isSelected = selectedDayIndex === idx;
+              const dayHasShift = shifts.some(s => isSameDate(s.startTime, day.apiDateStr));
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[
+                    styles.dayHeaderCell,
+                    isSelected && styles.selectedDayHeaderCell,
+                    day.isToday && !isSelected && styles.todayHeaderCell
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedDayIndex(idx)}
+                >
+                  <Text style={[
+                    styles.dayNameText,
+                    isSelected && styles.selectedDayNameText,
+                    day.isToday && !isSelected && { color: '#FF6B00', fontWeight: '800' }
+                  ]}>
+                    {day.name}
+                  </Text>
+                  <Text style={[
+                    styles.dayDateText,
+                    isSelected && styles.selectedDayDateText,
+                    day.isToday && !isSelected && { color: '#FF6B00' }
+                  ]}>
+                    {day.date.split('/')[0]}
+                  </Text>
+                  
+                  {dayHasShift && (
+                    <View style={[
+                      styles.shiftIndicatorDot,
+                      isSelected ? { backgroundColor: '#FFFFFF' } : { backgroundColor: '#FF6B00' }
+                    ]} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Tab Selection Segments */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'upcoming' && styles.activeTabButton]}
+            activeOpacity={0.8}
             onPress={() => setActiveTab('upcoming')}
           >
             <Text style={[styles.tabButtonText, activeTab === 'upcoming' && styles.activeTabButtonText]}>
-              Ca Sắp Tới ({upcomingShifts.length})
+              Ca sắp tới ({upcomingShifts.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'completed' && styles.activeTabButton]}
+            activeOpacity={0.8}
             onPress={() => setActiveTab('completed')}
           >
             <Text style={[styles.tabButtonText, activeTab === 'completed' && styles.activeTabButtonText]}>
-              Lịch Sử ({completedShifts.length})
+              Lịch sử ca ({completedShifts.length})
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Shift list mapping */}
+        {/* List Header title */}
+        <View style={styles.listHeaderRow}>
+          <Text style={styles.listHeaderTitle}>{getDaySummaryTitle()}</Text>
+          {selectedDay?.isToday && (
+            <View style={styles.todayPillBadge}>
+              <Text style={styles.todayPillText}>Hôm nay</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Shifts List mapping */}
         <View style={styles.shiftsListContainer}>
           {activeTab === 'upcoming' ? (
             upcomingShifts.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>Bạn không có lịch làm việc nào sắp tới vào ngày này.</Text>
-                <Text style={styles.emptySubText}>Vào mục tìm kiếm để nhận thêm ca mới nhé!</Text>
+                <View style={styles.emptyIconBg}>
+                  <Ionicons name="calendar-clear-outline" size={32} color="#94A3B8" />
+                </View>
+                <Text style={styles.emptyText}>Trống lịch trình</Text>
+                <Text style={styles.emptySubText}>Bạn không có ca làm việc nào trong ngày này.</Text>
               </View>
             ) : (
               upcomingShifts.map(renderShiftItem)
@@ -325,12 +402,16 @@ export default function StudentCalendar() {
           ) : (
             completedShifts.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>Chưa có lịch sử ca làm nào vào ngày này.</Text>
-                <Text style={styles.emptySubText}>Hoàn thành các ca làm được giao để nhận lương.</Text>
+                <View style={styles.emptyIconBg}>
+                  <Ionicons name="checkmark-done-circle-outline" size={32} color="#94A3B8" />
+                </View>
+                <Text style={styles.emptyText}>Chưa có lịch sử ca</Text>
+                <Text style={styles.emptySubText}>Hoàn thành ca làm việc để xem lịch sử tích lũy tại đây.</Text>
               </View>
             ) : (
               completedShifts.map(renderShiftItem)
-            ))}
+            )
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -340,110 +421,207 @@ export default function StudentCalendar() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
-  earningsCard: {
-    backgroundColor: theme.colors.student,
-    padding: 24,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    shadowColor: theme.colors.student,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  earningsLabel: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  earningsValue: {
-    color: theme.colors.white,
-    fontSize: 28,
-    fontWeight: '800',
-    marginVertical: 6,
-  },
-  earningsSubRow: {
+  headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 10,
+    backgroundColor: '#F8FAFC',
+  },
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -1.0,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  headerBadge: {
+    backgroundColor: '#FFF3EB',
+    borderWidth: 1,
+    borderColor: '#FFE0CC',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  headerBadgeText: {
+    fontSize: 12,
+    color: '#FF6B00',
+    fontWeight: '800',
+  },
+  scrollContent: {
+    paddingBottom: 130,
+  },
+  earningsCard: {
+    backgroundColor: '#FF6B00',
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: 24,
+    padding: 22,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  cardBubbleLeft: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    top: -60,
+    left: -40,
+  },
+  cardBubbleRight: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    bottom: -90,
+    right: -40,
+  },
+  earningsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  earningsTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    opacity: 0.95,
+  },
+  earningsSubTitle: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  walletIconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  earningsMainValue: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginVertical: 14,
+    zIndex: 2,
+    letterSpacing: -0.5,
+  },
+  earningsFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
-    paddingTop: 10,
-    marginTop: 6,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    paddingTop: 12,
+    marginTop: 2,
+    zIndex: 2,
   },
-  earningsSubText: {
-    color: theme.colors.white,
-    fontSize: 12,
-    fontWeight: '600',
+  earningsSplit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
-  weekTimeline: {
-    backgroundColor: '#FFFFFF',
-    paddingTop: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+  earningsSplitText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
-  timelineLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#94A3B8',
-    paddingHorizontal: 16,
+  earningsSplitDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 12,
+  },
+  timelineSection: {
+    marginTop: 20,
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
     marginBottom: 10,
-    letterSpacing: 0.5,
+  },
+  timelineHeading: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  todayButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#FFEBE0',
+  },
+  todayButtonText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FF6B00',
   },
   daysScroll: {
-    paddingHorizontal: 12,
-    paddingBottom: 14,
+    paddingHorizontal: 14,
+    paddingBottom: 4,
   },
   dayHeaderCell: {
     width: 52,
-    height: 76,
+    height: 72,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 6,
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
     position: 'relative',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 1,
-      },
-      web: {
-        boxShadow: '0 4px 12px -5px rgba(0, 0, 0, 0.05)',
-      }
-    }),
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 2,
   },
   selectedDayHeaderCell: {
-    backgroundColor: theme.colors.student,
-    borderColor: theme.colors.student,
-    shadowColor: theme.colors.student,
+    backgroundColor: '#FF6B00',
+    borderColor: '#FF6B00',
+    shadowColor: '#FF6B00',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 5,
   },
   todayHeaderCell: {
     borderWidth: 1.5,
-    borderColor: theme.colors.student,
+    borderColor: '#FF6B00',
+    backgroundColor: '#FFF8F4',
   },
   dayNameText: {
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#94A3B8',
-    textTransform: 'uppercase',
   },
   selectedDayNameText: {
     color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '700',
   },
   dayDateText: {
     fontSize: 18,
@@ -453,66 +631,22 @@ const styles = StyleSheet.create({
   },
   selectedDayDateText: {
     color: '#FFFFFF',
+    fontWeight: '900',
   },
-  activeIndicatorDot: {
+  shiftIndicatorDot: {
     position: 'absolute',
     bottom: 8,
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
-  todayIndicatorDot: {
-    position: 'absolute',
-    bottom: 8,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.student,
-  },
-  shiftDot: {
-    position: 'absolute',
-    bottom: 8,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.student,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 120,
-  },
-  daySummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    marginTop: theme.spacing.md,
-    paddingHorizontal: 8,
-  },
-  summaryTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.5,
-  },
-  todayTag: {
-    backgroundColor: 'rgba(255, 107, 0, 0.1)',
-    color: theme.colors.student,
-    fontSize: 11,
-    fontWeight: 'bold',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
     borderRadius: 14,
     padding: 4,
-    marginHorizontal: 8,
-    marginTop: 16,
-    marginBottom: 8,
+    marginHorizontal: 20,
+    marginTop: 20,
   },
   tabButton: {
     flex: 1,
@@ -522,166 +656,216 @@ const styles = StyleSheet.create({
   },
   activeTabButton: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
   tabButtonText: {
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#64748B',
   },
   activeTabButtonText: {
-    color: theme.colors.student,
+    color: '#FF6B00',
+    fontWeight: '800',
+  },
+  listHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: 22,
+    marginBottom: 10,
+  },
+  listHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  todayPillBadge: {
+    backgroundColor: '#FFF3EB',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  todayPillText: {
+    color: '#FF6B00',
+    fontSize: 10,
+    fontWeight: '800',
   },
   shiftsListContainer: {
-    paddingHorizontal: 4,
-    marginTop: 16,
+    paddingHorizontal: 20,
   },
   shiftCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000000',
+    borderColor: '#E2E8F0',
+    borderLeftWidth: 5,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
-    shadowRadius: 16,
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
     elevation: 3,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  badgeWorking: {
-    backgroundColor: '#E8F5E9',
-  },
-  badgeCompleted: {
-    backgroundColor: '#F1F5F9',
-  },
-  badgeApplied: {
-    backgroundColor: '#FFF9C4',
-  },
-  badgeApproved: {
-    backgroundColor: '#FFEBE0',
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  textWorking: {
-    color: '#2E7D32',
-  },
-  textCompleted: {
-    color: '#475569',
-  },
-  textApplied: {
-    color: '#F59E0B',
-  },
-  textApproved: {
-    color: '#FF6B00',
-  },
-  ellipsisButton: {
-    padding: 4,
-  },
-  cardBodyContainer: {
     marginBottom: 12,
   },
-  shiftTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1E293B',
-    lineHeight: 22,
-  },
-  locationContainer: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  shiftShopName: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  ellipsisButton: {
+    padding: 2,
+  },
+  shiftTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  cardInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  iconCircleBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    flex: 1,
   },
   cardDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginVertical: 14,
+    marginVertical: 12,
   },
   cardFooterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
-  footerLeftColumn: {
-    flex: 1,
+  timeMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  footerRightColumn: {
-    alignItems: 'flex-end',
-  },
-  footerDateLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  timeText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#1E293B',
   },
-  footerTimeRange: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
+  earningsWrapper: {
+    alignItems: 'flex-end',
   },
-  footerEarningsValue: {
-    fontSize: 18,
+  earningsLabelText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  earningsValueText: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#1E293B',
+    marginTop: 1,
   },
-  footerEarningsUnit: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#94A3B8',
-    letterSpacing: 0.5,
-  },
-  checkInActionBtn: {
-    backgroundColor: theme.colors.student,
-    height: 42,
-    borderRadius: 21,
+  actionButton: {
+    backgroundColor: '#FF6B00',
+    borderRadius: 12,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: theme.colors.student,
+    flexDirection: 'row',
+    marginTop: 14,
+    shadowColor: '#FF6B00',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
-  checkInActionText: {
-    color: theme.colors.white,
-    fontSize: 13,
-    fontWeight: 'bold',
+  actionButtonActive: {
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+  },
+  actionButtonDisabled: {
+    backgroundColor: '#CBD5E1',
+    shadowColor: 'transparent',
+    elevation: 0,
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   emptyState: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 50,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 2,
+    marginTop: 4,
+  },
+  emptyIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   emptyText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: theme.colors.text,
+    fontWeight: '800',
+    color: '#1E293B',
+    textAlign: 'center',
   },
   emptySubText: {
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: '#64748B',
+    textAlign: 'center',
     marginTop: 4,
+    fontWeight: '500',
+    lineHeight: 16,
   }
 });
-

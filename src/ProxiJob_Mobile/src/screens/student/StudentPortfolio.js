@@ -60,6 +60,91 @@ const formatDateToDisplay = (isoString) => {
   return `${day}/${month}/${year}`;
 };
 
+const GOOGLE_MAPS_API_KEY = 'CvNapWs3C3Vt7ZTRZf0uZliN9v3q8TBJKxd2CEcW';
+
+const cleanAddress = (rawAddress) => {
+  if (!rawAddress) return '';
+  let cleaned = rawAddress.replace(/,\s*(Việt Nam|Vietnam)\s*$/i, '');
+  cleaned = cleaned.replace(/,\s*\d{5,6}\b/g, '');
+  return cleaned.trim();
+};
+
+const reverseGeocode = async (lat, lng) => {
+  let addressVal = '';
+  let cityVal = 'TP. Hồ Chí Minh';
+
+  if (GOOGLE_MAPS_API_KEY) {
+    try {
+      const response = await fetch(
+        `https://rsapi.goong.io/Geocode?latlng=${lat},${lng}&api_key=${GOOGLE_MAPS_API_KEY}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'OK' && data.results && data.results.length > 0) {
+          const result = data.results[0];
+          addressVal = cleanAddress(result.formatted_address);
+
+          if (result.address_components) {
+            const cityComponent = result.address_components.find(comp =>
+              comp.types && (comp.types.includes('administrative_area_level_1') || comp.types.includes('city'))
+            );
+            if (cityComponent) {
+              cityVal = cityComponent.long_name;
+            }
+          }
+          return { address: addressVal, city: cityVal };
+        }
+      }
+    } catch (e) {
+      console.log('Goong reverse geocoding error:', e);
+    }
+  }
+
+  // Fallback to OSM Nominatim
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      if (data.display_name) {
+        addressVal = cleanAddress(data.display_name);
+      } else {
+        const road = data.address?.road || '';
+        const suburb = data.address?.suburb || data.address?.quarter || '';
+        const city = data.address?.city || data.address?.town || data.address?.state || '';
+        addressVal = [road, suburb, city].filter(Boolean).join(', ');
+      }
+      cityVal = data.address?.city || data.address?.town || data.address?.state || 'TP. Hồ Chí Minh';
+      return { address: addressVal, city: cityVal };
+    }
+  } catch (e) {
+    console.log('OSM reverse geocoding error:', e);
+  }
+
+  return {
+    address: `Tọa độ: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+    city: 'TP. Hồ Chí Minh'
+  };
+};
+
+const fetchGeocode = async (q) => {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+      { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+  } catch (err) {
+    console.log('fetchGeocode error:', err);
+  }
+  return null;
+};
+
 const parseDateInput = (str) => {
   if (!str) return new Date().toISOString();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
@@ -126,6 +211,9 @@ export default function StudentPortfolio() {
 
   // State phục vụ quét định vị thiết bị
   const [gpsScanning, setGpsScanning] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
@@ -228,8 +316,6 @@ export default function StudentPortfolio() {
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
-
-      console.log('[StudentPortfolio] generated publicUrl:', publicUrl);
 
       const updatedProfileData = {
         phoneNumber: profile?.phoneNumber || '',
@@ -404,8 +490,6 @@ export default function StudentPortfolio() {
             console.log('[StudentPortfolio] error saving auth session during sync:', e);
           }
         }
-
-        console.log('[StudentPortfolio] profile data loaded:', data);
         if (data.latitude && data.longitude) {
           const coords = { latitude: data.latitude, longitude: data.longitude };
           await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
@@ -496,13 +580,34 @@ export default function StudentPortfolio() {
   };
 
   const geocodeAddress = async (addressText, cityText) => {
+    const query = `${addressText}${cityText ? ', ' + cityText : ''}`;
+
+    if (GOOGLE_MAPS_API_KEY) {
+      try {
+        const url = `https://rsapi.goong.io/Geocode?address=${encodeURIComponent(query)}&api_key=${GOOGLE_MAPS_API_KEY}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.results && data.results.length > 0) {
+            const loc = data.results[0].geometry.location;
+            return {
+              latitude: loc.lat,
+              longitude: loc.lng
+            };
+          }
+        }
+      } catch (e) {
+        console.log('Goong geocoding API error:', e);
+      }
+    }
+
     try {
       let cleaned = addressText.trim();
       cleaned = cleaned.replace(/^\d+([/.-]\d+)*[a-zA-Z]?\s+/, '');
       cleaned = cleaned.replace(/^(hẻm|ngõ|kiệt)\s+\d+([/.-]\d+)*[a-zA-Z]?\s+/, '');
 
-      const query = `${cleaned}${cityText ? ', ' + cityText : ''}, Viet Nam`;
-      let response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+      const fallbackQuery = `${cleaned}${cityText ? ', ' + cityText : ''}, Viet Nam`;
+      let response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQuery)}&format=json&limit=1`, {
         headers: {
           'User-Agent': 'ProxiJobApp/1.0'
         }
@@ -516,20 +621,20 @@ export default function StudentPortfolio() {
       }
 
       const lower = addressText.toLowerCase();
-      let fallbackQuery = '';
+      let fallbackQuery2 = '';
       if (lower.includes('trường thọ')) {
-        fallbackQuery = 'Trường Thọ, Thủ Đức, Viet Nam';
+        fallbackQuery2 = 'Trường Thọ, Thủ Đức, Viet Nam';
       } else if (lower.includes('thủ đức')) {
-        fallbackQuery = 'Thủ Đức, Viet Nam';
+        fallbackQuery2 = 'Thủ Đức, Viet Nam';
       } else {
         const parts = addressText.split(/[,.-]/);
         if (parts.length > 1) {
-          fallbackQuery = `${parts[parts.length - 2].trim()}, ${parts[parts.length - 1].trim()}, Viet Nam`;
+          fallbackQuery2 = `${parts[parts.length - 2].trim()}, ${parts[parts.length - 1].trim()}, Viet Nam`;
         }
       }
 
-      if (fallbackQuery) {
-        response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQuery)}&format=json&limit=1`, {
+      if (fallbackQuery2) {
+        response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQuery2)}&format=json&limit=1`, {
           headers: {
             'User-Agent': 'ProxiJobApp/1.0'
           }
@@ -543,7 +648,7 @@ export default function StudentPortfolio() {
         }
       }
     } catch (e) {
-      console.log('Geocoding error:', e);
+      console.log('OSM Geocoding error:', e);
     }
     return null;
   };
@@ -627,33 +732,15 @@ export default function StudentPortfolio() {
   const handleConfirmMapLocation = async () => {
     try {
       setSaving(true);
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${selectedLat}&lon=${selectedLng}&format=json`, {
-        headers: {
-          'User-Agent': 'ProxiJobApp/1.0'
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const displayName = data.display_name || '';
-        const addressVal = data.address?.road || data.address?.suburb || data.address?.quarter || displayName.split(',')[0] || 'Địa chỉ chọn trên bản đồ';
-        const cityVal = data.address?.city || data.address?.town || data.address?.state || 'TP. Hồ Chí Minh';
+      const { address: addressVal, city: cityVal } = await reverseGeocode(selectedLat, selectedLng);
 
-        setForm(prev => ({
-          ...prev,
-          address: addressVal,
-          city: cityVal,
-          latitude: selectedLat,
-          longitude: selectedLng
-        }));
-      } else {
-        setForm(prev => ({
-          ...prev,
-          address: `Tọa độ: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`,
-          city: 'TP. Hồ Chí Minh',
-          latitude: selectedLat,
-          longitude: selectedLng
-        }));
-      }
+      setForm(prev => ({
+        ...prev,
+        address: addressVal,
+        city: cityVal,
+        latitude: selectedLat,
+        longitude: selectedLng
+      }));
 
       const coords = { latitude: selectedLat, longitude: selectedLng };
       await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
@@ -681,6 +768,243 @@ export default function StudentPortfolio() {
       }, 400);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleOpenMapPicker = async () => {
+    let lat = form.latitude || studentCoords?.latitude || 10.7769;
+    let lng = form.longitude || studentCoords?.longitude || 106.7009;
+
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    setMapStartCoords({ lat, lng });
+    setEditModalVisible(false);
+
+    setTimeout(() => {
+      setMapModalVisible(true);
+    }, 400);
+  };
+
+  const handleGetCurrentGPSLocation = async () => {
+    try {
+      setGpsScanning(true);
+      showToast('Đang quét GPS độ chính xác cao...', 'info');
+
+      // 1. Hỏi xin quyền sử dụng định vị của thiết bị
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== 'granted') {
+        showToast('Quyền định vị bị từ chối! Vui lòng cho phép trong cài đặt.', 'warning');
+        return;
+      }
+
+      // 2. Ép phần cứng quét tọa độ thời gian thực
+      const geoPosition = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.BestForNavigation,
+      });
+
+      if (geoPosition && geoPosition.coords) {
+        const { latitude, longitude } = geoPosition.coords;
+        console.log('[GPS Lấy vị trí hiện tại]:', latitude, longitude);
+
+        // 3. Gọi reverse geocode để điền địa chỉ
+        const { address: addressVal, city: cityVal } = await reverseGeocode(latitude, longitude);
+
+        setForm(prev => ({
+          ...prev,
+          address: addressVal,
+          city: cityVal,
+          latitude: latitude,
+          longitude: longitude
+        }));
+
+        setSelectedLat(latitude);
+        setSelectedLng(longitude);
+        setMapStartCoords({ lat: latitude, lng: longitude });
+
+        const coords = { latitude, longitude };
+        await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
+        if (setStudentCoords) {
+          setStudentCoords(coords);
+        }
+
+        showToast('Đã lấy vị trí hiện tại và điền địa chỉ thành công!', 'success');
+      } else {
+        showToast('Không nhận được tín hiệu GPS từ thiết bị.', 'error');
+      }
+    } catch (error) {
+      console.log('Error getting current GPS location:', error);
+      showToast('Không lấy được vị trí GPS hiện tại.', 'error');
+    } finally {
+      setGpsScanning(false);
+    }
+  };
+
+  const handleSearchAddress = async () => {
+    if (!form.address) {
+      showToast('Vui lòng nhập địa chỉ trước khi tìm kiếm!', 'warning');
+      return;
+    }
+    try {
+      setGpsScanning(true);
+      showToast('Đang định vị địa chỉ của bạn...', 'info');
+      const coords = await geocodeAddress(form.address, form.city);
+      if (coords) {
+        setForm(prev => ({
+          ...prev,
+          latitude: coords.latitude,
+          longitude: coords.longitude
+        }));
+        setSelectedLat(coords.latitude);
+        setSelectedLng(coords.longitude);
+        setMapStartCoords({ lat: coords.latitude, lng: coords.longitude });
+
+        // Save to AsyncStorage and update context coordinates
+        const coordsObj = { latitude: coords.latitude, longitude: coords.longitude };
+        await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coordsObj));
+        if (setStudentCoords) {
+          setStudentCoords(coordsObj);
+        }
+
+        showToast('Định vị địa chỉ thành công!', 'success');
+      } else {
+        showToast('Không tìm thấy tọa độ cho địa chỉ này. Vui lòng nhập chi tiết hơn.', 'error');
+      }
+    } catch (err) {
+      console.log('Error geocoding typed address:', err);
+      showToast('Lỗi khi định vị địa chỉ!', 'error');
+    } finally {
+      setGpsScanning(false);
+    }
+  };
+
+  const handleAddressChange = async (text) => {
+    setForm(prev => ({ ...prev, address: text }));
+    if (text.length < 4) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      setSuggestionsLoading(true);
+      if (GOOGLE_MAPS_API_KEY) {
+        const response = await fetch(
+          `https://rsapi.goong.io/Place/AutoComplete?input=${encodeURIComponent(text)}&api_key=${GOOGLE_MAPS_API_KEY}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK' && data.predictions) {
+            const formatted = data.predictions.map(item => ({
+              display_name: item.description,
+              place_id: item.place_id,
+              isGoogle: true
+            }));
+            setAddressSuggestions(formatted);
+            setShowSuggestions(formatted.length > 0);
+          }
+        }
+      } else {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5`,
+          { headers: { 'User-Agent': 'ProxiJobApp/1.0' } }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const formatted = data.map(item => ({
+            display_name: cleanAddress(item.display_name),
+            lat: parseFloat(item.lat),
+            lon: parseFloat(item.lon)
+          }));
+          setAddressSuggestions(formatted);
+          setShowSuggestions(formatted.length > 0);
+        }
+      }
+    } catch (e) {
+      console.log('Suggestions fetch error:', e);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  const handleSelectSuggestion = async (suggestion) => {
+    let cityVal = form.city || 'TP. Hồ Chí Minh';
+    const lowerAddr = suggestion.display_name.toLowerCase();
+    if (lowerAddr.includes('hồ chí minh') || lowerAddr.includes('hcm')) {
+      cityVal = 'Thành phố Hồ Chí Minh';
+    } else if (lowerAddr.includes('hà nội')) {
+      cityVal = 'Thành phố Hà Nội';
+    } else if (lowerAddr.includes('đà nẵng')) {
+      cityVal = 'Thành phố Đà Nẵng';
+    } else if (lowerAddr.includes('bình dương')) {
+      cityVal = 'Tỉnh Bình Dương';
+    } else if (lowerAddr.includes('đồng nai')) {
+      cityVal = 'Tỉnh Đồng Nai';
+    }
+
+    setForm(prev => ({
+      ...prev,
+      address: suggestion.display_name,
+      city: cityVal
+    }));
+    setShowSuggestions(false);
+
+    try {
+      setGpsScanning(true);
+      let lat = 0;
+      let lon = 0;
+      if (suggestion.isGoogle) {
+        const response = await fetch(
+          `https://rsapi.goong.io/Place/Detail?place_id=${suggestion.place_id}&api_key=${GOOGLE_MAPS_API_KEY}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'OK' && data.result) {
+            if (data.result.geometry?.location) {
+              lat = data.result.geometry.location.lat;
+              lon = data.result.geometry.location.lng;
+            }
+            if (data.result.address_components) {
+              const cityComponent = data.result.address_components.find(comp => 
+                comp.types && (comp.types.includes('administrative_area_level_1') || comp.types.includes('city'))
+              );
+              if (cityComponent) {
+                cityVal = cityComponent.long_name;
+              }
+            }
+          }
+        }
+      } else {
+        lat = suggestion.lat;
+        lon = suggestion.lon;
+      }
+
+      if (lat && lon) {
+        setForm(prev => ({
+          ...prev,
+          city: cityVal,
+          latitude: lat,
+          longitude: lon
+        }));
+        setSelectedLat(lat);
+        setSelectedLng(lon);
+        setMapStartCoords({ lat, lng: lon });
+
+        // Save to AsyncStorage and update context coordinates
+        const coordsObj = { latitude: lat, longitude: lon };
+        await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coordsObj));
+        if (setStudentCoords) {
+          setStudentCoords(coordsObj);
+        }
+
+        showToast('Đã chọn địa chỉ & lấy tọa độ thành công!', 'success');
+      } else {
+        showToast('Không lấy được tọa độ cho vị trí này.', 'warning');
+      }
+    } catch (err) {
+      console.log('Select suggestion error:', err);
+    } finally {
+      setGpsScanning(false);
     }
   };
 
@@ -989,84 +1313,115 @@ export default function StudentPortfolio() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Địa chỉ</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ position: 'relative', marginBottom: 12, zIndex: 10 }}>
                   <TextInput
-                    style={[styles.input, { flex: 1, marginRight: 8 }]}
+                    style={[styles.input, { paddingRight: 105, marginBottom: 0 }]}
+                    placeholder="Nhập địa chỉ hoặc nhấn nút GPS bên dưới..."
                     value={form.address}
-                    onChangeText={(val) => setForm(prev => ({ ...prev, address: val }))}
-                    placeholder="Nhập địa chỉ nhà"
+                    onChangeText={handleAddressChange}
                   />
-
-                  {/* NÚT BẢN ĐỒ: ĐÃ ĐƯỢC TÍCH HỢP QUÉT GPS ĐỘ CHÍNH XÁC CAO */}
                   <TouchableOpacity
-                    style={styles.mapIconButton}
-                    disabled={gpsScanning}
-                    onPress={async () => {
-                      let lat = studentCoords?.latitude || 10.7769;
-                      let lng = studentCoords?.longitude || 106.7009;
-
-                      try {
-                        setGpsScanning(true);
-                        showToast('Đang quét GPS độ chính xác cao...', 'info');
-
-                        // 1. Hỏi xin quyền sử dụng định vị của thiết bị
-                        const { status } = await Location.requestForegroundPermissionsAsync();
-
-                        if (status === 'granted') {
-                          // 2. Ép phần cứng quét tọa độ thời gian thực với sai số ít nhất
-                          const geoPosition = await Location.getCurrentPositionAsync({
-                            accuracy: Location.Accuracy.BestForNavigation,
-                          });
-
-                          if (geoPosition && geoPosition.coords) {
-                            lat = geoPosition.coords.latitude;
-                            lng = geoPosition.coords.longitude;
-                            console.log('[GPS Thành công]:', lat, lng);
-                          }
-                        } else {
-                          // Fallback: Nếu từ chối quyền, quét chữ giống logic cũ của bạn
-                          showToast('Quyền bị từ chối. Đang định vị theo text...', 'info');
-                          if (form.address) {
-                            const coords = await geocodeAddress(form.address, form.city);
-                            if (coords) {
-                              lat = coords.latitude;
-                              lng = coords.longitude;
-                            }
-                          }
-                        }
-                      } catch (error) {
-                        console.log('Không thể lấy GPS cảm biến, dùng geocode:', error);
-                        if (form.address) {
-                          const coords = await geocodeAddress(form.address, form.city);
-                          if (coords) {
-                            lat = coords.latitude;
-                            lng = coords.longitude;
-                          }
-                        }
-                      } finally {
-                        setGpsScanning(false);
-                      }
-
-                      setSelectedLat(lat);
-                      setSelectedLng(lng);
-                      setMapStartCoords({ lat, lng });
-                      setEditModalVisible(false);
-
-                      setTimeout(() => {
-                        setMapModalVisible(true);
-                      }, 400);
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: 7,
+                      backgroundColor: '#64748B',
+                      borderRadius: 10,
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      height: 34,
+                      justifyContent: 'center',
                     }}
+                    disabled={gpsScanning}
+                    onPress={handleSearchAddress}
                   >
                     {gpsScanning ? (
-                      <ActivityIndicator size="small" color="#FF6B00" />
+                      <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Ionicons name="map-outline" size={16} color="#FF6B00" style={{ marginRight: 4 }} />
-                        <Text style={styles.mapIconButtonText}>Bản đồ</Text>
-                      </View>
+                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>Tìm Tọa Độ</Text>
                     )}
                   </TouchableOpacity>
+
+                  {showSuggestions && (
+                    <View style={{
+                      position: 'absolute',
+                      top: 48,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 8,
+                      elevation: 4,
+                      maxHeight: 200,
+                      zIndex: 9999,
+                    }}>
+                      <ScrollView keyboardShouldPersistTaps="always">
+                        {addressSuggestions.map((item, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={{
+                              paddingVertical: 12,
+                              paddingHorizontal: 16,
+                              borderBottomWidth: index === addressSuggestions.length - 1 ? 0 : 1,
+                              borderBottomColor: '#F1F5F9',
+                            }}
+                            onPress={() => handleSelectSuggestion(item)}
+                          >
+                            <Text style={{ fontSize: 13, color: '#334155', fontWeight: '500' }}>{item.display_name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
                 </View>
+
+                {/* Location Buttons Row */}
+                <View style={styles.locationButtonsRow}>
+                  <TouchableOpacity
+                    style={[styles.gpsButton, { flex: 1, marginRight: 8, marginBottom: 0 }]}
+                    onPress={handleGetCurrentGPSLocation}
+                    disabled={gpsScanning}
+                  >
+                    {gpsScanning ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.gpsButtonText}>📍 GPS Hiện Tại</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.mapButton, { flex: 1 }]}
+                    onPress={handleOpenMapPicker}
+                  >
+                    <Text style={styles.mapButtonText}>🗺 Bản Đồ</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Coordinates */}
+                {form.latitude && form.longitude ? (
+                  <View style={styles.coordsRow}>
+                    <View style={styles.coordBox}>
+                      <Text style={styles.coordLabel}>Lat: {parseFloat(form.latitude).toFixed(6)}</Text>
+                    </View>
+                    <View style={styles.coordBox}>
+                      <Text style={styles.coordLabel}>Long: {parseFloat(form.longitude).toFixed(6)}</Text>
+                    </View>
+                    <View style={[styles.coordBox, { backgroundColor: '#10B98120', borderColor: '#10B981', borderWidth: 1 }]}>
+                      <Text style={[styles.coordLabel, { color: '#10B981' }]}>✓ GPS Đã kết nối</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.coordsRow}>
+                    <View style={[styles.coordBox, { backgroundColor: '#EF444420', borderColor: '#EF4444', borderWidth: 1 }]}>
+                      <Text style={[styles.coordLabel, { color: '#EF4444' }]}>⚠ Chưa có tọa độ GPS</Text>
+                    </View>
+                  </View>
+                )}
               </View>
 
               <View style={styles.formGroup}>
@@ -1304,7 +1659,7 @@ export default function StudentPortfolio() {
                       <div id="map"></div>
                       <script>
                         var map = L.map('map', { zoomControl: true, tap: false }).setView([${mapStartCoords.lat}, ${mapStartCoords.lng}], 15);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { attribution: 'Google Maps' }).addTo(map);
 
                         var marker = L.marker(map.getCenter()).addTo(map);
 
@@ -1356,7 +1711,7 @@ export default function StudentPortfolio() {
                         <div id="map"></div>
                         <script>
                           var map = L.map('map', { zoomControl: true, tap: false }).setView([${mapStartCoords.lat}, ${mapStartCoords.lng}], 15);
-                          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                          L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { attribution: 'Google Maps' }).addTo(map);
 
                           var marker = L.marker(map.getCenter()).addTo(map);
 
@@ -2276,6 +2631,67 @@ const styles = StyleSheet.create({
     color: '#FF6B00',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  locationButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  gpsButton: {
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  gpsButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  mapButton: {
+    backgroundColor: '#FF6B00',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  mapButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  coordsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  coordBox: {
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  coordLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#64748B',
   },
   skillInputRow: {
     flexDirection: 'row',

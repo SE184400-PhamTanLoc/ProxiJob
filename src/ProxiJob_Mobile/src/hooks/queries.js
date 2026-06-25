@@ -93,7 +93,8 @@ export const useShiftsQuery = (user, studentCoords) => {
                 rating: 5.0,
                 reviewsCount: 1,
                 status: s.remainingSlots <= 0 ? 'full' : 'available',
-                isEmergency: (job.title || '').toLowerCase().includes('khấn cấp') || (job.description || '').toLowerCase().includes('khấn cấp'),
+                isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.title || '').toLowerCase().includes('khấn cấp') || (job.description || '').toLowerCase().includes('khẩn cấp') || (job.description || '').toLowerCase().includes('khấn cấp'),
+                createdAt: job.createdAt || job.CreatedAt || s.startTime,
                 auditFields: {
                   createdBy: job.createdBy,
                   updatedBy: job.createdBy,
@@ -145,12 +146,26 @@ export const useShiftsQuery = (user, studentCoords) => {
               const scheds = Array.isArray(myScheds) ? myScheds : (Array.isArray(myScheds?.data) ? myScheds.data : (myScheds?.items || []));
               
               for (const sched of scheds) {
+                const hasTimekeeping = !!sched.timekeepingId;
+                const isCheckedIn = hasTimekeeping && !!sched.actualCheckInTime && !sched.actualCheckOutTime;
+                const isCheckedOut = hasTimekeeping && !!sched.actualCheckOutTime;
+
                 // If it is generated from an approved application, we already have it in baseShifts (matched by JobShiftId)
                 if (sched.jobShiftId && baseShifts.some(shift => shift.id === sched.jobShiftId)) {
-                  // Ensure status is 'approved' or 'completed' depending on application state
                   const existing = baseShifts.find(shift => shift.id === sched.jobShiftId);
-                  if (existing && existing.status !== 'checkin_active' && existing.status !== 'completed') {
-                    existing.status = 'approved';
+                  if (existing) {
+                    if (isCheckedIn) {
+                      existing.status = 'checkin_active';
+                      existing.timekeepingId = sched.timekeepingId;
+                      existing.checkInTime = sched.actualCheckInTime ? new Date(sched.actualCheckInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+                    } else if (isCheckedOut) {
+                      existing.status = 'completed';
+                      existing.timekeepingId = sched.timekeepingId;
+                    } else {
+                      if (existing.status !== 'checkin_active' && existing.status !== 'completed') {
+                        existing.status = 'approved';
+                      }
+                    }
                   }
                   continue;
                 }
@@ -163,7 +178,7 @@ export const useShiftsQuery = (user, studentCoords) => {
                 else if (sched.note && sched.note.startsWith('custom_')) slotName = 'Ca Tự Chọn';
                 else if (sched.note) slotName = sched.note;
 
-                const title = `Lịch phân công: ${slotName}`;
+                let title = `Lịch phân công: ${slotName}`;
 
                 // Try to resolve the shopName and address by finding a job created by this business/employer
                 let shopName = 'Cửa hàng đối tác';
@@ -171,13 +186,18 @@ export const useShiftsQuery = (user, studentCoords) => {
                 let latitude = 10.8261;
                 let longitude = 106.6297;
                 
-                const matchingJob = jobPosts.find(j => String(j.createdBy) === String(sched.businessId));
+                const matchingJob = jobPosts.find(j => Number(j.businessId) === Number(sched.businessId));
                 if (matchingJob) {
+                  title = matchingJob.title;
                   shopName = matchingJob.categoryName || 'Cửa hàng';
                   address = matchingJob.address || matchingJob.location?.address || '';
                   latitude = matchingJob.latitude || matchingJob.location?.latitude || latitude;
                   longitude = matchingJob.longitude || matchingJob.location?.longitude || longitude;
                 }
+
+                let status = 'approved';
+                if (isCheckedIn) status = 'checkin_active';
+                else if (isCheckedOut) status = 'completed';
 
                 baseShifts.push({
                   id: `sched_${sched.id}`, // virtual id to avoid overlaps
@@ -196,7 +216,9 @@ export const useShiftsQuery = (user, studentCoords) => {
                   requirements: 'Vui lòng đến đúng giờ.',
                   rating: 5.0,
                   reviewsCount: 1,
-                  status: 'approved', // Manually scheduled means it is pre-approved!
+                  status: status,
+                  timekeepingId: sched.timekeepingId || null,
+                  checkInTime: (isCheckedIn && sched.actualCheckInTime) ? new Date(sched.actualCheckInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
                   isEmergency: false,
                   auditFields: {
                     createdBy: 'System',
@@ -220,7 +242,7 @@ export const useShiftsQuery = (user, studentCoords) => {
       }
     },
     enabled: true,
-    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    staleTime: 0, // stale immediately so switching tabs or screens triggers a new fetch
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection time
   });
 };
@@ -359,7 +381,7 @@ export const useEmployerJobsQuery = (user) => {
                 rating: 5.0,
                 reviewsCount: 0,
                 status: currentStatus,
-                isEmergency: (job.title || '').toLowerCase().includes('khấn cấp'),
+                isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.title || '').toLowerCase().includes('khấn cấp'),
                 applicantCount,
                 applicantName,
                 applicantSchool,
@@ -371,6 +393,7 @@ export const useEmployerJobsQuery = (user) => {
                 applicantYearOfStudy,
                 applicantBio,
                 applicantSkills,
+                createdAt: job.createdAt || job.CreatedAt || s.startTime,
                 auditFields: {
                   createdBy: 'System',
                   updatedBy: 'System',
@@ -398,7 +421,7 @@ export const useEmployerJobsQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
-    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection time
   });
 };
@@ -452,7 +475,7 @@ export const useStaffListQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
-    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
@@ -468,6 +491,7 @@ export const useAttendanceLogsQuery = (user) => {
         const logs = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
         return logs.map(log => ({
           id: log.id,
+          employeeId: log.employeeId || log.EmployeeId || null,
           shiftId: log.workScheduleId,
           studentName: log.employeeName || 'Sinh viên',
           shopName: user.name,
@@ -485,7 +509,7 @@ export const useAttendanceLogsQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
-    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
@@ -504,7 +528,7 @@ export const usePayrollsQuery = (user) => {
       }
     },
     enabled: !!user && user.role === 'employer',
-    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
@@ -522,7 +546,7 @@ export const useSchedulesQuery = (dateStr) => {
       }
     },
     enabled: !!dateStr,
-    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };
@@ -1081,7 +1105,7 @@ export const useConversationsQuery = (user) => {
       }));
     },
     enabled: !!user?.id,
-    staleTime: 2 * 60 * 1000, // 2 minutes stale time
+    staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
 };

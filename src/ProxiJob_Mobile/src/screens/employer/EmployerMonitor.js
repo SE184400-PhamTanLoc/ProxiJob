@@ -14,9 +14,12 @@ import {
 import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
+import { Ionicons } from '@expo/vector-icons';
 import { getAvatarSource } from '../../utils/avatarHelper';
+import { handleCallUser } from '../../utils/callHelper';
 import { useAttendanceLogsQuery, useStaffListQuery } from '../../hooks/queries';
 import { getQrCode, generateQrCode, updateQrRadius } from '../../api/management';
+import { getBusinessProfileApi } from '../../api/businessApi';
 
 // Pure JS Haversine formula
 const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -26,23 +29,90 @@ const calculateHaversineDistance = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c); // returns distance in meters
 };
 
 export default function EmployerMonitor() {
-  const { 
+  const {
     user,
-    studentCoords
+    studentCoords,
+    navigateTo,
+    navigationParams,
+    setNavigationParams
   } = useContext(AppContext);
 
   const { data: attendanceLogs = [], refetch: refetchAttendanceLogs } = useAttendanceLogsQuery(user);
   const { data: staffList = [] } = useStaffListQuery(user);
 
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  const [shopLat, setShopLat] = useState(10.857461); // 84/10 Nam Cao, Quận 9, TP.HCM
+  const [shopLng, setShopLng] = useState(106.801522);
+  const [businessProfile, setBusinessProfile] = useState(null);
+
+  useEffect(() => {
+    async function loadShopLocation() {
+      try {
+        const profile = await getBusinessProfileApi();
+        if (profile) {
+          setBusinessProfile(profile);
+          if (profile.address) {
+            const queryStr = `${profile.address} ${profile.city || ''}`.trim();
+            let latVal = null;
+            let lngVal = null;
+
+            // Try Goong Maps API (Google Maps style Vietnamese clone)
+            const GOONG_API_KEY = 'CvNapWs3C3Vt7ZTRZf0uZliN9v3q8TBJKxd2CEcW';
+            try {
+              const goongUrl = `https://rsapi.goong.io/Geocode?address=${encodeURIComponent(queryStr)}&api_key=${GOONG_API_KEY}`;
+              const goongRes = await fetch(goongUrl);
+              if (goongRes.ok) {
+                const goongData = await goongRes.json();
+                if (goongData.results && goongData.results.length > 0) {
+                  const loc = goongData.results[0].geometry.location;
+                  latVal = loc.lat;
+                  lngVal = loc.lng;
+                }
+              }
+            } catch (err) {
+              console.log('Error geocoding with Goong Maps:', err);
+            }
+
+            // Fallback to Nominatim OpenStreetMap
+            if (latVal === null || lngVal === null) {
+              try {
+                const geoResponse = await fetch(
+                  `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}&limit=1`,
+                  { headers: { 'User-Agent': 'ProxiJob-App' } }
+                );
+                if (geoResponse.ok) {
+                  const geoData = await geoResponse.json();
+                  if (geoData && geoData.length > 0) {
+                    latVal = parseFloat(geoData[0].lat);
+                    lngVal = parseFloat(geoData[0].lon);
+                  }
+                }
+              } catch (osmErr) {
+                console.log('Error geocoding with Nominatim:', osmErr);
+              }
+            }
+
+            if (latVal !== null && lngVal !== null) {
+              setShopLat(latVal);
+              setShopLng(lngVal);
+            }
+          }
+        }
+      } catch (err) {
+        console.log('Error loading business profile or geocoding in EmployerMonitor:', err);
+      }
+    }
+    loadShopLocation();
+  }, []);
 
   // QR Code Management States
   const [qrCodeData, setQrCodeData] = useState(null);
@@ -114,9 +184,6 @@ export default function EmployerMonitor() {
     return () => clearInterval(interval);
   }, []);
 
-  const shopLat = 10.857461; // 84/10 Nam Cao, Quận 9, TP.HCM
-  const shopLng = 106.801522;
-
   // Compute live student coordinates and distance
   const studentLat = studentCoords?.latitude || 10.8550;
   const studentLng = studentCoords?.longitude || 106.6300;
@@ -128,13 +195,18 @@ export default function EmployerMonitor() {
     .map(log => {
       // Check if this log belongs to our test student
       const isStudent = log.studentName.toLowerCase().includes('mai') || log.studentName.toLowerCase().includes('a');
-      const lat = isStudent ? studentLat : 10.8575;
-      const lng = isStudent ? studentLng : 106.8016;
+      const lat = isStudent ? studentLat : shopLat + 0.0001;
+      const lng = isStudent ? studentLng : shopLng + 0.0001;
       const distance = isStudent ? studentDistance : calculateHaversineDistance(lat, lng, shopLat, shopLng);
       const isSuspicious = distance > 100;
 
+      // Find staff profile from staffList to get their true avatarUrl
+      const staffMember = staffList.find(s => s.id === log.employeeId || s.name === log.studentName);
+      const realPhotoUrl = staffMember?.avatarUrl || log.photo || null;
+
       return {
         id: log.id,
+        employeeId: log.employeeId || null,
         name: log.studentName,
         role: log.jobTitle || 'Nhân viên',
         checkInTime: log.checkInTime || '18:00',
@@ -144,7 +216,7 @@ export default function EmployerMonitor() {
         latitude: lat,
         longitude: lng,
         gpsStatus: isSuspicious ? 'Suspicious' : 'Valid',
-        photo: log.photo || null
+        photo: realPhotoUrl
       };
     });
 
@@ -200,7 +272,7 @@ export default function EmployerMonitor() {
           touchZoom: true,
           scrollWheelZoom: true
         }).setView([${shopLat}, ${shopLng}], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           maxZoom: 19
         }).addTo(map);
 
@@ -222,7 +294,7 @@ export default function EmployerMonitor() {
             popupAnchor: [0, -22]
           })
         }).addTo(map)
-          .bindPopup('<b>Cửa hàng (84/10 Nam Cao)</b>')
+          .bindPopup('<b>${businessProfile?.businessName || "Cửa hàng"} (${businessProfile?.address || "84/10 Nam Cao"})</b>')
           .openPopup();
 
         // Active Personnel Markers
@@ -242,7 +314,7 @@ export default function EmployerMonitor() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingTop: 16 }]}
         scrollEnabled={!isMapExpanded}
       >
@@ -250,8 +322,8 @@ export default function EmployerMonitor() {
         <View style={styles.mapBentoCard}>
           <View style={styles.mapCardHeader}>
             <Text style={styles.mapTitle}>🗺️ Bản đồ định vị GPS (Leaflet Map API)</Text>
-            <TouchableOpacity 
-              style={styles.expandToggleBtn} 
+            <TouchableOpacity
+              style={styles.expandToggleBtn}
               onPress={() => setIsMapExpanded(!isMapExpanded)}
             >
               <Text style={styles.expandToggleText}>
@@ -278,7 +350,7 @@ export default function EmployerMonitor() {
             )}
 
             {!isMapExpanded && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.mapClickOverlay}
                 onPress={() => setIsMapExpanded(true)}
                 activeOpacity={0.8}
@@ -303,7 +375,7 @@ export default function EmployerMonitor() {
             </Text>
           </View>
         </View>
-        
+
         {sortedPersonnel.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>💤</Text>
@@ -314,17 +386,17 @@ export default function EmployerMonitor() {
           sortedPersonnel.map((person) => {
             const isSuspicious = person.gpsStatus === 'Suspicious';
             return (
-              <View 
-                key={person.id} 
+              <View
+                key={person.id}
                 style={[
                   styles.premiumStaffCard,
                   isSuspicious && styles.staffCardSuspicious
                 ]}
               >
                 {/* Left: Square-rounded avatar */}
-                <Image 
-                  source={getAvatarSource(person.photo, null, person.name)} 
-                  style={styles.staffAvatar} 
+                <Image
+                  source={getAvatarSource(person.photo, null, person.name)}
+                  style={styles.staffAvatar}
                 />
 
                 {/* Center: Info */}
@@ -332,15 +404,15 @@ export default function EmployerMonitor() {
                   <Text style={styles.staffName}>{person.name}</Text>
                   <View style={styles.staffStatusRow}>
                     <View style={[
-                      styles.statusIndicatorDot, 
+                      styles.statusIndicatorDot,
                       { backgroundColor: isSuspicious ? theme.colors.danger : theme.colors.success }
                     ]} />
                     <Text style={[
                       styles.staffStatusText,
                       { color: isSuspicious ? theme.colors.danger : theme.colors.success }
                     ]}>
-                      {isSuspicious 
-                        ? `⚠️ Nghi vấn GPS - Cách ${person.distance}m` 
+                      {isSuspicious
+                        ? `⚠️ Nghi vấn GPS - Cách ${person.distance}m`
                         : `• ${person.distance}m - AN TOÀN`}
                     </Text>
                   </View>
@@ -350,11 +422,35 @@ export default function EmployerMonitor() {
                 {/* Right: Actions & Timestamp */}
                 <View style={styles.staffRightContainer}>
                   <View style={styles.actionsRow}>
-                    <TouchableOpacity style={styles.actionIconButton}>
-                      <Text style={styles.actionIconEmoji}>💬</Text>
+                    <TouchableOpacity
+                      style={[styles.actionIconButton, styles.chatButton]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        const staffMember = staffList.find(s => s.id === person.employeeId || s.name === person.name);
+                        if (staffMember && staffMember.userId) {
+                          navigationParams.partnerId = staffMember.userId;
+                          navigationParams.partnerName = staffMember.name;
+                          navigationParams.partnerAvatar = staffMember.avatarUrl;
+                          navigationParams.partnerPhone = staffMember.phone;
+                          setNavigationParams({ ...navigationParams });
+                          navigateTo('employer_chat');
+                        } else {
+                          Alert.alert('Không thể nhắn tin', 'Không tìm thấy tài khoản liên kết với nhân sự này.');
+                        }
+                      }}
+                    >
+                      <Ionicons name="chatbubble-ellipses" size={16} color="#FF6B00" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionIconButton}>
-                      <Text style={styles.actionIconEmoji}>📞</Text>
+                    <TouchableOpacity
+                      style={[styles.actionIconButton, styles.callButton]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        const staffMember = staffList.find(s => s.id === person.employeeId || s.name === person.name);
+                        const phone = staffMember?.phone || '0901234567';
+                        handleCallUser(phone);
+                      }}
+                    >
+                      <Ionicons name="call" size={15} color="#0A58CA" />
                     </TouchableOpacity>
                   </View>
                   <Text style={styles.checkInTimeText}>Check-in: {person.checkInTime}</Text>
@@ -378,17 +474,17 @@ export default function EmployerMonitor() {
               {/* Real QR Visual */}
               <View style={styles.qrCodeVisualBox}>
                 <View style={styles.qrRealCodeContainer}>
-                  <Image 
+                  <Image
                     source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData.qrToken)}` }}
                     style={styles.qrCodeImage}
                   />
                 </View>
               </View>
 
-              <View style={styles.qrMetaRow}>
+              {/* <View style={styles.qrMetaRow}>
                 <Text style={styles.qrMetaLabel}>Token hiện tại:</Text>
                 <Text style={styles.qrMetaVal} numberOfLines={1}>{qrCodeData.qrToken}</Text>
-              </View>
+              </View> */}
 
               {/* Allowed geofence radius selector */}
               <View style={styles.radiusSelectorSection}>
@@ -424,7 +520,7 @@ export default function EmployerMonitor() {
                   {generatingQr ? 'Đang tạo mới...' : '🔄 Làm mới Mã QR (Đổi Token)'}
                 </Text>
               </TouchableOpacity>
-              
+
               <Text style={styles.qrSecurityTip}>
                 🔒 Nhấn "Làm mới Mã QR" sau mỗi ngày làm việc để tránh tình trạng sinh viên chụp lại mã và tự điểm danh từ xa.
               </Text>
@@ -642,18 +738,29 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   actionIconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  actionIconEmoji: {
-    fontSize: 13,
+  chatButton: {
+    backgroundColor: '#FFF3EB',
+    borderWidth: 1,
+    borderColor: '#FFE0CC',
+  },
+  callButton: {
+    backgroundColor: '#E6F0FA',
+    borderWidth: 1,
+    borderColor: '#CCE0F5',
   },
   checkInTimeText: {
     fontSize: 10,

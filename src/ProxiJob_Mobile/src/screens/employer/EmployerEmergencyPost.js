@@ -103,7 +103,7 @@ const geocodeAddressWithFallback = async (queryText) => {
             data: [{
               lat: loc.lat,
               lon: loc.lng,
-              display_name: data.results[0].formatted_address
+              display_name: cleanAddress(data.results[0].formatted_address)
             }],
             isFallback: false
           };
@@ -167,7 +167,13 @@ export default function EmployerEmergencyPost() {
     { id: 3, name: 'Xử lý tình huống' },
     { id: 4, name: 'Tiếng Anh' },
     { id: 5, name: 'Sử dụng máy POS' },
-    { id: 6, name: 'Làm việc nhóm' }
+    { id: 6, name: 'Làm việc nhóm' },
+    { id: 101, name: 'Thu ngân' },
+    { id: 102, name: 'Phục vụ bàn' },
+    { id: 103, name: 'Vệ sinh ATTP' },
+    { id: 104, name: 'Trung thực & Cẩn thận' },
+    { id: 105, name: 'Quản lý thời gian' },
+    { id: 106, name: 'Giải quyết khiếu nại' }
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -176,13 +182,14 @@ export default function EmployerEmergencyPost() {
 
   // Form states
   const [step, setStep] = useState(1);
-  const [title, setTitle] = useState('Tuyển nhân viên phục vụ ca tối');
+  const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('5'); // Default 'Phục vụ'
-  const [description, setDescription] = useState('Thực hiện order nước, bưng bê đồ uống cho khách hàng và dọn dẹp bàn ghế sạch sẽ.');
-  const [requirements, setRequirements] = useState('Nhanh nhẹn, chăm chỉ, có thái độ làm việc tốt. Ưu tiên có kinh nghiệm.');
+  const [customCategory, setCustomCategory] = useState('');
+  const [description, setDescription] = useState('');
+  const [requirements, setRequirements] = useState('');
 
-  const [salary, setSalary] = useState('35000');
-  const [selectedSkills, setSelectedSkills] = useState([1]); // Default 'Giao tiếp'
+  const [salary, setSalary] = useState('');
+  const [selectedSkills, setSelectedSkills] = useState([]); // Default 'Giao tiếp'
 
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -533,9 +540,14 @@ export default function EmployerEmergencyPost() {
         const catRes = await getCategoriesApi();
         const catList = Array.isArray(catRes) ? catRes : (Array.isArray(catRes?.data) ? catRes.data : (catRes?.items || catRes?.data?.items || []));
         if (catList && catList.length > 0) {
-          setCategories(catList);
+          const hasKhac = catList.some(c => c.name.toLowerCase() === 'khác');
+          if (!hasKhac) {
+            setCategories([...catList, { id: 9999, name: 'Khác' }]);
+          } else {
+            setCategories(catList);
+          }
           // Set default category to first item if current is invalid
-          const exists = catList.find(c => c.id.toString() === categoryId);
+          const exists = catList.find(c => c.id.toString() === categoryId) || (!hasKhac && categoryId === '9999');
           if (!exists) {
             setCategoryId(catList[0].id.toString());
           }
@@ -548,7 +560,21 @@ export default function EmployerEmergencyPost() {
         const skillRes = await getSkillsApi();
         const skillList = Array.isArray(skillRes) ? skillRes : (Array.isArray(skillRes?.data) ? skillRes.data : (skillRes?.items || skillRes?.data?.items || []));
         if (skillList && skillList.length > 0) {
-          setSkillsList(skillList);
+          const defaultSkills = [
+            { id: 101, name: 'Thu ngân' },
+            { id: 102, name: 'Phục vụ bàn' },
+            { id: 103, name: 'Vệ sinh ATTP' },
+            { id: 104, name: 'Trung thực & Cẩn thận' },
+            { id: 105, name: 'Quản lý thời gian' },
+            { id: 106, name: 'Giải quyết khiếu nại' }
+          ];
+          const mergedSkills = [...skillList];
+          defaultSkills.forEach(ds => {
+            if (!mergedSkills.some(s => s.name.toLowerCase() === ds.name.toLowerCase())) {
+              mergedSkills.push(ds);
+            }
+          });
+          setSkillsList(mergedSkills);
         }
       } catch (err) {
         console.log('Error loading skills from API:', err);
@@ -674,6 +700,10 @@ export default function EmployerEmergencyPost() {
   };
 
   const handleSubmit = async () => {
+    if (isOtherCategory && !customCategory.trim()) {
+      showToast('Vui lòng nhập tên danh mục khác!', 'warning');
+      return;
+    }
     if (!address.trim()) {
       showToast('Vui lòng nhập địa chỉ làm việc hoặc nhấn nút GPS!', 'warning');
       return;
@@ -687,12 +717,26 @@ export default function EmployerEmergencyPost() {
       return;
     }
 
+    // Map custom category safely to other category code
+    let finalCategoryId = categoryId;
+    if (categoryId === '9999') {
+      const realOther = categories.find(c => c.name.toLowerCase() === 'khác' && c.id !== 9999);
+      finalCategoryId = realOther ? realOther.id.toString() : '6';
+    }
+
+    let finalTitle = title;
+    let finalDescription = description;
+    if (isOtherCategory && customCategory.trim()) {
+      finalTitle = `${title} (${customCategory.trim()})`;
+      finalDescription = `[Danh mục khác: ${customCategory.trim()}]\n\n${description}`;
+    }
+
     setLoading(true);
     const success = await createJobPostWizard({
-      title,
-      description,
+      title: finalTitle,
+      description: finalDescription,
       requirements,
-      categoryId,
+      categoryId: finalCategoryId,
       salary,
       skillIds: selectedSkills,
       address,
@@ -709,6 +753,9 @@ export default function EmployerEmergencyPost() {
       navigateTo('employer_approvals');
     }
   };
+
+  const selectedCategory = categories.find(c => c.id.toString() === categoryId);
+  const isOtherCategory = selectedCategory && (selectedCategory.name.toLowerCase() === 'khác' || selectedCategory.name.toLowerCase() === 'other' || categoryId === '9999');
 
   const currentCategoryName = categories.find(c => c.id.toString() === categoryId)?.name || 'Khác';
 
@@ -731,17 +778,39 @@ export default function EmployerEmergencyPost() {
         </View>
 
         <View style={[styles.mainFormCard, theme.shadows.light]}>
-          {/* Progress Indicator */}
-          <View style={styles.progressSection}>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressBar, step >= 1 ? styles.progressActive : null]} />
-              <View style={[styles.progressBar, step >= 2 ? styles.progressActive : null]} />
-              <View style={[styles.progressBar, step >= 3 ? styles.progressActive : null]} />
+          {/* Step Indicator Nodes */}
+          <View style={styles.premiumStepContainer}>
+            <View style={styles.stepProgressLineContainer}>
+              <View style={[styles.stepProgressLine, { width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }]} />
             </View>
-            <View style={styles.stepLabels}>
-              <Text style={[styles.stepLabel, step >= 1 && styles.stepLabelActive]}>Bước 1</Text>
-              <Text style={[styles.stepLabel, step >= 2 && styles.stepLabelActive]}>Bước 2</Text>
-              <Text style={[styles.stepLabel, step >= 3 && styles.stepLabelActive]}>Bước 3</Text>
+            <View style={styles.stepNodesRow}>
+              {[1, 2, 3].map((num) => {
+                const isActive = step >= num;
+                const isCurrent = step === num;
+                return (
+                  <View key={num} style={styles.stepNodeOuter}>
+                    <View style={[
+                      styles.stepNode,
+                      isActive && styles.stepNodeActive,
+                      isCurrent && styles.stepNodeCurrent
+                    ]}>
+                      {isActive && !isCurrent ? (
+                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                      ) : (
+                        <Text style={[
+                          styles.stepNodeText,
+                          isActive && styles.stepNodeTextActive,
+                          isCurrent && styles.stepNodeTextCurrent
+                        ]}>{num}</Text>
+                      )}
+                    </View>
+                    <Text style={[
+                      styles.stepNodeLabel,
+                      isActive && styles.stepNodeLabelActive
+                    ]}>Bước {num}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
 
@@ -791,6 +860,19 @@ export default function EmployerEmergencyPost() {
                       );
                     })}
                   </View>
+
+                  {isOtherCategory && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={styles.inputLabel}>Nhập danh mục khác</Text>
+                      <TextInput
+                        style={styles.premiumInput}
+                        placeholder="Ví dụ: Rửa bát, Phụ bếp..."
+                        placeholderTextColor={theme.colors.textLight}
+                        value={customCategory}
+                        onChangeText={setCustomCategory}
+                      />
+                    </View>
+                  )}
 
                   <Text style={styles.inputLabel}>Mô tả công việc</Text>
                   <TextInput
@@ -1331,6 +1413,10 @@ export default function EmployerEmergencyPost() {
   );
 }
 
+const FONT_REGULAR = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-Regular';
+const FONT_BOLD = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-Bold';
+const FONT_EXTRABOLD = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-ExtraBold';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1392,6 +1478,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 40,
     letterSpacing: -1,
+    fontFamily: FONT_EXTRABOLD,
   },
   pageSubtitle: {
     fontSize: 14,
@@ -1399,40 +1486,81 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 8,
     lineHeight: 20,
+    fontFamily: FONT_REGULAR,
   },
-  progressSection: {
+  premiumStepContainer: {
     marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 20,
+    position: 'relative',
+    paddingHorizontal: 10,
   },
-  progressTrack: {
-    flexDirection: 'row',
-    height: 6,
+  stepProgressLineContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 40,
+    right: 40,
+    height: 4,
     backgroundColor: '#E2E8F0',
-    borderRadius: 3,
-    overflow: 'hidden',
+    zIndex: 1,
+    borderRadius: 2,
   },
-  progressBar: {
-    flex: 1,
-    backgroundColor: '#E2E8F0',
-    marginHorizontal: 1,
-  },
-  progressActive: {
+  stepProgressLine: {
+    height: '100%',
     backgroundColor: '#FF6B00',
+    borderRadius: 2,
   },
-  stepLabels: {
+  stepNodesRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 6,
-    paddingHorizontal: 2,
+    zIndex: 2,
   },
-  stepLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
+  stepNodeOuter: {
+    alignItems: 'center',
+    width: 80,
+  },
+  stepNode: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  stepNodeActive: {
+    backgroundColor: '#FF6B00',
+  },
+  stepNodeCurrent: {
+    borderColor: '#FF6B00',
+    backgroundColor: '#FFFFFF',
+  },
+  stepNodeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#64748B',
+    fontFamily: FONT_BOLD,
+  },
+  stepNodeTextActive: {
+    color: '#FFFFFF',
+  },
+  stepNodeTextCurrent: {
+    color: '#FF6B00',
+  },
+  stepNodeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
     color: '#94A3B8',
+    marginTop: 8,
+    fontFamily: FONT_BOLD,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  stepLabelActive: {
+  stepNodeLabelActive: {
     color: '#FF6B00',
   },
   mainFormCard: {
@@ -1453,12 +1581,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionHeader: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#64748B',
+    color: '#FF6B00',
     letterSpacing: 1.5,
     marginBottom: 16,
     textTransform: 'uppercase',
+    fontFamily: FONT_EXTRABOLD,
   },
   inputLabel: {
     fontSize: 13,
@@ -1466,17 +1595,18 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 6,
     marginLeft: 2,
+    fontFamily: FONT_BOLD,
   },
   premiumInput: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 14,
-    color: '#1E293B',
-    fontWeight: '500',
+    color: '#0F172A',
+    fontFamily: FONT_REGULAR,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   textArea: {
@@ -1489,23 +1619,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   categoryPill: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 99,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
     backgroundColor: '#F1F5F9',
     marginRight: 8,
     marginBottom: 8,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   categoryPillActive: {
-    backgroundColor: '#FF6B001F',
+    backgroundColor: '#FF6B0010',
     borderColor: '#FF6B00',
   },
   categoryPillText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
+    fontFamily: FONT_BOLD,
   },
   categoryPillTextActive: {
     color: '#FF6B00',
@@ -1538,31 +1669,33 @@ const styles = StyleSheet.create({
   skillPill: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 99,
+    borderRadius: 12,
     backgroundColor: '#F1F5F9',
     marginRight: 8,
     marginBottom: 8,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   skillPillActive: {
-    backgroundColor: '#FF6B001F',
+    backgroundColor: '#FF6B0010',
     borderColor: '#FF6B00',
   },
   skillPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
+    fontFamily: FONT_BOLD,
   },
   skillPillTextActive: {
     color: '#FF6B00',
   },
   infoBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#FFEDD5',
+    marginTop: 8,
   },
   infoBoxText: {
     fontSize: 11,

@@ -17,6 +17,7 @@ import { AppContext } from '../../context/AppContext';
 import { useShiftsQuery, useCheckInMutation, useCheckOutMutation } from '../../hooks/queries';
 import { getQrCode } from '../../api/management';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Ionicons } from '@expo/vector-icons';
 
 const EMPTY_ARRAY = [];
 
@@ -108,9 +109,18 @@ export default function StudentCheckIn() {
   const shopLat = selectedShiftForCheckIn?.latitude || 10.8261;
   const shopLng = selectedShiftForCheckIn?.longitude || 106.6297;
 
+  const getTodayDateStr = () => {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
   // Active shift
   const activeShift = contextActiveShift || shifts.find(s => s.status === 'checkin_active');
-  const approvedShifts = shifts.filter(s => s.status === 'approved');
+  const todayStr = getTodayDateStr();
+  const approvedShifts = shifts.filter(s => s.status === 'approved' && s.date === todayStr);
 
   // Keep selected shift in sync
   useEffect(() => {
@@ -341,8 +351,9 @@ export default function StudentCheckIn() {
           touchZoom: true,
           scrollWheelZoom: true
         }).setView([${shopLat}, ${shopLng}], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19
+        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+          maxZoom: 19,
+          attribution: 'Google Maps'
         }).addTo(map);
 
         // 100m Geofence Circle
@@ -386,38 +397,41 @@ export default function StudentCheckIn() {
     </html>
   `;
 
+
+  const getShiftBadge = () => {
+    if (activeShift) {
+      return (
+        <View style={[styles.badgeContainer, { backgroundColor: '#E8F5E9' }]}>
+          <Text style={[styles.badgeText, { color: '#2E7D32' }]}>Đang trong ca ⚡</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.badgeContainer, { backgroundColor: '#FFF3E0' }]}>
+        <Text style={[styles.badgeText, { color: '#E65100' }]}>Chờ điểm danh 📍</Text>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.headerTitle}>Xác thực hiện diện GPS & Camera</Text>
-        
-        {/* GPS Radius Simulator widget */}
-        <View style={[styles.simulatorCard, theme.shadows.light]}>
-          <Text style={styles.simulatorTitle}>🛠️ Công cụ Giả lập GPS (Thử nghiệm)</Text>
-          <Text style={styles.simulatorText}>
-            Hệ thống yêu cầu sinh viên ở trong bán kính <Text style={{fontWeight: 'bold'}}>100m</Text> của cửa hàng để bắt đầu/kết thúc ca. Nhấn nút dưới đây để giả lập di chuyển:
-          </Text>
-          
-          <TouchableOpacity 
-            style={[
-              styles.simulateBtn, 
-              isWithinRadius ? styles.simulateBtnActive : styles.simulateBtnInactive
-            ]}
-            onPress={handleSimulateTravel}
-            disabled={activeShift !== undefined && activeShift !== null && activeShift.status === 'completed'}
-          >
-            <Text style={styles.simulateBtnText}>
-              {isWithinRadius 
-                ? `📍 Đã đến quán (Khoảng cách: ${simulatedDistanceToActive}m)` 
-                : '🚗 Di chuyển đến quán (Khoảng cách: ~3.2km)'}
-            </Text>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity activeOpacity={0.8} onPress={handleSimulateTravel}>
+            <Text style={styles.headerTitle}>Điểm Danh</Text>
+            <Text style={styles.headerSubtitle}>Xác thực GPS & Trình quét QR</Text>
           </TouchableOpacity>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>Bản đồ GPS</Text>
+          </View>
         </View>
-
+        
         {/* If no approved/active shifts, show empty check-in screen */}
         {!selectedShiftForCheckIn ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>⏱️</Text>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="time-outline" size={64} color="#64748B" />
+            </View>
             <Text style={styles.emptyText}>Hôm nay bạn chưa có ca làm nào được duyệt.</Text>
             <Text style={styles.emptySub}>Hãy ứng tuyển các ca làm việc gần bạn trên trang chủ và chờ chủ quán phê duyệt nhé!</Text>
           </View>
@@ -425,30 +439,62 @@ export default function StudentCheckIn() {
           <View style={styles.checkInConsole}>
             {/* Shift Brief Card */}
             <View style={[styles.briefCard, theme.shadows.light]}>
-              <Text style={styles.briefShop}>{selectedShiftForCheckIn.shopName}</Text>
+              <View style={styles.briefHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="storefront-outline" size={18} color="#FF6B00" style={{ marginRight: 6 }} />
+                  <Text style={styles.briefShop}>{selectedShiftForCheckIn.shopName}</Text>
+                </View>
+                {getShiftBadge()}
+              </View>
               <Text style={styles.briefTitle}>{selectedShiftForCheckIn.title}</Text>
-              <Text style={styles.briefTime}>⏰ Hôm nay: {selectedShiftForCheckIn.time}</Text>
-              <Text style={styles.briefRate}>💰 Lương: {(selectedShiftForCheckIn.hourlyRate).toLocaleString('vi-VN')} đ/h</Text>
+              
+              <View style={styles.briefDivider} />
+              
+              <View style={styles.briefMetaRow}>
+                <View style={styles.briefMetaCol}>
+                  <Text style={styles.briefMetaLabel}>CA LÀM VIỆC</Text>
+                  <View style={styles.briefMetaValRow}>
+                    <Ionicons name="time-outline" size={14} color="#64748B" style={{ marginRight: 4 }} />
+                    <Text style={styles.briefMetaVal}>{selectedShiftForCheckIn.time}</Text>
+                  </View>
+                </View>
+                <View style={styles.briefMetaCol}>
+                  <Text style={styles.briefMetaLabel}>LƯƠNG ĐỀ XUẤT</Text>
+                  <View style={styles.briefMetaValRow}>
+                    <Ionicons name="cash-outline" size={14} color="#10B981" style={{ marginRight: 4 }} />
+                    <Text style={[styles.briefMetaVal, { color: '#10B981', fontWeight: 'bold' }]}>
+                      {(selectedShiftForCheckIn.hourlyRate || 0).toLocaleString('vi-VN')} đ/h
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </View>
 
             {/* Interactive Leaflet Map Card */}
-            <View style={styles.mapCard}>
-              <Text style={styles.mapCardTitle}>🗺️ Định vị thực tế (Leaflet Map API)</Text>
-              {Platform.OS === 'web' ? (
-                <iframe
-                  srcDoc={mapHtml}
-                  style={styles.webMap}
-                  title="Bản đồ định vị GPS"
-                />
-              ) : (
-                <WebView
-                  originWhitelist={['*']}
-                  source={{ html: mapHtml }}
-                  style={styles.mobileMap}
-                  javaScriptEnabled={true}
-                  domStorageEnabled={true}
-                />
-              )}
+            <View style={[styles.mapCard, theme.shadows.light]}>
+              <View style={styles.mapHeader}>
+                <Ionicons name="map-outline" size={16} color="#FF6B00" style={{ marginRight: 6 }} />
+                <Text style={styles.mapCardTitle}>Định vị thực tế (Leaflet Map API)</Text>
+              </View>
+              
+              <View style={styles.mapOuterWrapper}>
+                {Platform.OS === 'web' ? (
+                  <iframe
+                    srcDoc={mapHtml}
+                    style={styles.webMap}
+                    title="Bản đồ định vị GPS"
+                  />
+                ) : (
+                  <WebView
+                    originWhitelist={['*']}
+                    source={{ html: mapHtml }}
+                    style={styles.mobileMap}
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                  />
+                )}
+              </View>
+              
               <View style={styles.mapLegends}>
                 <View style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
@@ -460,7 +506,7 @@ export default function StudentCheckIn() {
                 </View>
                 <View style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: '#FF6B00', borderRadius: 0, width: 14, height: 2, top: 4 }]} />
-                  <Text style={styles.legendText}>Ranh giới 100m</Text>
+                  <Text style={styles.legendText}>Bán kính 100m</Text>
                 </View>
               </View>
             </View>
@@ -474,19 +520,28 @@ export default function StudentCheckIn() {
               ]}>
                 {activeShift ? (
                   <View style={styles.timerCircleContent}>
+                    <Ionicons name="pulse" size={26} color="#10B981" style={{ marginBottom: 4 }} />
                     <Text style={styles.timerLabel}>THỜI GIAN LÀM VIỆC</Text>
                     <Text style={styles.timerValue}>{formatTimer(timerSeconds)}</Text>
-                    <Text style={styles.checkInTimeText}>Bắt đầu lúc: {selectedShiftForCheckIn.checkInTime}</Text>
+                    <View style={styles.timerBadge}>
+                      <Text style={styles.timerBadgeText}>Đang trong ca</Text>
+                    </View>
+                    <Text style={styles.checkInTimeText}>Bắt đầu: {selectedShiftForCheckIn.checkInTime}</Text>
                   </View>
                 ) : (
                   <View style={styles.statusCircleContent}>
-                    <Text style={styles.statusLabel}>BÁN KÍNH GPS</Text>
+                    <Ionicons 
+                      name={isWithinRadius ? "checkmark-circle" : "warning"} 
+                      size={32} 
+                      color={isWithinRadius ? "#10B981" : "#EF4444"} 
+                    />
+                    <Text style={styles.statusLabel}>KHOẢNG CÁCH GẦN QUÁN</Text>
                     <Text style={[styles.statusValue, isWithinRadius ? styles.textGreen : styles.textRed]}>
                       {simulatedDistanceToActive >= 1000 
                         ? `${(simulatedDistanceToActive / 1000).toFixed(1)} km` 
                         : `${simulatedDistanceToActive} m`}
                     </Text>
-                    <Text style={styles.statusSubLabel}>
+                    <Text style={[styles.statusSubLabel, isWithinRadius ? styles.textGreen : styles.textRed]}>
                       {isWithinRadius ? 'HỢP LỆ (<100m)' : 'NGOÀI PHẠM VI (>100m)'}
                     </Text>
                   </View>
@@ -500,20 +555,29 @@ export default function StudentCheckIn() {
                 <TouchableOpacity
                   style={[
                     styles.actionBtn,
-                    isWithinRadius ? styles.checkInBtn : styles.disabledBtn
+                    isWithinRadius ? (activeShift ? styles.checkOutBtn : styles.checkInBtn) : styles.disabledBtn
                   ]}
                   disabled={!isWithinRadius}
                   onPress={handleTriggerQRScan}
                 >
-                  <Text style={styles.actionBtnText}>
-                    {isWithinRadius ? '📸 QUÉT MÃ QR TẠI QUẦY' : 'Bạn đang ở quá xa quán để điểm danh'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="qr-code-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.actionBtnText}>
+                      {activeShift 
+                        ? (isWithinRadius ? 'QUÉT QR ĐỂ KẾT THÚC CA' : 'QUÁ XA ĐỂ KẾT THÚC CA')
+                        : (isWithinRadius ? 'QUÉT MÃ QR BẮT ĐẦU CA' : 'QUÁ XA ĐỂ BẮT ĐẦU CA')
+                      }
+                    </Text>
+                  </View>
                 </TouchableOpacity>
 
                 {!isWithinRadius && (
-                  <Text style={styles.warningText}>
-                    ⚠️ Hãy sử dụng "Giả lập GPS" để di chuyển vào bán kính 100m của quán để thực hiện điểm danh.
-                  </Text>
+                  <View style={styles.warningContainer}>
+                    <Ionicons name="information-circle-outline" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                    <Text style={styles.warningText}>
+                      Khoảng cách đến quán vượt quá 100m. Nhấn vào tiêu đề trang để giả lập di chuyển.
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -618,36 +682,69 @@ export default function StudentCheckIn() {
       <Modal
         visible={showSuccessCard}
         transparent={true}
-        animationType="none"
+        animationType="fade"
         onRequestClose={() => setShowSuccessCard(false)}
       >
         <View style={styles.successOverlay}>
           <Animated.View style={[
             styles.successCard,
-            theme.shadows.dark,
+            theme.shadows.medium,
             {
               opacity: fadeAnim,
               transform: [{ scale: scaleAnim }]
             }
           ]}>
-            <Text style={styles.successEmoji}>🎉</Text>
-            <Text style={styles.successTitle}>{successInfo?.title}</Text>
-            
-            <View style={styles.successDetails}>
-              <View style={styles.successDetailRow}>
-                <Text style={styles.successDetailLabel}>Cửa hàng:</Text>
-                <Text style={styles.successDetailVal}>{successInfo?.shopName}</Text>
+            {/* Top Header circle */}
+            <View style={styles.successHeader}>
+              <View style={[styles.successHeaderCircle, { backgroundColor: successInfo?.type === 'CHECK-IN' ? '#E8F5E9' : '#FFF1F2' }]}>
+                <Ionicons 
+                  name={successInfo?.type === 'CHECK-IN' ? "checkmark-circle" : "log-out"} 
+                  size={46} 
+                  color={successInfo?.type === 'CHECK-IN' ? '#10B981' : '#EF4444'} 
+                />
               </View>
-              <View style={styles.successDetailRow}>
-                <Text style={styles.successDetailLabel}>Ca làm:</Text>
-                <Text style={styles.successDetailVal}>{successInfo?.shiftTitle}</Text>
+              <Text style={styles.successSubtitle}>Ghi nhận thành công</Text>
+              <Text style={styles.successTitle}>{successInfo?.title}</Text>
+            </View>
+
+            {/* Ticket Cutout Divider */}
+            <View style={styles.ticketDividerContainer}>
+              <View style={styles.leftCutout} />
+              <View style={styles.dashedLine} />
+              <View style={styles.rightCutout} />
+            </View>
+
+            {/* Receipt Details */}
+            <View style={styles.receiptContent}>
+              <View style={styles.receiptRow}>
+                <View style={styles.receiptLabelContainer}>
+                  <Ionicons name="storefront-outline" size={15} color="#64748B" style={{ marginRight: 6 }} />
+                  <Text style={styles.receiptLabel}>Cửa hàng</Text>
+                </View>
+                <Text style={styles.receiptValue}>{successInfo?.shopName}</Text>
               </View>
-              <View style={styles.successDetailRow}>
-                <Text style={styles.successDetailLabel}>Thời gian:</Text>
-                <Text style={styles.successDetailVal}>{successInfo?.timestamp}</Text>
+
+              <View style={styles.receiptRow}>
+                <View style={styles.receiptLabelContainer}>
+                  <Ionicons name="briefcase-outline" size={15} color="#64748B" style={{ marginRight: 6 }} />
+                  <Text style={styles.receiptLabel}>Ca làm việc</Text>
+                </View>
+                <Text style={styles.receiptValue}>{successInfo?.shiftTitle}</Text>
               </View>
-              <View style={styles.successDetailRow}>
-                <Text style={styles.successDetailLabel}>Trạng thái:</Text>
+
+              <View style={styles.receiptRow}>
+                <View style={styles.receiptLabelContainer}>
+                  <Ionicons name="time-outline" size={15} color="#64748B" style={{ marginRight: 6 }} />
+                  <Text style={styles.receiptLabel}>Thời gian</Text>
+                </View>
+                <Text style={styles.receiptValue}>{successInfo?.timestamp}</Text>
+              </View>
+
+              <View style={styles.receiptRow}>
+                <View style={styles.receiptLabelContainer}>
+                  <Ionicons name="shield-checkmark-outline" size={15} color="#64748B" style={{ marginRight: 6 }} />
+                  <Text style={styles.receiptLabel}>Trạng thái</Text>
+                </View>
                 <View style={[styles.successStatusBadge, { backgroundColor: successInfo?.statusColor }]}>
                   <Text style={styles.successStatusText}>{successInfo?.status}</Text>
                 </View>
@@ -656,9 +753,10 @@ export default function StudentCheckIn() {
 
             <TouchableOpacity 
               style={styles.successOkBtn}
+              activeOpacity={0.9}
               onPress={() => setShowSuccessCard(false)}
             >
-              <Text style={styles.successOkBtnText}>Xác nhận</Text>
+              <Text style={styles.successOkBtnText}>Xác nhận & Đóng</Text>
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -670,301 +768,366 @@ export default function StudentCheckIn() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     padding: theme.spacing.md,
     paddingBottom: 120,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.colors.text,
-    lineHeight: 34,
-    marginBottom: theme.spacing.md,
-  },
-  simulatorCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-  },
-  simulatorTitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#D97706',
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  simulatorText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    lineHeight: 16,
-    marginBottom: theme.spacing.md,
-  },
-  simulateBtn: {
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    marginBottom: 20,
+    marginTop: 8,
   },
-  simulateBtnActive: {
-    backgroundColor: theme.colors.success,
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -1.0,
   },
-  simulateBtnInactive: {
-    backgroundColor: theme.colors.student,
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 2,
   },
-  simulateBtnText: {
-    color: theme.colors.white,
-    fontSize: 13,
-    fontWeight: 'bold',
+  headerBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  headerBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1D4ED8',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
   },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: theme.spacing.sm,
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.text,
     textAlign: 'center',
+    paddingHorizontal: 24,
   },
   emptySub: {
-    fontSize: 12,
+    fontSize: 13,
     color: theme.colors.textMuted,
     textAlign: 'center',
-    marginTop: 6,
-    paddingHorizontal: theme.spacing.lg,
-    lineHeight: 18,
+    marginTop: 8,
+    paddingHorizontal: 32,
+    lineHeight: 20,
   },
   checkInConsole: {
     width: '100%',
   },
   briefCard: {
-    backgroundColor: theme.colors.white,
+    backgroundColor: '#FFFFFF',
     padding: 20,
-    borderRadius: 16,
+    paddingLeft: 22,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    borderLeftWidth: 5,
+    borderLeftColor: '#FF6B00',
     marginBottom: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.02,
-    shadowRadius: 8,
-    elevation: 1,
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  briefHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   briefShop: {
-    fontSize: 11,
-    color: '#0A58CA',
+    fontSize: 13,
+    color: '#0F172A',
     fontWeight: '700',
-    letterSpacing: 0.5,
   },
   briefTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: theme.colors.text,
-    marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 14,
   },
-  briefTime: {
-    fontSize: 13,
-    color: theme.colors.text,
-    marginVertical: 2,
+  briefDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 12,
   },
-  briefRate: {
+  briefMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  briefMetaCol: {
+    flex: 1,
+  },
+  briefMetaLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  briefMetaValRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  briefMetaVal: {
     fontSize: 13,
-    color: theme.colors.success,
-    fontWeight: 'bold',
-    marginVertical: 2,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  badgeContainer: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   mapCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     padding: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     marginBottom: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.02,
-    shadowRadius: 8,
-    elevation: 1,
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  mapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   mapCardTitle: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  mapOuterWrapper: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   webMap: {
     width: '100%',
     height: 220,
     borderWidth: 0,
-    borderRadius: theme.borderRadius.sm,
   },
   mobileMap: {
     height: 220,
     width: '100%',
-    borderRadius: theme.borderRadius.sm,
   },
   mapLegends: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: theme.spacing.sm,
+    justifyContent: 'space-between',
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 12,
+    gap: 8,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: 6,
   },
   legendText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
   },
   statusSection: {
     alignItems: 'center',
-    marginVertical: theme.spacing.md,
+    marginVertical: 14,
   },
   radiusRing: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 190,
+    height: 190,
+    borderRadius: 95,
     borderWidth: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.white,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 3,
+    backgroundColor: '#FFFFFF',
+    elevation: 5,
   },
   ringRed: {
-    borderColor: '#FEE2E2',
-    shadowColor: theme.colors.danger,
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
   ringGreen: {
-    borderColor: '#D1FAE5',
-    shadowColor: theme.colors.success,
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
   ringActiveWorking: {
-    borderColor: theme.colors.success,
-    borderWidth: 8,
-    shadowColor: theme.colors.success,
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 6,
+    borderColor: '#FF6B00',
+    backgroundColor: '#FFF7ED',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
   },
   statusCircleContent: {
     alignItems: 'center',
+    gap: 2,
   },
   timerCircleContent: {
     alignItems: 'center',
+    gap: 2,
   },
   statusLabel: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: theme.colors.textLight,
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    marginTop: 4,
   },
   timerLabel: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: theme.colors.textMuted,
-    letterSpacing: 0.5,
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
   },
   statusValue: {
     fontSize: 32,
     fontWeight: '900',
-    marginVertical: 4,
   },
   timerValue: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginVertical: 4,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#1E293B',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
+  timerBadge: {
+    backgroundColor: '#FFEFE2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 2,
+  },
+  timerBadgeText: {
+    fontSize: 9,
+    color: '#E65100',
+    fontWeight: '800',
+  },
   checkInTimeText: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
+    fontSize: 10,
+    color: '#64748B',
     marginTop: 4,
+    fontWeight: '500',
   },
   statusSubLabel: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: theme.colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
   },
   textRed: {
-    color: theme.colors.danger,
+    color: '#EF4444',
   },
   textGreen: {
-    color: theme.colors.success,
+    color: '#10B981',
   },
   actionsContainer: {
     width: '100%',
     alignItems: 'center',
+    marginTop: 12,
   },
   actionBtn: {
     height: 52,
     borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
     width: '100%',
   },
   checkInBtn: {
-    backgroundColor: theme.colors.student,
-    shadowColor: theme.colors.student,
+    backgroundColor: '#FF6B00',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
   },
   checkOutBtn: {
-    backgroundColor: theme.colors.danger,
-    shadowColor: theme.colors.danger,
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
   },
   disabledBtn: {
-    backgroundColor: theme.colors.textLight,
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: '#CBD5E1',
   },
   actionBtnText: {
-    color: theme.colors.white,
+    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FED7D7',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 12,
+    width: '100%',
   },
   warningText: {
     fontSize: 11,
-    color: theme.colors.danger,
-    textAlign: 'center',
-    marginTop: 12,
+    color: '#EF4444',
     lineHeight: 16,
-    paddingHorizontal: theme.spacing.sm,
+    flex: 1,
+    fontWeight: '500',
   },
   scannerOverlay: {
     flex: 1,
@@ -1022,7 +1185,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 20,
     height: 20,
-    borderColor: theme.colors.student,
+    borderColor: '#FF6B00',
   },
   cornerTL: {
     top: -2,
@@ -1078,102 +1241,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginBottom: 16,
   },
-  manualScanBtn: {
-    backgroundColor: theme.colors.student,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    shadowColor: theme.colors.student,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  manualScanBtnText: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  successOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  successCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 24,
-    width: '100%',
-    maxWidth: 340,
-    padding: 28,
-    alignItems: 'center',
-  },
-  successEmoji: {
-    fontSize: 56,
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: theme.colors.text,
-    marginBottom: 20,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  successDetails: {
-    width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    marginBottom: 24,
-  },
-  successDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  successDetailLabel: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    fontWeight: '500',
-  },
-  successDetailVal: {
-    fontSize: 13,
-    color: theme.colors.text,
-    fontWeight: '700',
-  },
-  successStatusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-  },
-  successStatusText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  successOkBtn: {
-    backgroundColor: '#0F172A',
-    width: '100%',
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  successOkBtnText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
   permissionPromptBox: {
     width: 280,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -1198,7 +1265,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   requestPermissionBtn: {
-    backgroundColor: theme.colors.student,
+    backgroundColor: '#FF6B00',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
@@ -1207,5 +1274,131 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 13,
     fontWeight: 'bold',
-  }
+  },
+  successOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  successCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    width: '100%',
+    maxWidth: 340,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  successHeader: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  successHeaderCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  successSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  ticketDividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: 20,
+    marginVertical: 16,
+  },
+  leftCutout: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    position: 'absolute',
+    left: -34,
+  },
+  rightCutout: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    position: 'absolute',
+    right: -34,
+  },
+  dashedLine: {
+    flex: 1,
+    height: 1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    borderRadius: 1,
+    marginHorizontal: 10,
+  },
+  receiptContent: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 24,
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  receiptLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  receiptLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  receiptValue: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '700',
+  },
+  successStatusBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  successStatusText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  successOkBtn: {
+    backgroundColor: '#0F172A',
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successOkBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

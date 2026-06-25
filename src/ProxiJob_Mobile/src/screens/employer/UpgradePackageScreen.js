@@ -18,6 +18,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SW } = Dimensions.get('window');
 
+const FONT_REGULAR = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-Regular';
+const FONT_BOLD = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-Bold';
+const FONT_EXTRABOLD = Platform.OS === 'web' ? '"Plus Jakarta Sans", sans-serif' : 'PlusJakartaSans-ExtraBold';
+
 const FEATURE_ROWS = [
   { label: 'Đăng tin tuyển dụng', basic: '15 tin', standard: 'Không giới hạn', premium: 'Không giới hạn' },
   { label: 'Thời hạn gói', basic: '30 ngày', standard: '30 ngày', premium: '30 ngày' },
@@ -48,12 +52,28 @@ export default function UpgradePackageScreen() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.12,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
   useEffect(() => { loadPlans(); }, []);
@@ -128,6 +148,9 @@ export default function UpgradePackageScreen() {
               {/* ═══ GÓI ĐĂNG CA LẺ ═══ */}
               {pershift && (
                 <View style={s.card}>
+                  {/* Glowing grey ambient orb */}
+                  <View style={s.orbGrey} />
+
                   <View style={s.cardTop}>
                     <View style={[s.cardIconCircle, { backgroundColor: '#F3F4F6' }]}>
                       <Text style={s.cardIcon}>⚡</Text>
@@ -160,6 +183,9 @@ export default function UpgradePackageScreen() {
               {/* ═══ GÓI CƠ BẢN ═══ */}
               {basic && (
                 <View style={s.card}>
+                  {/* Glowing green ambient orb */}
+                  <View style={s.orbGreen} />
+
                   <View style={s.cardTop}>
                     <View style={[s.cardIconCircle, { backgroundColor: '#E8F5E9' }]}>
                       <Text style={s.cardIcon}>🏪</Text>
@@ -192,9 +218,12 @@ export default function UpgradePackageScreen() {
               {/* ═══ GÓI CHUYÊN NGHIỆP (standard - purple theme in screenshot) ═══ */}
               {standard && (
                 <View style={[s.card, s.cardPro]}>
-                  <View style={s.proBadge}>
+                  {/* Glowing purple ambient orb with pulse animation */}
+                  <Animated.View style={[s.orbPurple, { transform: [{ scale: pulseAnim }] }]} />
+
+                  <Animated.View style={[s.proBadge, { transform: [{ scale: pulseAnim }] }]}>
                     <Text style={s.proBadgeText}>🔥 PHỔ BIẾN NHẤT</Text>
-                  </View>
+                  </Animated.View>
                   <View style={s.cardTop}>
                     <View style={[s.cardIconCircle, { backgroundColor: '#F3E8FF' }]}>
                       <Text style={[s.cardIcon, { color: '#7C3AED' }]}>🚀</Text>
@@ -218,7 +247,7 @@ export default function UpgradePackageScreen() {
                     plan={standard}
                     loading={loading}
                     onPress={handlePurchase}
-                    label={isPlanActive('Standard') ? "Gói hiện tại ✓" : "Nâng cấp ngay"}
+                    label={isPlanActive('Standard') ? "Gói hiện tại ✓" : "Nâng cấp Chuyên nghiệp ⚡"}
                     color={isPlanActive('Standard') ? "#10B981" : "#7C3AED"}
                     disabled={isPlanActive('Standard')}
                   />
@@ -228,15 +257,18 @@ export default function UpgradePackageScreen() {
               {/* ═══ GÓI CAO CẤP (premium - orange theme in screenshot) ═══ */}
               {premium && (
                 <View style={[s.card, s.cardPremium]}>
+                  {/* Glowing orange ambient orb with pulse animation */}
+                  <Animated.View style={[s.orbOrange, { transform: [{ scale: pulseAnim }] }]} />
+
                   {/* Decorative corner accents for CAO CẤP package */}
                   <View style={s.bracketTL} />
                   <View style={s.bracketTR} />
                   <View style={s.bracketBL} />
                   <View style={s.bracketBR} />
 
-                  <View style={s.premBadge}>
+                  <Animated.View style={[s.premBadge, { transform: [{ scale: pulseAnim }] }]}>
                     <Text style={s.premBadgeText}>👑 CAO CẤP - TOÀN DIỆN</Text>
-                  </View>
+                  </Animated.View>
                   <View style={s.cardTop}>
                     <View style={[s.cardIconCircle, { backgroundColor: '#FFEBE0' }]}>
                       <Text style={[s.cardIcon, { color: '#FF6B00' }]}>👑</Text>
@@ -260,7 +292,7 @@ export default function UpgradePackageScreen() {
                     plan={premium}
                     loading={loading}
                     onPress={handlePurchase}
-                    label={isPlanActive('Premium') ? "Gói hiện tại ✓" : "Nâng cấp ngay"}
+                    label={isPlanActive('Premium') ? "Gói hiện tại ✓" : "Sở hữu Premium ngay 👑"}
                     color={isPlanActive('Premium') ? "#10B981" : "#FF6B00"}
                     disabled={isPlanActive('Premium')}
                   />
@@ -360,36 +392,75 @@ function TrustBadge({ icon, title, desc }) {
 
 /* ── Styles ── */
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' }, // Light neutral backdrop
   scroll: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 16 },
 
-  hero: { marginTop: 8, marginBottom: 24 },
-  heroTitle: { fontSize: 32, fontWeight: '900', color: '#1E293B', lineHeight: 38 },
-  heroSub: { fontSize: 13, color: '#64748B', lineHeight: 20, marginTop: 10, fontWeight: '500' },
+  hero: { marginTop: 8, marginBottom: 28 },
+  heroTitle: { fontSize: 30, fontWeight: '900', color: '#0F172A', lineHeight: 36, fontFamily: FONT_EXTRABOLD },
+  heroSub: { fontSize: 13, color: '#475569', lineHeight: 20, marginTop: 10, fontWeight: '500', fontFamily: FONT_REGULAR },
 
   // Cards
   card: {
-    backgroundColor: '#FFFFFF', borderRadius: 24, borderWidth: 1.5, borderColor: '#F1F5F9',
-    padding: 24, marginBottom: 20, position: 'relative', overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.03,
-    shadowRadius: 16,
-    elevation: 2,
+    backgroundColor: '#FFFFFF', borderRadius: 24, borderWidth: 1.5, borderColor: '#E2E8F0',
+    padding: 24, marginBottom: 28, position: 'relative', overflow: 'visible', // Visible to allow floating badge
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 20,
+    elevation: 3,
   },
-  cardPro: { borderColor: '#7C3AED', borderWidth: 2, paddingTop: 40 },
-  cardPremium: { borderColor: '#FF6B00', borderWidth: 2, paddingTop: 40, backgroundColor: '#FFFDFB' },
+  cardPro: { 
+    borderColor: '#7C3AED', 
+    borderWidth: 2, 
+    paddingTop: 32,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+  cardPremium: { 
+    borderColor: '#FF6B00', 
+    borderWidth: 2, 
+    paddingTop: 32, 
+    backgroundColor: '#FFFDFB',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
+  },
 
   proBadge: {
-    position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: '#7C3AED',
-    paddingVertical: 6, alignItems: 'center',
+    position: 'absolute', 
+    top: -14, 
+    alignSelf: 'center',
+    backgroundColor: '#7C3AED',
+    paddingVertical: 6, 
+    paddingHorizontal: 16,
+    borderRadius: 9999,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  proBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  proBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2, fontFamily: FONT_EXTRABOLD },
   premBadge: {
-    position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: '#FF6B00',
-    paddingVertical: 6, alignItems: 'center',
+    position: 'absolute', 
+    top: -14, 
+    alignSelf: 'center',
+    backgroundColor: '#FF6B00',
+    paddingVertical: 6, 
+    paddingHorizontal: 16,
+    borderRadius: 9999,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  premBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  premBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900', letterSpacing: 1.2, fontFamily: FONT_EXTRABOLD },
 
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   cardIconCircle: {
@@ -400,37 +471,65 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   cardIcon: { fontSize: 22 },
-  cardName: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
-  cardDesc: { fontSize: 12, color: '#94A3B8', marginTop: 1, fontWeight: '500' },
+  cardName: { fontSize: 20, fontWeight: '800', color: '#0F172A', fontFamily: FONT_EXTRABOLD },
+  cardDesc: { fontSize: 12, color: '#64748B', marginTop: 2, fontWeight: '500', fontFamily: FONT_REGULAR },
 
   priceRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 16 },
-  price: { fontSize: 32, fontWeight: '900', color: '#1E293B' },
-  pricePer: { fontSize: 14, color: '#94A3B8', marginLeft: 4, fontWeight: '700' },
+  price: { fontSize: 32, fontWeight: '900', color: '#0F172A', fontFamily: FONT_EXTRABOLD },
+  pricePer: { fontSize: 14, color: '#64748B', marginLeft: 4, fontWeight: '700', fontFamily: FONT_BOLD },
 
   features: { marginBottom: 20 },
   featRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-  featText: { fontSize: 13, color: '#475569', fontWeight: '500', flex: 1 },
+  featText: { fontSize: 13, color: '#334155', fontWeight: '500', flex: 1, fontFamily: FONT_REGULAR },
 
   purchaseBtn: { height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  purchaseBtnText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  purchaseBtnText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', fontFamily: FONT_EXTRABOLD },
 
   // Compare Table
-  compareWrap: { borderRadius: 24, borderWidth: 1.5, borderColor: '#F1F5F9', overflow: 'hidden', marginTop: 12, marginBottom: 24 },
-  compareTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', padding: 20, paddingBottom: 12 },
-  tHead: { flexDirection: 'row', backgroundColor: '#F8FAFC', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1.5, borderBottomColor: '#F1F5F9' },
+  compareWrap: { 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 24, 
+    borderWidth: 1.5, 
+    borderColor: '#E2E8F0', 
+    overflow: 'hidden', 
+    marginTop: 16, 
+    marginBottom: 32,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.03,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  compareTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', padding: 20, paddingBottom: 12, fontFamily: FONT_EXTRABOLD },
+  tHead: { flexDirection: 'row', backgroundColor: '#F8FAFC', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1.5, borderBottomColor: '#E2E8F0' },
   tFeatCol: { flex: 2, justifyContent: 'center' },
   tValCol: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tHText: { fontSize: 10, fontWeight: '800', color: '#64748B', textAlign: 'center', lineHeight: 14 },
-  tRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
-  tFeatText: { fontSize: 12, color: '#475569', fontWeight: '600' },
-  cellTxt: { fontSize: 11, color: '#334155', fontWeight: '700', textAlign: 'center' },
-  cellX: { fontSize: 14, color: '#CBD5E1', fontWeight: 'bold' },
+  tHText: { fontSize: 10, fontWeight: '800', color: '#475569', textAlign: 'center', lineHeight: 14, fontFamily: FONT_EXTRABOLD },
+  tRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  tFeatText: { fontSize: 12, color: '#334155', fontWeight: '600', fontFamily: FONT_BOLD },
+  cellTxt: { fontSize: 11, color: '#1E293B', fontWeight: '700', textAlign: 'center', fontFamily: FONT_BOLD },
+  cellX: { fontSize: 14, color: '#94A3B8', fontWeight: 'bold' },
 
   // Trust
-  trustHero: { backgroundColor: '#FFF7ED', borderRadius: 24, padding: 24, alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#FFE4E6' },
-  trustTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B', textAlign: 'center', lineHeight: 26 },
-  trustSub: { fontSize: 12, color: '#7C2D12', textAlign: 'center', marginTop: 8, lineHeight: 18, fontWeight: '500' },
-  trustBadge: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1.5, borderColor: '#F1F5F9', marginBottom: 12 },
+  trustHero: { backgroundColor: '#FFF7ED', borderRadius: 24, padding: 24, alignItems: 'center', marginBottom: 16, borderWidth: 1.5, borderColor: '#FFE2D1' },
+  trustTitle: { fontSize: 20, fontWeight: '800', color: '#0F172A', textAlign: 'center', lineHeight: 26, fontFamily: FONT_EXTRABOLD },
+  trustSub: { fontSize: 12, color: '#7C2D12', textAlign: 'center', marginTop: 8, lineHeight: 18, fontWeight: '500', fontFamily: FONT_REGULAR },
+  trustBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 14, 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 20, 
+    padding: 16, 
+    borderWidth: 1.5, 
+    borderColor: '#E2E8F0', 
+    marginBottom: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 1,
+  },
   tbIconWrapper: {
     width: 44,
     height: 44,
@@ -439,14 +538,60 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tbTitle: { fontSize: 14, fontWeight: '800', color: '#1E293B' },
-  tbDesc: { fontSize: 11, color: '#64748B', marginTop: 2, fontWeight: '500' },
+  tbTitle: { fontSize: 14, fontWeight: '800', color: '#0F172A', fontFamily: FONT_EXTRABOLD },
+  tbDesc: { fontSize: 11, color: '#64748B', marginTop: 2, fontWeight: '500', fontFamily: FONT_REGULAR },
+
+  // Ambient Glow Orbs
+  orbGrey: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: '#64748B',
+    opacity: 0.04,
+    top: -40,
+    right: -40,
+    zIndex: -1,
+  },
+  orbGreen: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: '#10B981',
+    opacity: 0.05,
+    top: -40,
+    right: -40,
+    zIndex: -1,
+  },
+  orbPurple: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: '#7C3AED',
+    opacity: 0.05,
+    top: -50,
+    right: -50,
+    zIndex: -1,
+  },
+  orbOrange: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#FF6B00',
+    opacity: 0.07,
+    top: -50,
+    right: -50,
+    zIndex: -1,
+  },
 
   // Accents for Premium
-  bracketTL: { position: 'absolute', top: 12, left: 12, width: 14, height: 14, borderTopWidth: 2.5, borderLeftWidth: 2.5, borderColor: '#FF6B00', borderTopLeftRadius: 4 },
-  bracketTR: { position: 'absolute', top: 12, right: 12, width: 14, height: 14, borderTopWidth: 2.5, borderRightWidth: 2.5, borderColor: '#FF6B00', borderTopRightRadius: 4 },
-  bracketBL: { position: 'absolute', bottom: 12, left: 12, width: 14, height: 14, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderColor: '#FF6B00', borderBottomLeftRadius: 4 },
-  bracketBR: { position: 'absolute', bottom: 12, right: 12, width: 14, height: 14, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderColor: '#FF6B00', borderBottomRightRadius: 4 },
+  bracketTL: { position: 'absolute', top: 10, left: 10, width: 16, height: 16, borderTopWidth: 3.5, borderLeftWidth: 3.5, borderColor: '#FF6B00', borderTopLeftRadius: 6 },
+  bracketTR: { position: 'absolute', top: 10, right: 10, width: 16, height: 16, borderTopWidth: 3.5, borderRightWidth: 3.5, borderColor: '#FF6B00', borderTopRightRadius: 6 },
+  bracketBL: { position: 'absolute', bottom: 10, left: 10, width: 16, height: 16, borderBottomWidth: 3.5, borderLeftWidth: 3.5, borderColor: '#FF6B00', borderBottomLeftRadius: 6 },
+  bracketBR: { position: 'absolute', bottom: 10, right: 10, width: 16, height: 16, borderBottomWidth: 3.5, borderRightWidth: 3.5, borderColor: '#FF6B00', borderBottomRightRadius: 6 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -454,8 +599,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderColor: '#F3F4F6'
+    borderColor: '#E2E8F0',
   },
   hBack: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  hTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
+  hTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', fontFamily: FONT_EXTRABOLD },
 });

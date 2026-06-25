@@ -43,6 +43,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Queries
                                    .Select(j => new JobPostSummaryDto
                                     {
                                         Id = j.Id,
+                                        BusinessId = j.BusinessId,
                                         Title = j.Title,
                                         Status = j.Status,
                                         CategoryName = j.Category != null ? j.Category.Name : null,

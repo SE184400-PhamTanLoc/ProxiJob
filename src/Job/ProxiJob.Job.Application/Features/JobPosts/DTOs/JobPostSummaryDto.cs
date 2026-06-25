@@ -3,6 +3,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.DTOs
     public class JobPostSummaryDto
     {
         public int Id { get; set; }
+        public int BusinessId { get; set; }
         public string Title { get; set; }
         public string Status { get; set; }
         public string CategoryName { get; set; }

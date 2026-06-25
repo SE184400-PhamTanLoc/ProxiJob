@@ -94,7 +94,8 @@ export const useShifts = ({
               rating: 5.0,
               reviewsCount: 1,
               status: s.remainingSlots <= 0 ? 'full' : 'available',
-              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.description || '').toLowerCase().includes('khẩn cấp'),
+              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.title || '').toLowerCase().includes('khấn cấp') || (job.description || '').toLowerCase().includes('khẩn cấp') || (job.description || '').toLowerCase().includes('khấn cấp'),
+              createdAt: job.createdAt || job.CreatedAt || s.startTime,
               auditFields: {
                 createdBy: job.createdBy,
                 updatedBy: job.createdBy,
@@ -278,7 +279,7 @@ export const useShifts = ({
               rating: 5.0,
               reviewsCount: 0,
               status: currentStatus,
-              isEmergency: (job.title || '').toLowerCase().includes('khấn cấp'),
+              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.title || '').toLowerCase().includes('khấn cấp'),
               applicantCount,
               applicantName,
               applicantSchool,

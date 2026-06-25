@@ -238,11 +238,10 @@ export default function StudentChat() {
         return [tempChat, ...prev];
       });
 
-      setActiveChat(prevActive => {
-        if (prevActive && prevActive.id === pId) return prevActive;
+      if (!activeChatRef.current || activeChatRef.current.id !== pId) {
+        setActiveChat(tempChat);
         setIsChatRoomActive(true);
-        return tempChat;
-      });
+      }
 
       // Mark as read in status
       setReadChatStatus(prev => ({
@@ -327,14 +326,20 @@ export default function StudentChat() {
               <Ionicons name="chevron-back" size={24} color="#1E293B" />
             </TouchableOpacity>
 
-            <Image
-              source={getAvatarSource(activeChat.avatar, activeChat.gender, activeChat.name)}
-              style={styles.chatHeaderAvatar}
-            />
+            <View style={styles.avatarWrapper}>
+              <Image
+                source={getAvatarSource(activeChat.avatar, activeChat.gender, activeChat.name)}
+                style={styles.chatHeaderAvatar}
+              />
+              <View style={styles.onlineDotHeader} />
+            </View>
 
             <View style={styles.chatHeaderInfo}>
               <Text style={styles.chatHeaderName} numberOfLines={1}>{activeChat.name}</Text>
-              <Text style={styles.chatHeaderStatus}>Hoạt động</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                <View style={styles.onlineStatusPulse} />
+                <Text style={styles.chatHeaderStatus}>Hoạt động</Text>
+              </View>
             </View>
 
             <View style={styles.chatHeaderActions}>
@@ -342,7 +347,7 @@ export default function StudentChat() {
                 style={styles.callIconBtn}
                 onPress={() => handleCallUser(activeChat.phone)}
               >
-                <Ionicons name="call" size={20} color="#FF6B00" />
+                <Ionicons name="call" size={18} color="#FF6B00" />
               </TouchableOpacity>
             </View>
           </View>
@@ -368,12 +373,33 @@ export default function StudentChat() {
                     key={msg.id}
                     style={[styles.messageBubbleContainer, isMe ? styles.myBubbleContainer : styles.otherBubbleContainer]}
                   >
-                    <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-                      <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText]}>
-                        {msg.text}
-                      </Text>
-                    </View>
-                    <Text style={styles.messageTime}>{msg.time}</Text>
+                    {!isMe ? (
+                      <View style={styles.otherBubbleRow}>
+                        <Image
+                          source={getAvatarSource(activeChat.avatar, activeChat.gender, activeChat.name)}
+                          style={styles.smallMessageAvatar}
+                        />
+                        <View style={styles.messageContentCol}>
+                          <View style={[styles.messageBubble, styles.otherBubble]}>
+                            <Text style={[styles.messageText, styles.otherMessageText]}>
+                              {msg.text}
+                            </Text>
+                          </View>
+                          <Text style={styles.messageTime}>{msg.time}</Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.myBubbleRow}>
+                        <View style={styles.messageContentCol}>
+                          <View style={[styles.messageBubble, styles.myBubble]}>
+                            <Text style={[styles.messageText, styles.myMessageText]}>
+                              {msg.text}
+                            </Text>
+                          </View>
+                          <Text style={[styles.messageTime, { alignSelf: 'flex-end' }]}>{msg.time}</Text>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -387,6 +413,9 @@ export default function StudentChat() {
                 paddingBottom: Math.max(20, androidKeyboardPadding + 24),
               }
             ]}>
+              <TouchableOpacity style={styles.attachBtn} activeOpacity={0.7} onPress={() => {}}>
+                <Ionicons name="add-circle" size={26} color="#FF6B00" />
+              </TouchableOpacity>
               <TextInput
                 style={styles.input}
                 placeholder="Nhập tin nhắn..."
@@ -396,16 +425,27 @@ export default function StudentChat() {
                 onSubmitEditing={handleSendMessage}
                 returnKeyType="send"
               />
-              <TouchableOpacity style={styles.sendBtn} onPress={handleSendMessage}>
-                <Ionicons name="send" size={18} color="#FFFFFF" />
+              <TouchableOpacity style={styles.sendBtn} activeOpacity={0.8} onPress={handleSendMessage}>
+                <Ionicons name="send" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
         </View>
       ) : (
-        <View style={styles.listContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Main Header */}
+          <View style={styles.headerContainer}>
+            <View>
+              <Text style={styles.headerTitle}>Trò Chuyện</Text>
+              <Text style={styles.headerSubtitle}>Liên hệ trực tiếp với các nhà tuyển dụng</Text>
+            </View>
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>Trực tuyến</Text>
+            </View>
+          </View>
+
           {/* Search Box */}
-          <View style={[styles.searchContainer, { marginTop: 16 }]}>
+          <View style={styles.searchContainer}>
             <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
@@ -417,43 +457,44 @@ export default function StudentChat() {
           </View>
 
           {/* Conversations List */}
-          <ScrollView contentContainerStyle={styles.listScroll} showsVerticalScrollIndicator={false}>
-            {filteredConversations.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="chatbubbles-outline" size={48} color="#CBD5E1" />
-                <Text style={styles.emptyText}>Không tìm thấy cuộc hội thoại nào.</Text>
-              </View>
-            ) : (
-              filteredConversations.map((chat) => (
-                <TouchableOpacity
-                  key={chat.id}
-                  style={styles.conversationCard}
-                  activeOpacity={0.7}
-                  onPress={() => handleSelectChat(chat)}
-                >
+          {filteredConversations.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="chatbubbles-outline" size={48} color="#CBD5E1" />
+              <Text style={styles.emptyText}>Không tìm thấy cuộc hội thoại nào.</Text>
+            </View>
+          ) : (
+            filteredConversations.map((chat) => (
+              <TouchableOpacity
+                key={chat.id}
+                style={[styles.conversationCard, chat.unread > 0 && styles.conversationCardUnread]}
+                activeOpacity={0.7}
+                onPress={() => handleSelectChat(chat)}
+              >
+                <View style={styles.avatarWrapper}>
                   <Image
                     source={getAvatarSource(chat.avatar, chat.gender, chat.name)}
                     style={styles.conversationAvatar}
                   />
-                  <View style={styles.conversationMeta}>
-                    <View style={styles.metaTop}>
-                      <Text style={styles.conversationName} numberOfLines={1}>{chat.name}</Text>
-                      <Text style={styles.conversationTime}>{chat.time}</Text>
-                    </View>
-                    <View style={styles.metaBottom}>
-                      <Text style={[styles.lastMessage, chat.unread > 0 && styles.lastMessageUnread]} numberOfLines={1}>{chat.lastMessage}</Text>
-                      {chat.unread > 0 && (
-                        <View style={styles.unreadBadge}>
-                          <Text style={styles.unreadText}>{chat.unread}</Text>
-                        </View>
-                      )}
-                    </View>
+                  <View style={styles.onlineDot} />
+                </View>
+                <View style={styles.conversationMeta}>
+                  <View style={styles.metaTop}>
+                    <Text style={styles.conversationName} numberOfLines={1}>{chat.name}</Text>
+                    <Text style={styles.conversationTime}>{chat.time}</Text>
                   </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </ScrollView>
-        </View>
+                  <View style={styles.metaBottom}>
+                    <Text style={[styles.lastMessage, chat.unread > 0 && styles.lastMessageUnread]} numberOfLines={1}>{chat.lastMessage}</Text>
+                    {chat.unread > 0 && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadText}>{chat.unread}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
       )}
     </View>
   );
@@ -467,36 +508,50 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
   },
-  mainHeader: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+  scrollContent: {
+    padding: theme.spacing.md,
+    paddingBottom: 120,
   },
-  mainHeaderTitle: {
-    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#1E293B',
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 8,
   },
-  mainHeaderSubtitle: {
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
-    fontSize: 13,
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -1.0,
+  },
+  headerSubtitle: {
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 4,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  headerBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  headerBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1D4ED8',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginTop: 16,
     marginBottom: 16,
     paddingHorizontal: 14,
-    height: 46,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#000000',
@@ -507,28 +562,33 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 14,
     color: '#1E293B',
-  },
-  listScroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
   },
   conversationCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  conversationCardUnread: {
+    backgroundColor: '#FFF8F3',
+    borderColor: '#FFE2D1',
+    borderLeftWidth: 5,
+    borderLeftColor: '#FF6B00',
+    paddingLeft: 14,
+  },
+  avatarWrapper: {
+    position: 'relative',
   },
   conversationAvatar: {
     width: 52,
@@ -536,6 +596,28 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#F1F5F9',
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  onlineDotHeader: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   conversationMeta: {
     flex: 1,
@@ -548,7 +630,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   conversationName: {
-    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
     fontSize: 14,
     fontWeight: '800',
     color: '#1E293B',
@@ -556,9 +637,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   conversationTime: {
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 10,
     color: '#94A3B8',
+    fontWeight: '600',
   },
   metaBottom: {
     flexDirection: 'row',
@@ -566,40 +647,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lastMessage: {
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 12,
     color: '#64748B',
     flex: 1,
     marginRight: 8,
   },
   lastMessageUnread: {
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   unreadBadge: {
     backgroundColor: '#FF6B00',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   unreadText: {
     color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 9,
+    fontWeight: '900',
   },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 80,
   },
   emptyText: {
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 13,
     color: '#94A3B8',
     marginTop: 8,
@@ -618,9 +697,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
     zIndex: 10,
   },
   backBtn: {
@@ -639,31 +718,35 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   chatHeaderName: {
-    fontFamily: Platform.OS === 'ios' ? 'Sora' : 'sans-serif',
     fontSize: 15,
     fontWeight: '800',
     color: '#1E293B',
   },
+  onlineStatusPulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 4,
+  },
   chatHeaderStatus: {
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 11,
     color: '#10B981',
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '700',
   },
   chatHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   callIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FF6B0014',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFEFE2',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FF6B0033',
+    borderColor: '#FFD7C2',
   },
   messagesList: {
     padding: 16,
@@ -671,14 +754,37 @@ const styles = StyleSheet.create({
   },
   messageBubbleContainer: {
     marginBottom: 16,
-    maxWidth: '75%',
+    width: '100%',
   },
   myBubbleContainer: {
-    alignSelf: 'flex-end',
     alignItems: 'flex-end',
   },
   otherBubbleContainer: {
-    alignSelf: 'flex-start',
+    alignItems: 'flex-start',
+  },
+  otherBubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    maxWidth: '85%',
+  },
+  myBubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    maxWidth: '85%',
+    alignSelf: 'flex-end',
+  },
+  smallMessageAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    marginRight: 8,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  messageContentCol: {
+    flexDirection: 'column',
     alignItems: 'flex-start',
   },
   messageBubble: {
@@ -708,22 +814,23 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 16,
   },
   messageText: {
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 14,
     lineHeight: 20,
   },
   myMessageText: {
     color: '#FFFFFF',
+    fontWeight: '500',
   },
   otherMessageText: {
     color: '#1E293B',
+    fontWeight: '500',
   },
   messageTime: {
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     fontSize: 10,
     color: '#94A3B8',
     marginTop: 4,
     paddingHorizontal: 4,
+    fontWeight: '600',
   },
   inputBar: {
     flexDirection: 'row',
@@ -734,6 +841,9 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
     backgroundColor: '#FFFFFF',
   },
+  attachBtn: {
+    paddingRight: 10,
+  },
   input: {
     flex: 1,
     backgroundColor: '#F1F5F9',
@@ -742,7 +852,6 @@ const styles = StyleSheet.create({
     height: 40,
     fontSize: 14,
     color: '#1E293B',
-    fontFamily: Platform.OS === 'ios' ? 'Hanken Grotesk' : 'sans-serif',
     marginRight: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',

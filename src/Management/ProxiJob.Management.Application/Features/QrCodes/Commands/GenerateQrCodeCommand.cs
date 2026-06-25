@@ -26,29 +26,32 @@ public class GenerateQrCodeCommandHandler : IRequestHandler<GenerateQrCodeComman
     public async Task<string> Handle(GenerateQrCodeCommand request, CancellationToken cancellationToken)
     {
         var existingQr = await _context.BusinessQrCodes
-            .FirstOrDefaultAsync(q => q.BusinessId == request.BusinessId && q.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(q => q.BusinessId == request.BusinessId, cancellationToken);
+
+        var newQrToken = Guid.NewGuid().ToString();
 
         if (existingQr != null)
         {
-            existingQr.IsActive = false;
+            existingQr.QrToken = newQrToken;
+            existingQr.IsActive = true;
             existingQr.UpdatedBy = request.CreatedBy;
             existingQr.UpdatedAt = DateTime.UtcNow;
             _context.BusinessQrCodes.Update(existingQr);
         }
-
-        var newQrToken = Guid.NewGuid().ToString();
-
-        var newQr = new BusinessQrCode
+        else
         {
-            BusinessId = request.BusinessId,
-            QrToken = newQrToken,
-            AllowedRadiusMeters = 100, // default
-            IsActive = true,
-            CreatedBy = request.CreatedBy,
-            CreatedAt = DateTime.UtcNow
-        };
+            var newQr = new BusinessQrCode
+            {
+                BusinessId = request.BusinessId,
+                QrToken = newQrToken,
+                AllowedRadiusMeters = 100, // default
+                IsActive = true,
+                CreatedBy = request.CreatedBy,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.BusinessQrCodes.Add(newQr);
+        }
 
-        _context.BusinessQrCodes.Add(newQr);
         await _context.SaveChangesAsync(cancellationToken);
 
         return newQrToken;

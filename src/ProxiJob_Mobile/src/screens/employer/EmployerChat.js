@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const EMPTY_ARRAY = [];
 
 export default function EmployerChat() {
-  const { user, navigationParams, setNavigationParams, setIsChatRoomActive } = useContext(AppContext);
+  const { user, navigationParams, setNavigationParams, setIsChatRoomActive, navigateTo, goBack } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const { data: dbConversationsData, refetch: refetchConversations } = useConversationsQuery(user);
   const dbConversations = dbConversationsData || EMPTY_ARRAY;
@@ -295,7 +295,9 @@ export default function EmployerChat() {
         unread: activeConvo ? activeConvo.unread : 0,
         phone: navigationParams.partnerPhone || (activeConvo ? activeConvo.phone : 'Không có'),
         isMock: false,
-        messages: []
+        messages: [],
+        fromScreen: navigationParams.fromScreen,
+        fromShiftId: navigationParams.fromShiftId
       };
 
       setConversations(prev => {
@@ -304,9 +306,15 @@ export default function EmployerChat() {
         return [tempChat, ...prev];
       });
 
+      setIsChatRoomActive(true);
       setActiveChat(prevActive => {
-        if (prevActive && prevActive.id === pId) return prevActive;
-        setIsChatRoomActive(true);
+        if (prevActive && prevActive.id === pId) {
+          return {
+            ...prevActive,
+            fromScreen: navigationParams.fromScreen,
+            fromShiftId: navigationParams.fromShiftId
+          };
+        }
         return tempChat;
       });
 
@@ -358,7 +366,11 @@ export default function EmployerChat() {
   };
 
   const handleSelectChat = (chat) => {
-    setActiveChat(chat);
+    setActiveChat({
+      ...chat,
+      fromScreen: undefined,
+      fromShiftId: undefined
+    });
     setIsChatRoomActive(true);
     loadMessages(chat.id);
 
@@ -392,7 +404,22 @@ export default function EmployerChat() {
         <View style={styles.chatContainer}>
           {/* Chat Room Header (Moved outside KeyboardAvoidingView so it never moves or disappears!) */}
           <View style={[styles.chatHeader, { paddingTop: Math.max(12, insets.top) }]}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => { setActiveChat(null); setIsChatRoomActive(false); Keyboard.dismiss(); }}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => {
+                const fromScreen = activeChat?.fromScreen;
+                const fromShiftId = activeChat?.fromShiftId;
+                setActiveChat(null);
+                setIsChatRoomActive(false);
+                Keyboard.dismiss();
+                if (fromScreen === 'candidate_list') {
+                  setNavigationParams({ shiftId: fromShiftId });
+                  goBack();
+                } else if (fromScreen === 'employer_hrm') {
+                  goBack();
+                }
+              }}
+            >
               <Ionicons name="chevron-back" size={24} color="#1E293B" />
             </TouchableOpacity>
 
