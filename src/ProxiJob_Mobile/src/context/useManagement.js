@@ -132,7 +132,12 @@ export const useManagement = ({
   const loadAttendanceLogs = useCallback(async () => {
     if (!user || user.role !== 'employer') return;
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const localDate = new Date();
+      const yyyy = localDate.getFullYear();
+      const mm = String(localDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(localDate.getDate()).padStart(2, '0');
+      const today = `${yyyy}-${mm}-${dd}`;
+      
       const res = await getTimekeepingLogs(today);
       const logs = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
       const formattedLogs = logs.map(log => ({
@@ -141,9 +146,13 @@ export const useManagement = ({
         studentName: log.employeeName || 'Sinh viên',
         shopName: user.name,
         jobTitle: log.position || 'Nhân viên',
+        shiftName: log.shiftName,
         checkInTime: log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString('vi-VN') : null,
         checkOutTime: log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString('vi-VN') : null,
-        status: log.status === 'Suspicious' ? 'suspicious' : (log.checkOutTime ? 'completed' : 'working'),
+        status: log.status === 'Suspicious' ? 'suspicious' : 
+                log.status === 'NotCheckedIn' ? 'not_checked_in' :
+                log.status === 'Absent' ? 'absent' :
+                (log.checkOutTime ? 'completed' : 'working'),
         date: log.date || new Date().toLocaleDateString('vi-VN'),
         photo: log.checkInPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
         gpsStatus: log.status === 'Suspicious' ? 'Nghi vấn GPS' : 'Hợp lệ'

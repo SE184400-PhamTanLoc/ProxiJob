@@ -36,6 +36,7 @@ public class GetSuspiciousTimekeepingsQueryHandler : IRequestHandler<GetSuspicio
                 Id = t.Id,
                 EmployeeId = t.EmployeeId,
                 WorkScheduleId = t.WorkScheduleId,
+                JobShiftId = t.WorkSchedule.JobShiftId,
                 CheckInTime = t.CheckInTime,
                 CheckOutTime = t.CheckOutTime,
                 InLatitude = t.InLatitude,
@@ -46,7 +47,10 @@ public class GetSuspiciousTimekeepingsQueryHandler : IRequestHandler<GetSuspicio
                 CheckOutPhoto = t.CheckOutPhoto,
                 Status = t.Status.ToString(),
                 IsManual = t.IsManual,
-                Note = t.Note
+                Note = t.Note,
+                EmployeeName = t.Employee.FullName,
+                Position = t.Employee.Position,
+                ShiftName = t.WorkSchedule.Note
             })
             .ToListAsync(cancellationToken);
 

@@ -11,14 +11,15 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { getAvatarSource } from '../../utils/avatarHelper';
 import { handleCallUser } from '../../utils/callHelper';
-import { useAttendanceLogsQuery, useStaffListQuery } from '../../hooks/queries';
-import { getQrCode, generateQrCode, updateQrRadius } from '../../api/management';
+import { useAttendanceLogsQuery, useStaffListQuery, useEmployerJobsQuery } from '../../hooks/queries';
+import { getQrCode, generateQrCode, updateQrRadius, updateQrLocation } from '../../api/management';
 import { getBusinessProfileApi } from '../../api/businessApi';
 
 // Pure JS Haversine formula
@@ -47,8 +48,71 @@ export default function EmployerMonitor() {
 
   const { data: attendanceLogs = [], refetch: refetchAttendanceLogs } = useAttendanceLogsQuery(user);
   const { data: staffList = [] } = useStaffListQuery(user);
+  const { data: employerData } = useEmployerJobsQuery(user);
+  const employerShifts = employerData?.shifts || [];
 
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  // Shift slots states (for mapping note/slotId to shift details)
+  const [shiftSlots, setShiftSlots] = useState([
+    { id: 'morning', name: 'Ca Sáng', time: '08:00 - 12:00', icon: '☀️' },
+    { id: 'afternoon', name: 'Ca Chiều', time: '13:00 - 17:00', icon: '⛅' },
+    { id: 'evening', name: 'Ca Tối', time: '18:00 - 22:00', icon: '🌙' },
+  ]);
+
+  useEffect(() => {
+    const loadCustomShifts = async () => {
+      try {
+        const storageKey = `@custom_shift_slots_${user?.id || 'default'}`;
+        const stored = await AsyncStorage.getItem(storageKey);
+        if (stored) {
+          setShiftSlots(JSON.parse(stored));
+        }
+      } catch (err) {
+        console.log('Error loading shift slots in EmployerMonitor:', err);
+      }
+    };
+    if (user) {
+      loadCustomShifts();
+    }
+  }, [user]);
+
+  const formatShiftName = (shiftKey) => {
+    if (shiftKey === 'external_staff') return '⚡ Nhân Sự Vãng Lai';
+    if (!shiftKey) return 'Không có ca';
+    const slot = shiftSlots.find(s => s.id === shiftKey);
+    if (slot) {
+      return `${slot.name} (${slot.time})`;
+    }
+    if (shiftKey.startsWith('custom_')) {
+      return 'Ca Tự Chọn';
+    }
+    return shiftKey;
+  };
+
+  const getShiftTimeRange = (shiftKey) => {
+    const slot = shiftSlots.find(s => s.id === shiftKey);
+    if (slot && slot.time) {
+      const parts = slot.time.split(' - ');
+      if (parts.length === 2) {
+        return { startStr: parts[0], endStr: parts[1] };
+      }
+    }
+    return null;
+  };
+
+  const getShiftStartMinutes = (shiftKey) => {
+    if (shiftKey === 'external_staff') return 25 * 60;
+    const range = getShiftTimeRange(shiftKey);
+    if (range) {
+      const [h, m] = range.startStr.split(':').map(Number);
+      return h * 60 + m;
+    }
+    if (shiftKey === 'morning') return 8 * 60;
+    if (shiftKey === 'afternoon') return 13 * 60;
+    if (shiftKey === 'evening') return 18 * 60;
+    return 24 * 60; // other/custom shifts go last
+  };
 
   const [shopLat, setShopLat] = useState(10.857461); // 84/10 Nam Cao, Quận 9, TP.HCM
   const [shopLng, setShopLng] = useState(106.801522);
@@ -104,6 +168,14 @@ export default function EmployerMonitor() {
             if (latVal !== null && lngVal !== null) {
               setShopLat(latVal);
               setShopLng(lngVal);
+              
+              // Auto-sync shop coordinates to QR code for accurate GPS distance checks
+              try {
+                await updateQrLocation(latVal, lngVal);
+                console.log('[EmployerMonitor] Synced shop GPS to QR code:', latVal, lngVal);
+              } catch (syncErr) {
+                console.log('[EmployerMonitor] Non-critical: failed to sync QR location:', syncErr);
+              }
             }
           }
         }
@@ -189,46 +261,148 @@ export default function EmployerMonitor() {
   const studentLng = studentCoords?.longitude || 106.6300;
   const studentDistance = calculateHaversineDistance(studentLat, studentLng, shopLat, shopLng);
 
-  // Combine into active working personnel list by querying attendanceLogs (linked to database management_timekeepings)
+  // Combine into active working personnel list by querying attendanceLogs
   const activePersonnel = (attendanceLogs || [])
-    .filter(log => log.status === 'working' || log.status === 'suspicious')
     .map(log => {
-      // Check if this log belongs to our test student
-      const isStudent = log.studentName.toLowerCase().includes('mai') || log.studentName.toLowerCase().includes('a');
-      const lat = isStudent ? studentLat : shopLat + 0.0001;
-      const lng = isStudent ? studentLng : shopLng + 0.0001;
-      const distance = isStudent ? studentDistance : calculateHaversineDistance(lat, lng, shopLat, shopLng);
-      const isSuspicious = distance > 100;
-
-      // Find staff profile from staffList to get their true avatarUrl
+      // Find staff profile from staffList to get their true avatarUrl and type
       const staffMember = staffList.find(s => s.id === log.employeeId || s.name === log.studentName);
+      const isExternal = staffMember ? staffMember.isExternal : false;
       const realPhotoUrl = staffMember?.avatarUrl || log.photo || null;
 
+      // Check if this log belongs to our test student
+      const isStudent = log.studentName.toLowerCase().includes('mai') || log.studentName.toLowerCase().includes('a') || isExternal;
+      const isGpsActive = log.status === 'working' || log.status === 'suspicious';
+
+      // Resolve the target work coordinates for this employee (Branch / Job Post coordinates)
+      let targetLat = shopLat;
+      let targetLng = shopLng;
+      let targetAddress = businessProfile?.address || 'Cửa hàng';
+      
+      if (isExternal && log.jobShiftId) {
+        const matchingShift = employerShifts.find(s => s.id === log.jobShiftId);
+        if (matchingShift) {
+          targetLat = matchingShift.latitude || targetLat;
+          targetLng = matchingShift.longitude || targetLng;
+          targetAddress = matchingShift.address || targetAddress;
+        }
+      }
+
+      const lat = isGpsActive ? (isStudent ? studentLat : targetLat + 0.0001) : null;
+      const lng = isGpsActive ? (isStudent ? studentLng : targetLng + 0.0001) : null;
+      const distance = isGpsActive ? calculateHaversineDistance(lat, lng, targetLat, targetLng) : null;
+      const isSuspicious = log.status === 'suspicious' || (distance && distance > 100);
+
       return {
-        id: log.id,
+        id: log.id || `ws_${log.shiftId}`,
         employeeId: log.employeeId || null,
         name: log.studentName,
         role: log.jobTitle || 'Nhân viên',
-        checkInTime: log.checkInTime || '18:00',
+        shiftName: isExternal ? 'external_staff' : log.shiftName,
+        checkInTime: log.checkInTime || 'Chưa check-in',
+        checkOutTime: log.checkOutTime,
         distance: distance,
         isStudent: isStudent,
         shop: log.shopName || 'Cửa hàng',
         latitude: lat,
         longitude: lng,
-        gpsStatus: isSuspicious ? 'Suspicious' : 'Valid',
-        photo: realPhotoUrl
+        gpsStatus: log.status === 'suspicious' ? 'Suspicious' : (log.status === 'not_checked_in' ? 'NotCheckedIn' : 'Valid'),
+        photo: realPhotoUrl,
+        rawStatus: log.status,
+        isExternal: isExternal,
+        targetLat,
+        targetLng,
+        targetAddress
       };
     });
 
-  // Sort personnel: suspicious first
+  // Sort personnel: suspicious first, then working/valid, then not_checked_in
   const sortedPersonnel = [...activePersonnel].sort((a, b) => {
-    if (a.gpsStatus === 'Suspicious' && b.gpsStatus !== 'Suspicious') return -1;
-    if (a.gpsStatus !== 'Suspicious' && b.gpsStatus === 'Suspicious') return 1;
-    return 0;
+    const score = (status) => {
+      if (status === 'suspicious') return 0;
+      if (status === 'working') return 1;
+      if (status === 'not_checked_in') return 2;
+      return 3; // completed/absent
+    };
+    return score(a.rawStatus) - score(b.rawStatus);
   });
 
+  // Group personnel by shiftKey
+  const groupedShifts = {};
+  sortedPersonnel.forEach(person => {
+    const shiftKey = person.shiftName || 'other';
+    if (!groupedShifts[shiftKey]) {
+      groupedShifts[shiftKey] = [];
+    }
+    groupedShifts[shiftKey].push(person);
+  });
+
+  const availableShiftKeys = Object.keys(groupedShifts);
+  const sortedShiftKeys = availableShiftKeys.sort((a, b) => {
+    return getShiftStartMinutes(a) - getShiftStartMinutes(b);
+  });
+
+  const [selectedShiftKey, setSelectedShiftKey] = useState(null);
+
+  useEffect(() => {
+    if (sortedShiftKeys.length > 0) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      let activeKey = null;
+      let closestKey = null;
+      let minDiff = Infinity;
+
+      sortedShiftKeys.forEach(key => {
+        const range = getShiftTimeRange(key);
+        if (range) {
+          const [startH, startM] = range.startStr.split(':').map(Number);
+          const [endH, endM] = range.endStr.split(':').map(Number);
+          const startMin = startH * 60 + startM;
+          const endMin = endH * 60 + endM;
+
+          if (currentMinutes >= startMin && currentMinutes <= endMin) {
+            activeKey = key;
+          }
+
+          const diff = Math.abs(currentMinutes - startMin);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestKey = key;
+          }
+        }
+      });
+
+      const defaultKey = activeKey || closestKey || sortedShiftKeys[0];
+      setSelectedShiftKey(prev => prev && sortedShiftKeys.includes(prev) ? prev : defaultKey);
+    } else {
+      setSelectedShiftKey(null);
+    }
+  }, [attendanceLogs]);
+
+  const displayedPersonnel = selectedShiftKey ? (groupedShifts[selectedShiftKey] || []) : [];
+  const mapPersonnel = displayedPersonnel.filter(p => p.latitude !== null && p.longitude !== null);
+
+  const uniqueWorkLocations = [];
+  displayedPersonnel.forEach(p => {
+    const lat = p.targetLat || shopLat;
+    const lng = p.targetLng || shopLng;
+    const address = p.targetAddress || 'Cửa hàng';
+    const exists = uniqueWorkLocations.some(loc => loc.latitude === lat && loc.longitude === lng);
+    if (!exists) {
+      uniqueWorkLocations.push({ latitude: lat, longitude: lng, address });
+    }
+  });
+
+  if (uniqueWorkLocations.length === 0) {
+    uniqueWorkLocations.push({
+      latitude: shopLat,
+      longitude: shopLng,
+      address: businessProfile?.address || 'Cửa hàng'
+    });
+  }
+
   // Leaflet HTML String for Employer GPS Live
-  const personnelPinsJS = activePersonnel.map(person => `
+  const personnelPinsJS = mapPersonnel.map(person => `
     L.marker([${person.latitude}, ${person.longitude}], {
       icon: L.divIcon({
         html: '<div style="background: ${person.gpsStatus === 'Suspicious' ? '#EF4444' : '#10B981'}; width: 34px; height: 34px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; font-size: 16px;">${person.gpsStatus === 'Suspicious' ? '⚠️' : '👤'}</div>',
@@ -271,39 +445,41 @@ export default function EmployerMonitor() {
           dragging: true,
           touchZoom: true,
           scrollWheelZoom: true
-        }).setView([${shopLat}, ${shopLng}], 16);
+        }).setView([${uniqueWorkLocations[0].latitude}, ${uniqueWorkLocations[0].longitude}], 16);
         L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
           maxZoom: 19
         }).addTo(map);
 
-        // 100m Geofence Circle (Cyan-Blue Translucent)
-        L.circle([${shopLat}, ${shopLng}], {
-          color: '#00D1FF',
-          fillColor: '#00D1FF',
-          fillOpacity: 0.1,
-          radius: 100
-        }).addTo(map);
+        // Render branch locations and their geofences
+        ${uniqueWorkLocations.map((loc, idx) => `
+          L.circle([${loc.latitude}, ${loc.longitude}], {
+            color: '#00D1FF',
+            fillColor: '#00D1FF',
+            fillOpacity: 0.1,
+            radius: 100
+          }).addTo(map);
 
-        // Shop Marker (Custom Animated Store Icon)
-        L.marker([${shopLat}, ${shopLng}], {
-          icon: L.divIcon({
-            html: '<div class="shop-pulse-icon" style="background: #EF4444; width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px;">🏪</div>',
-            className: 'custom-shop-icon',
-            iconSize: [44, 44],
-            iconAnchor: [22, 22],
-            popupAnchor: [0, -22]
-          })
-        }).addTo(map)
-          .bindPopup('<b>${businessProfile?.businessName || "Cửa hàng"} (${businessProfile?.address || "84/10 Nam Cao"})</b>')
-          .openPopup();
+          L.marker([${loc.latitude}, ${loc.longitude}], {
+            icon: L.divIcon({
+              html: '<div class="shop-pulse-icon" style="background: #EF4444; width: 44px; height: 44px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 22px;">🏪</div>',
+              className: 'custom-shop-icon',
+              iconSize: [44, 44],
+              iconAnchor: [22, 22],
+              popupAnchor: [0, -22]
+            })
+          }).addTo(map)
+            .bindPopup('<b>${businessProfile?.businessName || "Cửa hàng"} (${loc.address.replace(/'/g, "\\'")})</b>')
+            ${idx === 0 ? '.openPopup()' : ''};
+        `).join('\n')}
 
         // Active Personnel Markers
         ${personnelPinsJS}
 
         // Auto bounds fitting
-        var markerCoords = [[${shopLat}, ${shopLng}]];
-        ${activePersonnel.map(p => `markerCoords.push([${p.latitude}, ${p.longitude}]);`).join('\n')}
-        if (markerCoords.length > 1) {
+        var markerCoords = [];
+        ${uniqueWorkLocations.map(loc => `markerCoords.push([${loc.latitude}, ${loc.longitude}]);`).join('\n')}
+        ${mapPersonnel.map(p => `markerCoords.push([${p.latitude}, ${p.longitude}]);`).join('\n')}
+        if (markerCoords.length > 0) {
           var bounds = L.latLngBounds(markerCoords);
           map.fitBounds(bounds, { padding: [50, 50] });
         }
@@ -365,32 +541,95 @@ export default function EmployerMonitor() {
             </Text>
           </View>
         </View>
-
         {/* Workforce List Header */}
         <View style={styles.listHeaderRow}>
-          <Text style={styles.sectionHeader}>NHÂN SỰ ĐANG TRỰC</Text>
-          <View style={styles.activeCountBadge}>
-            <Text style={styles.activeCountText}>
-              {sortedPersonnel.filter(p => p.gpsStatus !== 'Suspicious').length.toString().padStart(2, '0')} Hoạt Động
-            </Text>
-          </View>
+          <Text style={styles.sectionHeader}>NHÂN SỰ TRONG NGÀY ({(() => {
+            const localDate = new Date();
+            return `${localDate.getDate().toString().padStart(2, '0')}/${(localDate.getMonth() + 1).toString().padStart(2, '0')}/${localDate.getFullYear()}`;
+          })()})</Text>
+          {selectedShiftKey && (
+            <View style={styles.activeCountBadge}>
+              <Text style={styles.activeCountText}>
+                {displayedPersonnel.filter(p => p.rawStatus === 'working' || p.rawStatus === 'suspicious').length.toString().padStart(2, '0')} Đang Làm
+              </Text>
+            </View>
+          )}
         </View>
 
-        {sortedPersonnel.length === 0 ? (
+        {/* Shift Selection Tabs */}
+        {sortedShiftKeys.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabsContainer}
+            contentContainerStyle={styles.tabsContent}
+          >
+            {sortedShiftKeys.map((key) => {
+              const isActive = selectedShiftKey === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.shiftTabBtn,
+                    isActive && styles.shiftTabBtnActive
+                  ]}
+                  onPress={() => setSelectedShiftKey(key)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[
+                    styles.shiftTabText,
+                    isActive && styles.shiftTabTextActive
+                  ]}>
+                    {formatShiftName(key)} ({groupedShifts[key]?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {displayedPersonnel.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>💤</Text>
-            <Text style={styles.emptyText}>Hiện tại chưa có ai check-in ca làm việc.</Text>
-            <Text style={styles.emptySub}>Sinh viên check-in bằng GPS sẽ xuất hiện tại đây.</Text>
+            <Text style={styles.emptyText}>Ca làm việc này không có ai được phân lịch.</Text>
+            <Text style={styles.emptySub}>Chọn ca khác hoặc thêm lịch trực ở trang Phân Công.</Text>
           </View>
         ) : (
-          sortedPersonnel.map((person) => {
-            const isSuspicious = person.gpsStatus === 'Suspicious';
+          displayedPersonnel.map((person) => {
+            const isSuspicious = person.rawStatus === 'suspicious';
+            const isNotCheckedIn = person.rawStatus === 'not_checked_in';
+            const isAbsent = person.rawStatus === 'absent';
+            const isCompleted = person.rawStatus === 'completed';
+            const isWorking = person.rawStatus === 'working';
+
+            let cardStatusStyle = null;
+            let statusColor = theme.colors.success;
+            let statusText = `• ${person.distance}m - AN TOÀN`;
+
+            if (isSuspicious) {
+              cardStatusStyle = styles.staffCardSuspicious;
+              statusColor = theme.colors.danger;
+              statusText = `⚠️ Nghi vấn GPS - Cách ${person.distance}m`;
+            } else if (isNotCheckedIn) {
+              cardStatusStyle = styles.staffCardNotCheckedIn;
+              statusColor = '#94A3B8';
+              statusText = '• CHƯA ĐIỂM DANH';
+            } else if (isAbsent) {
+              cardStatusStyle = styles.staffCardAbsent;
+              statusColor = '#EF4444';
+              statusText = '❌ VẮNG MẶT';
+            } else if (isCompleted) {
+              cardStatusStyle = styles.staffCardCompleted;
+              statusColor = '#3B82F6';
+              statusText = '✓ ĐÃ RA CA';
+            }
+
             return (
               <View
                 key={person.id}
                 style={[
                   styles.premiumStaffCard,
-                  isSuspicious && styles.staffCardSuspicious
+                  cardStatusStyle
                 ]}
               >
                 {/* Left: Square-rounded avatar */}
@@ -405,18 +644,18 @@ export default function EmployerMonitor() {
                   <View style={styles.staffStatusRow}>
                     <View style={[
                       styles.statusIndicatorDot,
-                      { backgroundColor: isSuspicious ? theme.colors.danger : theme.colors.success }
+                      { backgroundColor: statusColor }
                     ]} />
                     <Text style={[
                       styles.staffStatusText,
-                      { color: isSuspicious ? theme.colors.danger : theme.colors.success }
+                      { color: statusColor }
                     ]}>
-                      {isSuspicious
-                        ? `⚠️ Nghi vấn GPS - Cách ${person.distance}m`
-                        : `• ${person.distance}m - AN TOÀN`}
+                      {statusText}
                     </Text>
                   </View>
-                  <Text style={styles.staffRole}>{person.role} • {person.shop.split(' - ')[0]}</Text>
+                  <Text style={styles.staffRole} numberOfLines={1} ellipsizeMode="tail">
+                    {person.role} • {formatShiftName(person.shiftName)}
+                  </Text>
                 </View>
 
                 {/* Right: Actions & Timestamp */}
@@ -453,7 +692,12 @@ export default function EmployerMonitor() {
                       <Ionicons name="call" size={15} color="#0A58CA" />
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.checkInTimeText}>Check-in: {person.checkInTime}</Text>
+                  <Text style={styles.checkInTimeText}>
+                    {isNotCheckedIn ? 'Chưa Điểm Danh' :
+                     isAbsent ? 'Vắng Mặt' :
+                     isCompleted ? `Ra ca: ${person.checkOutTime}` :
+                     `Check-in: ${person.checkInTime}`}
+                  </Text>
                 </View>
               </View>
             );
@@ -691,6 +935,21 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     backgroundColor: '#FFFBEB',
   },
+  staffCardNotCheckedIn: {
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    opacity: 0.85,
+  },
+  staffCardAbsent: {
+    borderColor: '#EF4444',
+    borderWidth: 1,
+    backgroundColor: '#FEF2F2',
+    opacity: 0.8,
+  },
+  staffCardCompleted: {
+    borderColor: '#3B82F6',
+    backgroundColor: '#EFF6FF',
+  },
   staffAvatar: {
     width: 56,
     height: 56,
@@ -702,6 +961,7 @@ const styles = StyleSheet.create({
   staffInfoContainer: {
     flex: 1,
     marginLeft: 12,
+    marginRight: 8,
     justifyContent: 'center',
   },
   staffName: {
@@ -940,5 +1200,32 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     marginBottom: 12,
-  }
+  },
+  tabsContainer: {
+    marginVertical: 12,
+  },
+  tabsContent: {
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  shiftTabBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  shiftTabBtnActive: {
+    backgroundColor: theme.colors.student,
+    borderColor: theme.colors.student,
+  },
+  shiftTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  shiftTabTextActive: {
+    color: '#FFFFFF',
+  },
 });

@@ -4,6 +4,7 @@ using ProxiJob.Job.Application.Features.JobPosts.DTOs;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using ProxiJob.Shared.Contract.Events;
+using ProxiJob.Job.Domain.Models;
 
 namespace ProxiJob.Job.Application.Features.JobPosts.Commands
 {
@@ -16,7 +17,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
         public string Requirements { get; set; }
         public int CategoryId { get; set; }
         public LocationDto Location { get; set; }
-        public List<int> SkillIds { get; set; } = new();
+        public List<string> SkillNames { get; set; } = new();
         public string UpdatedBy { get; set; }
     }
 
@@ -74,12 +75,44 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
 
             // Update skills (remove old, add new)
             _context.JobPostSkills.RemoveRange(jobPost.JobPostSkills);
-            jobPost.JobPostSkills = request.SkillIds.Select(skillId => new Domain.Models.JobPostSkill
+
+            var jobPostSkills = new List<JobPostSkill>();
+            if (request.SkillNames != null && request.SkillNames.Any())
             {
-                SkillId = skillId,
-                CreatedBy = request.UpdatedBy,
-                CreatedAt = DateTime.UtcNow
-            }).ToList();
+                var skillNamesToProcess = request.SkillNames
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Select(name => name.Trim())
+                    .Distinct()
+                    .ToList();
+
+                var existingSkills = await _context.Skills
+                    .Where(s => skillNamesToProcess.Any(n => s.Name.ToLower() == n.ToLower()))
+                    .ToListAsync(cancellationToken);
+
+                var existingSkillNames = existingSkills.Select(s => s.Name.ToLower()).ToList();
+                var newSkillNames = skillNamesToProcess
+                    .Where(n => !existingSkillNames.Contains(n.ToLower()))
+                    .ToList();
+
+                var newSkills = newSkillNames.Select(name => new Skill
+                {
+                    Name = name,
+                    Description = "", // Avoid NOT NULL constraint violation in database
+                    CreatedBy = request.UpdatedBy,
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+
+                var allSkills = existingSkills.Concat(newSkills).ToList();
+
+                jobPostSkills = allSkills.Select(skill => new JobPostSkill
+                {
+                    Skill = skill,
+                    CreatedBy = request.UpdatedBy,
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+            }
+
+            jobPost.JobPostSkills = jobPostSkills;
 
             if (jobPost.Status == "Published")
             {

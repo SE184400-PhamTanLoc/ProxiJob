@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ProxiJob.Management.Application.Common.Interfaces;
 using ProxiJob.Management.Application.Features.QrCodes.Commands;
@@ -87,4 +88,42 @@ public class QrCodesController : ApiControllerBase
         await _mediator.Send(command);
         return Ok();
     }
+
+    [HttpPatch("api/qr-code/location")]
+    [Authorize(Roles = "Business")]
+    public async Task<IActionResult> UpdateQrLocation([FromBody] UpdateQrLocationRequest request)
+    {
+        try
+        {
+            var businessId = GetBusinessId();
+            var context = HttpContext.RequestServices.GetRequiredService<IManagementDbContext>();
+            var qrCode = await context.BusinessQrCodes
+                .FirstOrDefaultAsync(q => q.BusinessId == businessId && q.IsActive);
+
+            if (qrCode == null)
+            {
+                return NotFound(new { message = "Active QR code not found for this business." });
+            }
+
+            qrCode.Latitude = request.Latitude;
+            qrCode.Longitude = request.Longitude;
+            qrCode.UpdatedBy = GetCurrentUser();
+            qrCode.UpdatedAt = DateTime.UtcNow;
+
+            context.BusinessQrCodes.Update(qrCode);
+            await context.SaveChangesAsync(default);
+
+            return Ok(new { message = "QR code location updated successfully." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+}
+
+public class UpdateQrLocationRequest
+{
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
 }

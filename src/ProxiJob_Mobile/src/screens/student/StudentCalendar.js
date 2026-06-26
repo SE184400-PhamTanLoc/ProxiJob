@@ -79,7 +79,7 @@ const getShiftDateLabel = (startTime) => {
 };
 
 export default function StudentCalendar() {
-  const { navigateTo, user, studentCoords } = useContext(AppContext);
+  const { navigateTo, user, studentCoords, activeShift } = useContext(AppContext);
   const { data: shifts = [], refetch: loadMyApplications } = useShiftsQuery(user, studentCoords);
   const [weekDays, setWeekDays] = useState([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
@@ -142,10 +142,16 @@ export default function StudentCalendar() {
   };
 
   const renderShiftItem = (shift) => {
-    const isWorking = shift.status === 'checkin_active';
+    const isWorking = shift.status === 'checkin_active' || 
+                      (activeShift && (
+                        activeShift.id === shift.id || 
+                        activeShift.jobShiftId === shift.id ||
+                        `sched_${activeShift.id}` === shift.id ||
+                        activeShift.id === `sched_${shift.id}`
+                      ));
     const isCompleted = shift.status === 'completed';
     const isApplied = shift.status === 'applied';
-    const isApproved = shift.status === 'approved';
+    const isApproved = shift.status === 'approved' && !isWorking;
 
     // Left indicator border and visual colors
     let statusColor = '#94A3B8';
@@ -240,13 +246,13 @@ export default function StudentCalendar() {
             onPress={() => navigateTo('student_checkin', { shiftId: shift.id })}
           >
             <Ionicons
-              name={isWorking ? "flash-outline" : isApplied ? "hourglass-outline" : "location-outline"}
+              name={isWorking ? "checkmark-circle-outline" : isApplied ? "hourglass-outline" : "location-outline"}
               size={16}
               color="#FFFFFF"
               style={{ marginRight: 8 }}
             />
             <Text style={styles.actionButtonText}>
-              {isWorking ? 'Xem phiên điểm danh GPS' : isApplied ? 'Chờ duyệt hồ sơ...' : 'Điểm danh GPS ngay'}
+              {isWorking ? 'Đã điểm danh' : isApplied ? 'Chờ duyệt hồ sơ...' : 'Điểm danh GPS ngay'}
             </Text>
           </TouchableOpacity>
         )}

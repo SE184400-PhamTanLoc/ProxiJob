@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -17,6 +18,8 @@ public class CheckInCommand : IRequest<int>
     public string? CheckInPhoto { get; set; }
     public int UserId { get; set; }
     public string CreatedBy { get; set; } = "System";
+    public double? TargetLatitude { get; set; }
+    public double? TargetLongitude { get; set; }
 }
 
 public class CheckInCommandHandler : IRequestHandler<CheckInCommand, int>
@@ -47,12 +50,40 @@ public class CheckInCommandHandler : IRequestHandler<CheckInCommand, int>
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
-        var workSchedule = await _context.WorkSchedules
-            .FirstOrDefaultAsync(ws => ws.EmployeeId == employee.Id && ws.Date == today, cancellationToken);
+        var schedules = await _context.WorkSchedules
+            .Where(ws => ws.EmployeeId == employee.Id && ws.Date == today)
+            .ToListAsync(cancellationToken);
 
-        if (workSchedule == null)
+        if (schedules == null || !schedules.Any())
         {
             throw new Exception($"No work schedule found for today ({today:yyyy-MM-dd}).");
+        }
+
+        WorkSchedule workSchedule;
+        if (schedules.Count == 1)
+        {
+            workSchedule = schedules.First();
+        }
+        else
+        {
+            var nowUtc = DateTime.UtcNow;
+            
+            // 1. Find schedule where now falls within [StartTime - 30m, EndTime]
+            var activeSchedules = schedules
+                .Where(ws => nowUtc >= ws.StartTime.AddMinutes(-30) && nowUtc <= ws.EndTime)
+                .ToList();
+
+            if (activeSchedules.Count == 1)
+            {
+                workSchedule = activeSchedules.First();
+            }
+            else
+            {
+                // 2. Otherwise, find the schedule closest to its StartTime
+                workSchedule = schedules
+                    .OrderBy(ws => Math.Abs((ws.StartTime - nowUtc).Ticks))
+                    .First();
+            }
         }
 
         var hasTimekeeping = await _context.Timekeepings
@@ -73,9 +104,12 @@ public class CheckInCommandHandler : IRequestHandler<CheckInCommand, int>
         }
 
         // Check GPS Distance
-        if (qrCode.Latitude.HasValue && qrCode.Longitude.HasValue)
+        double? targetLat = request.TargetLatitude ?? qrCode.Latitude;
+        double? targetLng = request.TargetLongitude ?? qrCode.Longitude;
+
+        if (targetLat.HasValue && targetLng.HasValue)
         {
-            var distance = CalculateDistance(request.Latitude, request.Longitude, qrCode.Latitude.Value, qrCode.Longitude.Value);
+            var distance = CalculateDistance(request.Latitude, request.Longitude, targetLat.Value, targetLng.Value);
             if (distance > qrCode.AllowedRadiusMeters)
             {
                 status = TimekeepingStatus.Suspicious;

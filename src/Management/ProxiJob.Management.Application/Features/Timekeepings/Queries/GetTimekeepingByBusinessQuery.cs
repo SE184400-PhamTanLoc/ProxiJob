@@ -28,29 +28,34 @@ public class GetTimekeepingByBusinessQueryHandler : IRequestHandler<GetTimekeepi
 
     public async Task<List<TimekeepingDto>> Handle(GetTimekeepingByBusinessQuery request, CancellationToken cancellationToken)
     {
-        var timekeepings = await _context.Timekeepings
-            .Include(t => t.WorkSchedule)
-            .Include(t => t.Employee)
-            .Where(t => t.Employee.BusinessId == request.BusinessId && t.WorkSchedule.Date == request.Date)
-            .OrderBy(t => t.Employee.FullName)
-            .Select(t => new TimekeepingDto
-            {
-                Id = t.Id,
-                EmployeeId = t.EmployeeId,
-                WorkScheduleId = t.WorkScheduleId,
-                CheckInTime = t.CheckInTime,
-                CheckOutTime = t.CheckOutTime,
-                InLatitude = t.InLatitude,
-                InLongitude = t.InLongitude,
-                OutLatitude = t.OutLatitude,
-                OutLongitude = t.OutLongitude,
-                CheckInPhoto = t.CheckInPhoto,
-                CheckOutPhoto = t.CheckOutPhoto,
-                Status = t.Status.ToString(),
-                IsManual = t.IsManual,
-                Note = t.Note
-            })
+        var schedules = await _context.WorkSchedules
+            .Include(ws => ws.Employee)
+            .Include(ws => ws.Timekeeping)
+            .Where(ws => ws.Employee.BusinessId == request.BusinessId && ws.Date == request.Date)
+            .OrderBy(ws => ws.Employee.FullName)
             .ToListAsync(cancellationToken);
+
+        var timekeepings = schedules.Select(ws => new TimekeepingDto
+        {
+            Id = ws.Timekeeping?.Id ?? 0,
+            EmployeeId = ws.EmployeeId,
+            WorkScheduleId = ws.Id,
+            JobShiftId = ws.JobShiftId,
+            CheckInTime = ws.Timekeeping?.CheckInTime,
+            CheckOutTime = ws.Timekeeping?.CheckOutTime,
+            InLatitude = ws.Timekeeping?.InLatitude,
+            InLongitude = ws.Timekeeping?.InLongitude,
+            OutLatitude = ws.Timekeeping?.OutLatitude,
+            OutLongitude = ws.Timekeeping?.OutLongitude,
+            CheckInPhoto = ws.Timekeeping?.CheckInPhoto,
+            CheckOutPhoto = ws.Timekeeping?.CheckOutPhoto,
+            Status = ws.Timekeeping?.Status.ToString() ?? "NotCheckedIn",
+            IsManual = ws.Timekeeping?.IsManual ?? false,
+            Note = ws.Timekeeping?.Note,
+            EmployeeName = ws.Employee.FullName,
+            Position = ws.Employee.Position,
+            ShiftName = ws.Note
+        }).ToList();
 
         return timekeepings;
     }

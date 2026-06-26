@@ -161,20 +161,8 @@ export default function EmployerEmergencyPost() {
     { id: 5, name: 'Phục vụ' },
     { id: 6, name: 'Khác' }
   ]);
-  const [skillsList, setSkillsList] = useState([
-    { id: 1, name: 'Giao tiếp' },
-    { id: 2, name: 'Pha chế' },
-    { id: 3, name: 'Xử lý tình huống' },
-    { id: 4, name: 'Tiếng Anh' },
-    { id: 5, name: 'Sử dụng máy POS' },
-    { id: 6, name: 'Làm việc nhóm' },
-    { id: 101, name: 'Thu ngân' },
-    { id: 102, name: 'Phục vụ bàn' },
-    { id: 103, name: 'Vệ sinh ATTP' },
-    { id: 104, name: 'Trung thực & Cẩn thận' },
-    { id: 105, name: 'Quản lý thời gian' },
-    { id: 106, name: 'Giải quyết khiếu nại' }
-  ]);
+  const [skillsList, setSkillsList] = useState([{ id: 'other_skill_trigger', name: 'Khác...' }]);
+  const [showCustomSkillInput, setShowCustomSkillInput] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -190,6 +178,7 @@ export default function EmployerEmergencyPost() {
 
   const [salary, setSalary] = useState('');
   const [selectedSkills, setSelectedSkills] = useState([]); // Default 'Giao tiếp'
+  const [customSkillInput, setCustomSkillInput] = useState('');
 
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -559,25 +548,12 @@ export default function EmployerEmergencyPost() {
       try {
         const skillRes = await getSkillsApi();
         const skillList = Array.isArray(skillRes) ? skillRes : (Array.isArray(skillRes?.data) ? skillRes.data : (skillRes?.items || skillRes?.data?.items || []));
-        if (skillList && skillList.length > 0) {
-          const defaultSkills = [
-            { id: 101, name: 'Thu ngân' },
-            { id: 102, name: 'Phục vụ bàn' },
-            { id: 103, name: 'Vệ sinh ATTP' },
-            { id: 104, name: 'Trung thực & Cẩn thận' },
-            { id: 105, name: 'Quản lý thời gian' },
-            { id: 106, name: 'Giải quyết khiếu nại' }
-          ];
-          const mergedSkills = [...skillList];
-          defaultSkills.forEach(ds => {
-            if (!mergedSkills.some(s => s.name.toLowerCase() === ds.name.toLowerCase())) {
-              mergedSkills.push(ds);
-            }
-          });
-          setSkillsList(mergedSkills);
+        if (skillList) {
+          setSkillsList([...skillList, { id: 'other_skill_trigger', name: 'Khác...' }]);
         }
       } catch (err) {
         console.log('Error loading skills from API:', err);
+        setSkillsList([{ id: 'other_skill_trigger', name: 'Khác...' }]);
       }
 
       try {
@@ -692,6 +668,10 @@ export default function EmployerEmergencyPost() {
   };
 
   const handleSkillToggle = (skillId) => {
+    if (skillId === 'other_skill_trigger') {
+      setShowCustomSkillInput(!showCustomSkillInput);
+      return;
+    }
     if (selectedSkills.includes(skillId)) {
       setSelectedSkills(selectedSkills.filter(id => id !== skillId));
     } else {
@@ -730,6 +710,17 @@ export default function EmployerEmergencyPost() {
       finalTitle = `${title} (${customCategory.trim()})`;
       finalDescription = `[Danh mục khác: ${customCategory.trim()}]\n\n${description}`;
     }
+    const finalSelectedSkills = selectedSkills
+      .map(id => skillsList.find(s => s.id === id)?.name)
+      .filter(Boolean);
+
+    if (showCustomSkillInput && customSkillInput.trim()) {
+      const customSkills = customSkillInput
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      finalSelectedSkills.push(...customSkills);
+    }
 
     setLoading(true);
     const success = await createJobPostWizard({
@@ -738,7 +729,7 @@ export default function EmployerEmergencyPost() {
       requirements,
       categoryId: finalCategoryId,
       salary,
-      skillIds: selectedSkills,
+      skillNames: finalSelectedSkills,
       address,
       latitude,
       longitude,
@@ -919,7 +910,7 @@ export default function EmployerEmergencyPost() {
                   <Text style={styles.inputLabel}>Kỹ năng cần thiết</Text>
                   <View style={styles.skillsContainer}>
                     {skillsList.map((skill) => {
-                      const isSelected = selectedSkills.includes(skill.id);
+                      const isSelected = skill.id === 'other_skill_trigger' ? showCustomSkillInput : selectedSkills.includes(skill.id);
                       return (
                         <TouchableOpacity
                           key={skill.id}
@@ -939,6 +930,18 @@ export default function EmployerEmergencyPost() {
                       );
                     })}
                   </View>
+
+                  {showCustomSkillInput && (
+                    <View style={styles.customSkillInputRow}>
+                      <TextInput
+                        style={[styles.premiumInput, styles.customSkillInput, { marginRight: 0 }]}
+                        placeholder="Nhập kỹ năng khác (cách nhau bởi dấu phẩy)..."
+                        placeholderTextColor={theme.colors.textLight}
+                        value={customSkillInput}
+                        onChangeText={setCustomSkillInput}
+                      />
+                    </View>
+                  )}
 
                   <View style={styles.infoBox}>
                     <Text style={styles.infoBoxText}>
@@ -1915,5 +1918,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  customSkillInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  customSkillInput: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    marginBottom: 0,
+  },
+  btnAddCustomSkill: {
+    backgroundColor: '#FF6B00',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginLeft: 8,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  btnAddCustomSkillText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontFamily: FONT_BOLD,
   },
 });

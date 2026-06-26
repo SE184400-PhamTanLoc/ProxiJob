@@ -14,7 +14,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
         public string Requirements { get; set; }
         public int CategoryId { get; set; }
         public LocationDto Location { get; set; }
-        public List<int> SkillIds { get; set; } = new();
+        public List<string> SkillNames { get; set; } = new();
         public string CreatedBy { get; set; }
     }
 
@@ -32,6 +32,45 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
             // Validate category
             var categoryExists = await _context.JobCategories.AnyAsync(c => c.Id == request.CategoryId, cancellationToken);
             if (!categoryExists) throw new Exception("Category does not exist.");
+
+            // Resolve skills by name (create if they don't exist)
+            var jobPostSkills = new List<JobPostSkill>();
+            if (request.SkillNames != null && request.SkillNames.Any())
+            {
+                var skillNamesToProcess = request.SkillNames
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Select(name => name.Trim())
+                    .Distinct()
+                    .ToList();
+
+                // Fetch existing skills matching these names (case-insensitive)
+                var existingSkills = await _context.Skills
+                    .Where(s => skillNamesToProcess.Any(n => s.Name.ToLower() == n.ToLower()))
+                    .ToListAsync(cancellationToken);
+
+                var existingSkillNames = existingSkills.Select(s => s.Name.ToLower()).ToList();
+                var newSkillNames = skillNamesToProcess
+                    .Where(n => !existingSkillNames.Contains(n.ToLower()))
+                    .ToList();
+
+                // Create new skills
+                var newSkills = newSkillNames.Select(name => new Skill
+                {
+                    Name = name,
+                    Description = "", // Avoid NOT NULL constraint violation in database
+                    CreatedBy = request.CreatedBy,
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+
+                var allSkills = existingSkills.Concat(newSkills).ToList();
+
+                jobPostSkills = allSkills.Select(skill => new JobPostSkill
+                {
+                    Skill = skill,
+                    CreatedBy = request.CreatedBy,
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+            }
 
             // Create JobPost
             var jobPost = new JobPost
@@ -52,12 +91,7 @@ namespace ProxiJob.Job.Application.Features.JobPosts.Commands
                     CreatedBy = request.CreatedBy,
                     CreatedAt = DateTime.UtcNow
                 },
-                JobPostSkills = request.SkillIds.Select(skillId => new JobPostSkill
-                {
-                    SkillId = skillId,
-                    CreatedBy = request.CreatedBy,
-                    CreatedAt = DateTime.UtcNow
-                }).ToList()
+                JobPostSkills = jobPostSkills
             };
 
             _context.JobPosts.Add(jobPost);

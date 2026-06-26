@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getPublishedJobs,
@@ -57,7 +58,53 @@ export const useShifts = ({
 }) => {
   const queryClient = useQueryClient();
   const [shifts, setShifts] = useState(INITIAL_SHIFTS);
-  const [activeShift, setActiveShift] = useState(null);
+  const [activeShift, setActiveShiftRaw] = useState(null);
+  const activeShiftRestoredRef = useRef(false);
+
+  // Persist activeShift to AsyncStorage so it survives tab switches / remounts
+  const setActiveShift = useCallback((value) => {
+    if (typeof value === 'function') {
+      setActiveShiftRaw(prev => {
+        const next = value(prev);
+        if (next) {
+          AsyncStorage.setItem('@proxijob_active_shift', JSON.stringify(next)).catch(() => {});
+        } else {
+          AsyncStorage.removeItem('@proxijob_active_shift').catch(() => {});
+        }
+        return next;
+      });
+    } else {
+      setActiveShiftRaw(value);
+      if (value) {
+        AsyncStorage.setItem('@proxijob_active_shift', JSON.stringify(value)).catch(() => {});
+      } else {
+        AsyncStorage.removeItem('@proxijob_active_shift').catch(() => {});
+      }
+    }
+  }, []);
+
+  // Restore activeShift from AsyncStorage on mount
+  useEffect(() => {
+    if (activeShiftRestoredRef.current) return;
+    activeShiftRestoredRef.current = true;
+    AsyncStorage.getItem('@proxijob_active_shift').then(stored => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          // Only restore if it's a checkin_active shift (not stale completed)
+          if (parsed && parsed.status === 'checkin_active') {
+            setActiveShiftRaw(parsed);
+            console.log('[useShifts] Restored activeShift from storage:', parsed.id);
+          } else {
+            // Clean up stale data
+            AsyncStorage.removeItem('@proxijob_active_shift').catch(() => {});
+          }
+        } catch (e) {
+          AsyncStorage.removeItem('@proxijob_active_shift').catch(() => {});
+        }
+      }
+    }).catch(() => {});
+  }, []);
   const [employerJobs, setEmployerJobs] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState(INITIAL_LEAVE_REQUESTS);
 
@@ -113,19 +160,25 @@ export const useShifts = ({
       if (userId && userRole === 'student') {
         try {
           const appsRes = await getMyApplications(userId);
-          const apps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.data?.items || []));
+          const apps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.Items || appsRes?.data?.items || appsRes?.data?.Items || []));
           baseShifts = baseShifts.map(shift => {
-            const app = apps.find(a => a.shiftId === shift.id || a.jobShiftId === shift.id);
+            const app = apps.find(a => {
+              const aShiftId = a.shiftId !== undefined ? a.shiftId : a.ShiftId;
+              const aJobShiftId = a.jobShiftId !== undefined ? a.jobShiftId : a.JobShiftId;
+              return aShiftId === shift.id || aJobShiftId === shift.id;
+            });
             if (app) {
               let status = 'applied';
-              if (app.status === 'Approved') status = 'approved';
-              else if (app.status === 'Rejected') status = 'available';
-              else if (app.status === 'Completed') status = 'completed';
+              const appStatus = app.status !== undefined ? app.status : app.Status;
+              const appId = app.id !== undefined ? app.id : app.Id;
+              if (appStatus === 'Approved') status = 'approved';
+              else if (appStatus === 'Rejected') status = 'available';
+              else if (appStatus === 'Completed') status = 'completed';
 
               if (shift.status === 'checkin_active' && status === 'approved') {
                 return shift;
               }
-              return { ...shift, status, applicationId: app.id };
+              return { ...shift, status, applicationId: appId };
             }
             return shift;
           });
@@ -511,7 +564,7 @@ export const useShifts = ({
         requirements,
         categoryId,
         salary,
-        skillIds,
+        skillNames,
         address,
         latitude,
         longitude,
@@ -530,7 +583,9 @@ export const useShifts = ({
         const [year, month, day] = date.split('-').map(Number);
 
         startIso = new Date(Date.UTC(year, month - 1, day, parseInt(startParts[0], 10), parseInt(startParts[1], 10), 0));
+        startIso.setUTCHours(startIso.getUTCHours() - 7);
         endIso = new Date(Date.UTC(year, month - 1, day, parseInt(endParts[0], 10), parseInt(endParts[1], 10), 0));
+        endIso.setUTCHours(endIso.getUTCHours() - 7);
 
         if (endIso < startIso) {
           endIso.setUTCDate(endIso.getUTCDate() + 1);
@@ -548,7 +603,7 @@ export const useShifts = ({
           latitude: parseFloat(latitude) || mockLat,
           longitude: parseFloat(longitude) || mockLng
         },
-        skillIds: skillIds.map(Number),
+        skillNames: skillNames || [],
         createdBy: user.name
       });
 
@@ -595,7 +650,7 @@ export const useShifts = ({
         address,
         latitude,
         longitude,
-        skillIds
+        skillNames
       } = data;
 
       await updateJobPostApi(jobPostId, {
@@ -610,7 +665,7 @@ export const useShifts = ({
           latitude: parseFloat(latitude) || mockLat,
           longitude: parseFloat(longitude) || mockLng
         },
-        skillIds: skillIds.map(Number),
+        skillNames: skillNames || [],
         updatedBy: user.name
       });
 

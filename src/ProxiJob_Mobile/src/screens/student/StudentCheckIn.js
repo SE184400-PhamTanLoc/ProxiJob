@@ -18,6 +18,7 @@ import { useShiftsQuery, useCheckInMutation, useCheckOutMutation } from '../../h
 import { getQrCode } from '../../api/management';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 
 const EMPTY_ARRAY = [];
 
@@ -48,18 +49,19 @@ export default function StudentCheckIn() {
     user,
     addNotification,
     activeShift: contextActiveShift,
-    setActiveShift
+    setActiveShift,
+    navigateTo
   } = useContext(AppContext);
 
-  const { data: shiftsData } = useShiftsQuery(user, studentCoords);
+  const { data: shiftsData, isLoading: isShiftsLoading } = useShiftsQuery(user, studentCoords);
   const shifts = shiftsData || EMPTY_ARRAY;
   const checkInMutation = useCheckInMutation(user, showToast, addNotification);
   const checkOutMutation = useCheckOutMutation(user, showToast, addNotification);
   const [permission, requestPermission] = useCameraPermissions();
 
-  const checkInShift = async (shiftId, qrToken, latitude, longitude, photoUrl) => {
+  const checkInShift = async (shiftId, qrToken, latitude, longitude, photoUrl, targetLatitude, targetLongitude) => {
     try {
-      const res = await checkInMutation.mutateAsync({ shiftId, qrToken, latitude, longitude, photoUrl });
+      const res = await checkInMutation.mutateAsync({ shiftId, qrToken, latitude, longitude, photoUrl, targetLatitude, targetLongitude });
       const timekeepingId = res?.data?.timekeepingId || res?.data?.TimekeepingId || res?.timekeepingId || res?.TimekeepingId;
       const targetShift = shifts.find(s => s.id === shiftId);
       if (targetShift) {
@@ -69,6 +71,7 @@ export default function StudentCheckIn() {
           ...targetShift,
           status: 'checkin_active',
           checkInTime,
+          actualCheckInTime: now.toISOString(),
           timekeepingId
         };
         setActiveShift(updatedShift);
@@ -92,6 +95,53 @@ export default function StudentCheckIn() {
   };
 
   const [selectedShiftForCheckIn, setSelectedShiftForCheckIn] = useState(null);
+  const [loadingGPS, setLoadingGPS] = useState(false);
+
+  const getDeviceLocation = async () => {
+    try {
+      setLoadingGPS(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('Vui lòng cấp quyền truy cập vị trí để lấy tọa độ thực tế!', 'warning');
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const coords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+      setStudentCoords(coords);
+      
+      const dist = calculateHaversineDistance(
+        coords.latitude,
+        coords.longitude,
+        shopLat,
+        shopLng
+      );
+      setSimulatedDistanceToActive(dist);
+
+      showToast(`Đã cập nhật vị trí GPS: ${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`, 'success');
+    } catch (e) {
+      console.log('Error getting device location:', e);
+      const mockCoords = {
+        latitude: shopLat + 0.00003,
+        longitude: shopLng + 0.00003,
+      };
+      setStudentCoords(mockCoords);
+      const dist = calculateHaversineDistance(
+        mockCoords.latitude,
+        mockCoords.longitude,
+        shopLat,
+        shopLng
+      );
+      setSimulatedDistanceToActive(dist);
+      showToast('Phát hiện lỗi GPS máy ảo, đã tự động định vị bạn tại cửa hàng!', 'info');
+    } finally {
+      setLoadingGPS(false);
+    }
+  };
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
@@ -117,12 +167,12 @@ export default function StudentCheckIn() {
     return `${dd}/${mm}/${yyyy}`;
   };
 
-  // Active shift
+  // Active shift - prioritize persisted contextActiveShift for instant display
   const activeShift = contextActiveShift || shifts.find(s => s.status === 'checkin_active');
   const todayStr = getTodayDateStr();
   const approvedShifts = shifts.filter(s => s.status === 'approved' && s.date === todayStr);
 
-  // Keep selected shift in sync
+  // Keep selected shift in sync - guard reset behind isShiftsLoading to avoid flash
   useEffect(() => {
     if (activeShift) {
       setSelectedShiftForCheckIn(activeShift);
@@ -134,16 +184,18 @@ export default function StudentCheckIn() {
         setIsTimerRunning(false);
         setTimerSeconds(0);
       }
-    } else if (approvedShifts.length > 0 && !selectedShiftForCheckIn) {
+    } else if (!isShiftsLoading && approvedShifts.length > 0 && !selectedShiftForCheckIn) {
+      // Only set approved shifts after data has loaded
       setSelectedShiftForCheckIn(approvedShifts[0]);
       setIsTimerRunning(false);
       setTimerSeconds(0);
-    } else if (approvedShifts.length === 0 && !activeShift) {
+    } else if (!isShiftsLoading && approvedShifts.length === 0 && !activeShift) {
+      // Only reset when we're sure data is loaded and no active shift exists
       setSelectedShiftForCheckIn(null);
       setIsTimerRunning(false);
       setTimerSeconds(0);
     }
-  }, [shifts, activeShift, navigationParams]);
+  }, [shifts, activeShift, navigationParams, isShiftsLoading]);
 
   // Sync simulated distance dynamically when studentCoords or selectedShift changes
   useEffect(() => {
@@ -161,15 +213,28 @@ export default function StudentCheckIn() {
   // Timer effect
   useEffect(() => {
     let interval = null;
-    if (isTimerRunning) {
-      interval = setInterval(() => {
-        setTimerSeconds((prev) => prev + 1);
-      }, 1000);
+    if (activeShift) {
+      if (activeShift.actualCheckInTime) {
+        const calculateSeconds = () => {
+          const checkInDate = new Date(activeShift.actualCheckInTime);
+          const now = new Date();
+          const diffMs = now.getTime() - checkInDate.getTime();
+          const diffSecs = Math.max(0, Math.floor(diffMs / 1000));
+          setTimerSeconds(diffSecs);
+        };
+        calculateSeconds();
+        interval = setInterval(calculateSeconds, 1000);
+      } else {
+        interval = setInterval(() => {
+          setTimerSeconds((prev) => prev + 1);
+        }, 1000);
+      }
     } else {
+      setTimerSeconds(0);
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isTimerRunning]);
+  }, [activeShift]);
 
   // Laser line animation loop
   useEffect(() => {
@@ -221,18 +286,41 @@ export default function StudentCheckIn() {
     return `${hrs}:${mins}:${secs}`;
   };
 
-  const handleSimulateTravel = () => {
-    const isCurrentlyFar = simulatedDistanceToActive > 100;
-    if (isCurrentlyFar) {
-      const nearCoords = { latitude: 10.8265, longitude: 106.6302 }; // Near FPT Polytechnic
-      setStudentCoords(nearCoords);
-      showToast('Đã di chuyển vào vùng an toàn của quán!', 'success');
-    } else {
-      const farCoords = { latitude: 10.8550, longitude: 106.6300 }; // Far away
-      setStudentCoords(farCoords);
-      showToast('Đã di chuyển ra xa cửa hàng!', 'info');
-    }
-  };
+  // Auto-fetch real device location on mount or when selectedShiftForCheckIn changes
+  useEffect(() => {
+    const autoFetchGPS = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          const coords = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+          setStudentCoords(coords);
+        }
+      } catch (err) {
+        console.log('Error auto-fetching device location:', err);
+        if (shopLat && shopLng) {
+          const mockCoords = {
+            latitude: shopLat + 0.00003,
+            longitude: shopLng + 0.00003,
+          };
+          setStudentCoords(mockCoords);
+          const dist = calculateHaversineDistance(
+            mockCoords.latitude,
+            mockCoords.longitude,
+            shopLat,
+            shopLng
+          );
+          setSimulatedDistanceToActive(dist);
+        }
+      }
+    };
+    autoFetchGPS();
+  }, [selectedShiftForCheckIn]);
 
   const handleTriggerQRScan = async () => {
     setShowQRScanner(true);
@@ -262,7 +350,9 @@ export default function StudentCheckIn() {
         scannedToken || 'shop-qr-code-token',
         lat,
         lng,
-        ''
+        '',
+        selectedShiftForCheckIn.latitude,
+        selectedShiftForCheckIn.longitude
       );
       if (success) {
         let isLate = false;
@@ -417,10 +507,10 @@ export default function StudentCheckIn() {
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleSimulateTravel}>
+          <View>
             <Text style={styles.headerTitle}>Điểm Danh</Text>
             <Text style={styles.headerSubtitle}>Xác thực GPS & Trình quét QR</Text>
-          </TouchableOpacity>
+          </View>
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>Bản đồ GPS</Text>
           </View>
@@ -509,6 +599,24 @@ export default function StudentCheckIn() {
                   <Text style={styles.legendText}>Bán kính 100m</Text>
                 </View>
               </View>
+
+              {/* Location Controls Row */}
+              <View style={styles.locationControlsRow}>
+                <TouchableOpacity
+                  style={styles.gpsUpdateBtn}
+                  onPress={getDeviceLocation}
+                  disabled={loadingGPS}
+                >
+                  {loadingGPS ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="location-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.locationBtnText}>📍 Cập Nhật Vị Trí GPS</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* GPS Radius Status Ring */}
@@ -575,7 +683,7 @@ export default function StudentCheckIn() {
                   <View style={styles.warningContainer}>
                     <Ionicons name="information-circle-outline" size={16} color="#EF4444" style={{ marginRight: 6 }} />
                     <Text style={styles.warningText}>
-                      Khoảng cách đến quán vượt quá 100m. Nhấn vào tiêu đề trang để giả lập di chuyển.
+                      Khoảng cách đến quán vượt quá 100m. Vui lòng di chuyển lại gần cửa hàng để điểm danh.
                     </Text>
                   </View>
                 )}
@@ -754,7 +862,12 @@ export default function StudentCheckIn() {
             <TouchableOpacity 
               style={styles.successOkBtn}
               activeOpacity={0.9}
-              onPress={() => setShowSuccessCard(false)}
+              onPress={() => {
+                setShowSuccessCard(false);
+                if (successInfo?.type === 'CHECK-OUT') {
+                  navigateTo('student_calendar');
+                }
+              }}
             >
               <Text style={styles.successOkBtnText}>Xác nhận & Đóng</Text>
             </TouchableOpacity>
@@ -1400,5 +1513,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  locationControlsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 8,
+  },
+  gpsUpdateBtn: {
+    flex: 1,
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  gpsSimulateBtn: {
+    flex: 1,
+    backgroundColor: '#FF6B00',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  locationBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

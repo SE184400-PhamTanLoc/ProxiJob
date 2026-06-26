@@ -36,25 +36,47 @@ import { translateError } from '../context/useAuth';
 
 const formatTimeVN = (dateInput) => {
   if (!dateInput) return '';
-  const str = typeof dateInput === 'string' ? dateInput : new Date(dateInput).toISOString();
-  const parts = str.split('T');
-  if (parts.length === 2) {
-    return parts[1].substring(0, 5);
+  try {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return '';
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch (e) {
+    return '';
   }
-  return '';
 };
 
 const formatDateVN = (dateInput) => {
   if (!dateInput) return '';
-  const str = typeof dateInput === 'string' ? dateInput : new Date(dateInput).toISOString();
-  const parts = str.split('T');
-  if (parts.length >= 1) {
-    const dateParts = parts[0].split('-');
-    if (dateParts.length === 3) {
-      return `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
-    }
+  try {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return '';
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch (e) {
+    return '';
   }
-  return '';
+};
+
+const jobShiftsCache = new Map(); // jobId -> { data, timestamp }
+const CACHE_TTL = 30000; // 30 seconds
+
+export const clearJobShiftsCache = () => {
+  jobShiftsCache.clear();
+};
+
+const fetchJobShiftsWithCache = async (jobId) => {
+  const cached = jobShiftsCache.get(jobId);
+  const now = Date.now();
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  const data = await getJobPostShifts(jobId);
+  jobShiftsCache.set(jobId, { data, timestamp: now });
+  return data;
 };
 
 // ==========================================
@@ -63,19 +85,19 @@ const formatDateVN = (dateInput) => {
 
 export const useShiftsQuery = (user, studentCoords) => {
   return useQuery({
-    queryKey: ['shifts', user?.id, studentCoords?.latitude, studentCoords?.longitude],
+    queryKey: ['shifts', user?.id],
     queryFn: async () => {
       try {
         const res = await getPublishedJobs();
-        const jobPosts = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
-        const allShifts = [];
+        const jobPosts = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.Items || res?.data?.items || res?.data?.Items || []));
         
-        for (const job of jobPosts) {
-          try {
-            const jobShiftsRes = await getJobPostShifts(job.id);
-            const jobShifts = Array.isArray(jobShiftsRes) ? jobShiftsRes : (Array.isArray(jobShiftsRes?.data) ? jobShiftsRes.data : (jobShiftsRes?.items || jobShiftsRes?.data?.items || []));
-            for (const s of jobShifts) {
-              allShifts.push({
+        // Fetch all job shifts in parallel instead of sequentially for much faster loading
+        const shiftResults = await Promise.all(
+          jobPosts.map(async (job) => {
+            try {
+              const jobShiftsRes = await fetchJobShiftsWithCache(job.id);
+              const jobShifts = Array.isArray(jobShiftsRes) ? jobShiftsRes : (Array.isArray(jobShiftsRes?.data) ? jobShiftsRes.data : (jobShiftsRes?.items || jobShiftsRes?.Items || jobShiftsRes?.data?.items || jobShiftsRes?.data?.Items || []));
+              return jobShifts.map(s => ({
                 id: s.id,
                 jobPostId: job.id,
                 startTime: s.startTime,
@@ -93,36 +115,44 @@ export const useShiftsQuery = (user, studentCoords) => {
                 rating: 5.0,
                 reviewsCount: 1,
                 status: s.remainingSlots <= 0 ? 'full' : 'available',
-                isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.title || '').toLowerCase().includes('khấn cấp') || (job.description || '').toLowerCase().includes('khẩn cấp') || (job.description || '').toLowerCase().includes('khấn cấp'),
+                isEmergency: (job.title || '').toLowerCase().includes('khần cấp') || (job.title || '').toLowerCase().includes('khấn cấp') || (job.description || '').toLowerCase().includes('khần cấp') || (job.description || '').toLowerCase().includes('khấn cấp'),
                 createdAt: job.createdAt || job.CreatedAt || s.startTime,
                 auditFields: {
                   createdBy: job.createdBy,
                   updatedBy: job.createdBy,
                   deletedBy: ''
                 }
-              });
+              }));
+            } catch (sErr) {
+              console.log(`Error loading shifts for job ${job.id}:`, sErr);
+              return [];
             }
-          } catch (sErr) {
-            console.log(`Error loading shifts for job ${job.id}:`, sErr);
-          }
-        }
+          })
+        );
+        const allShifts = shiftResults.flat();
 
         let baseShifts = allShifts;
 
         if (user && user.role === 'student') {
           try {
             const appsRes = await getMyApplications(user.id);
-            const apps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.data?.items || []));
+            const apps = Array.isArray(appsRes) ? appsRes : (Array.isArray(appsRes?.data) ? appsRes.data : (appsRes?.items || appsRes?.Items || appsRes?.data?.items || appsRes?.data?.Items || []));
             baseShifts = baseShifts.map(shift => {
-              const app = apps.find(a => a.shiftId === shift.id || a.jobShiftId === shift.id);
+              const app = apps.find(a => {
+                const aShiftId = a.shiftId !== undefined ? a.shiftId : a.ShiftId;
+                const aJobShiftId = a.jobShiftId !== undefined ? a.jobShiftId : a.JobShiftId;
+                return aShiftId === shift.id || aJobShiftId === shift.id;
+              });
               if (app) {
                 let status = 'applied';
-                if (app.status === 'Approved') status = 'approved';
-                else if (app.status === 'Rejected') status = 'available';
-                else if (app.status === 'Completed') status = 'completed';
+                const appStatus = app.status !== undefined ? app.status : app.Status;
+                const appId = app.id !== undefined ? app.id : app.Id;
+                if (appStatus === 'Approved') status = 'approved';
+                else if (appStatus === 'Rejected') status = 'available';
+                else if (appStatus === 'Completed') status = 'completed';
                 
                 // Let other state logic handle checkin status if needed
-                return { ...shift, status, applicationId: app.id };
+                return { ...shift, status, applicationId: appId };
               }
               return shift;
             });
@@ -143,24 +173,42 @@ export const useShiftsQuery = (user, studentCoords) => {
 
             try {
               const myScheds = await getMySchedules(fromDate, toDate);
-              const scheds = Array.isArray(myScheds) ? myScheds : (Array.isArray(myScheds?.data) ? myScheds.data : (myScheds?.items || []));
+              const scheds = Array.isArray(myScheds) ? myScheds : (Array.isArray(myScheds?.data) ? myScheds.data : (myScheds?.items || myScheds?.Items || []));
               
               for (const sched of scheds) {
-                const hasTimekeeping = !!sched.timekeepingId;
-                const isCheckedIn = hasTimekeeping && !!sched.actualCheckInTime && !sched.actualCheckOutTime;
-                const isCheckedOut = hasTimekeeping && !!sched.actualCheckOutTime;
+                const sId = sched.id !== undefined ? sched.id : sched.Id;
+                const sJobShiftId = sched.jobShiftId !== undefined ? sched.jobShiftId : sched.JobShiftId;
+                const sJobShiftSalary = sched.jobShiftSalary !== undefined ? sched.jobShiftSalary : sched.JobShiftSalary;
+                const sStartTime = sched.startTime !== undefined ? sched.startTime : sched.StartTime;
+                const sEndTime = sched.endTime !== undefined ? sched.endTime : sched.EndTime;
+                const sNote = sched.note !== undefined ? sched.note : sched.Note;
+                const sActualCheckInTime = sched.actualCheckInTime !== undefined ? sched.actualCheckInTime : sched.ActualCheckInTime;
+                const sActualCheckOutTime = sched.actualCheckOutTime !== undefined ? sched.actualCheckOutTime : sched.ActualCheckOutTime;
+                const sTimekeepingId = sched.timekeepingId !== undefined ? sched.timekeepingId : sched.TimekeepingId;
+                const sBusinessId = sched.businessId !== undefined ? sched.businessId : sched.BusinessId;
+
+                const hasTimekeeping = !!sTimekeepingId;
+                const isCheckedIn = hasTimekeeping && !!sActualCheckInTime && !sActualCheckOutTime;
+                const isCheckedOut = hasTimekeeping && !!sActualCheckOutTime;
 
                 // If it is generated from an approved application, we already have it in baseShifts (matched by JobShiftId)
-                if (sched.jobShiftId && baseShifts.some(shift => shift.id === sched.jobShiftId)) {
-                  const existing = baseShifts.find(shift => shift.id === sched.jobShiftId);
+                if (sJobShiftId && baseShifts.some(shift => shift.id === sJobShiftId)) {
+                  const existing = baseShifts.find(shift => shift.id === sJobShiftId);
                   if (existing) {
+                    // Update actual scheduled times in case the employer re-assigned or customized the shift time!
+                    existing.startTime = sStartTime;
+                    existing.endTime = sEndTime;
+                    existing.date = formatDateVN(sStartTime);
+                    existing.time = `${formatTimeVN(sStartTime)} - ${formatTimeVN(sEndTime)}`;
+
                     if (isCheckedIn) {
                       existing.status = 'checkin_active';
-                      existing.timekeepingId = sched.timekeepingId;
-                      existing.checkInTime = sched.actualCheckInTime ? new Date(sched.actualCheckInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+                      existing.timekeepingId = sTimekeepingId;
+                      existing.checkInTime = sActualCheckInTime ? new Date(sActualCheckInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+                      existing.actualCheckInTime = sActualCheckInTime;
                     } else if (isCheckedOut) {
                       existing.status = 'completed';
-                      existing.timekeepingId = sched.timekeepingId;
+                      existing.timekeepingId = sTimekeepingId;
                     } else {
                       if (existing.status !== 'checkin_active' && existing.status !== 'completed') {
                         existing.status = 'approved';
@@ -172,11 +220,11 @@ export const useShiftsQuery = (user, studentCoords) => {
 
                 // If not in baseShifts, it is a custom manual schedule. Let's create a virtual shift!
                 let slotName = 'Ca làm việc';
-                if (sched.note === 'morning') slotName = 'Ca Sáng';
-                else if (sched.note === 'afternoon') slotName = 'Ca Chiều';
-                else if (sched.note === 'evening') slotName = 'Ca Tối';
-                else if (sched.note && sched.note.startsWith('custom_')) slotName = 'Ca Tự Chọn';
-                else if (sched.note) slotName = sched.note;
+                if (sNote === 'morning') slotName = 'Ca Sáng';
+                else if (sNote === 'afternoon') slotName = 'Ca Chiều';
+                else if (sNote === 'evening') slotName = 'Ca Tối';
+                else if (sNote && sNote.startsWith('custom_')) slotName = 'Ca Tự Chọn';
+                else if (sNote) slotName = sNote;
 
                 let title = `Lịch phân công: ${slotName}`;
 
@@ -186,7 +234,7 @@ export const useShiftsQuery = (user, studentCoords) => {
                 let latitude = 10.8261;
                 let longitude = 106.6297;
                 
-                const matchingJob = jobPosts.find(j => Number(j.businessId) === Number(sched.businessId));
+                const matchingJob = jobPosts.find(j => Number(j.businessId) === Number(sBusinessId));
                 if (matchingJob) {
                   title = matchingJob.title;
                   shopName = matchingJob.categoryName || 'Cửa hàng';
@@ -200,25 +248,26 @@ export const useShiftsQuery = (user, studentCoords) => {
                 else if (isCheckedOut) status = 'completed';
 
                 baseShifts.push({
-                  id: `sched_${sched.id}`, // virtual id to avoid overlaps
+                  id: `sched_${sId}`, // virtual id to avoid overlaps
                   jobPostId: null,
-                  startTime: sched.startTime,
-                  endTime: sched.endTime,
+                  startTime: sStartTime,
+                  endTime: sEndTime,
                   title,
                   shopName,
-                  hourlyRate: sched.jobShiftSalary || 28000,
+                  hourlyRate: sJobShiftSalary || 28000,
                   latitude,
                   longitude,
                   address,
-                  date: formatDateVN(sched.startTime),
-                  time: `${formatTimeVN(sched.startTime)} - ${formatTimeVN(sched.endTime)}`,
-                  description: `Ca làm việc theo phân lịch của quán ngày ${formatDateVN(sched.startTime)}.`,
+                  date: formatDateVN(sStartTime),
+                  time: `${formatTimeVN(sStartTime)} - ${formatTimeVN(sEndTime)}`,
+                  description: `Ca làm việc theo phân lịch của quán ngày ${formatDateVN(sStartTime)}.`,
                   requirements: 'Vui lòng đến đúng giờ.',
                   rating: 5.0,
                   reviewsCount: 1,
                   status: status,
-                  timekeepingId: sched.timekeepingId || null,
-                  checkInTime: (isCheckedIn && sched.actualCheckInTime) ? new Date(sched.actualCheckInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+                  timekeepingId: sTimekeepingId || null,
+                  checkInTime: (isCheckedIn && sActualCheckInTime) ? new Date(sActualCheckInTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+                  actualCheckInTime: isCheckedIn ? sActualCheckInTime : null,
                   isEmergency: false,
                   auditFields: {
                     createdBy: 'System',
@@ -242,7 +291,7 @@ export const useShiftsQuery = (user, studentCoords) => {
       }
     },
     enabled: true,
-    staleTime: 0, // stale immediately so switching tabs or screens triggers a new fetch
+    staleTime: 30 * 1000, // 30 seconds - show cached data instantly while refetching in background
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection time
   });
 };
@@ -272,7 +321,7 @@ export const useEmployerJobsQuery = (user) => {
 
         const shiftsPromises = list.map(async (job) => {
           try {
-            const jobShiftsRes = await getJobPostShifts(job.id);
+            const jobShiftsRes = await fetchJobShiftsWithCache(job.id);
             const jobShifts = Array.isArray(jobShiftsRes) ? jobShiftsRes : (Array.isArray(jobShiftsRes?.data) ? jobShiftsRes.data : (jobShiftsRes?.items || jobShiftsRes?.data?.items || []));
 
             const appsPromises = jobShifts.map(async (s) => {
@@ -374,6 +423,9 @@ export const useEmployerJobsQuery = (user) => {
                 title: job.title,
                 shopName: job.categoryName || 'Cửa hàng',
                 hourlyRate: s.salary,
+                latitude: job.latitude || job.location?.latitude || 0,
+                longitude: job.longitude || job.location?.longitude || 0,
+                address: job.address || job.location?.address || job.shopAddress || job.locationAddress || '',
                 date: formatDateVN(s.startTime),
                 time: `${formatTimeVN(s.startTime)} - ${formatTimeVN(s.endTime)}`,
                 description: '',
@@ -486,19 +538,29 @@ export const useAttendanceLogsQuery = (user) => {
     queryFn: async () => {
       if (!user || user.role !== 'employer') return [];
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const localDate = new Date();
+        const yyyy = localDate.getFullYear();
+        const mm = String(localDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(localDate.getDate()).padStart(2, '0');
+        const today = `${yyyy}-${mm}-${dd}`;
+        
         const res = await getTimekeepingLogs(today);
         const logs = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
         return logs.map(log => ({
           id: log.id,
           employeeId: log.employeeId || log.EmployeeId || null,
           shiftId: log.workScheduleId,
+          jobShiftId: log.jobShiftId !== undefined ? log.jobShiftId : log.JobShiftId || null,
           studentName: log.employeeName || 'Sinh viên',
           shopName: user.name,
           jobTitle: log.position || 'Nhân viên',
+          shiftName: log.shiftName,
           checkInTime: log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString('vi-VN') : null,
           checkOutTime: log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString('vi-VN') : null,
-          status: log.status === 'Suspicious' ? 'suspicious' : (log.checkOutTime ? 'completed' : 'working'),
+          status: log.status === 'Suspicious' ? 'suspicious' : 
+                  log.status === 'NotCheckedIn' ? 'not_checked_in' :
+                  log.status === 'Absent' ? 'absent' :
+                  (log.checkOutTime ? 'completed' : 'working'),
           date: log.date || new Date().toLocaleDateString('vi-VN'),
           photo: log.checkInPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
           gpsStatus: log.status === 'Suspicious' ? 'Nghi vấn GPS' : 'Hợp lệ'
@@ -563,6 +625,7 @@ export const useApplyMutation = (user, showToast, addNotification) => {
       return applyToShiftApi(shiftId, user.id, introduction, user.name);
     },
     onSuccess: (data, variables) => {
+      clearJobShiftsCache();
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
       queryClient.invalidateQueries({ queryKey: ['employerJobs'] });
       showToast('Ứng tuyển thành công!', 'success');
@@ -579,7 +642,7 @@ export const useApplyMutation = (user, showToast, addNotification) => {
 export const useCheckInMutation = (user, showToast, addNotification) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ shiftId, qrToken, latitude, longitude, photoUrl = '' }) => {
+    mutationFn: async ({ shiftId, qrToken, latitude, longitude, photoUrl = '', targetLatitude, targetLongitude }) => {
       if (!user) throw new Error('Vui lòng đăng nhập.');
       return checkInShiftApi({
         qrToken,
@@ -587,10 +650,13 @@ export const useCheckInMutation = (user, showToast, addNotification) => {
         longitude,
         checkInPhoto: photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
         userId: user.id,
-        createdBy: user.name
+        createdBy: user.name,
+        targetLatitude,
+        targetLongitude
       });
     },
     onSuccess: (data, variables) => {
+      clearJobShiftsCache();
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
       queryClient.invalidateQueries({ queryKey: ['employerJobs'] });
       showToast('Check-in ca làm thành công!', 'success');
@@ -620,6 +686,7 @@ export const useCheckOutMutation = (user, showToast, addNotification) => {
       });
     },
     onSuccess: (data, variables) => {
+      clearJobShiftsCache();
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
       queryClient.invalidateQueries({ queryKey: ['employerJobs'] });
       showToast('Check-out thành công!', 'success');
@@ -714,7 +781,7 @@ export const useCreateJobPostWizardMutation = (user, showToast, addNotification,
         requirements,
         categoryId,
         salary,
-        skillIds,
+        skillNames,
         address,
         latitude,
         longitude,
@@ -733,7 +800,9 @@ export const useCreateJobPostWizardMutation = (user, showToast, addNotification,
         const [year, month, day] = date.split('-').map(Number);
 
         startIso = new Date(Date.UTC(year, month - 1, day, parseInt(startParts[0], 10), parseInt(startParts[1], 10), 0));
+        startIso.setUTCHours(startIso.getUTCHours() - 7);
         endIso = new Date(Date.UTC(year, month - 1, day, parseInt(endParts[0], 10), parseInt(endParts[1], 10), 0));
+        endIso.setUTCHours(endIso.getUTCHours() - 7);
 
         if (endIso < startIso) {
           endIso.setUTCDate(endIso.getUTCDate() + 1);
@@ -751,7 +820,7 @@ export const useCreateJobPostWizardMutation = (user, showToast, addNotification,
           latitude: parseFloat(latitude) || STUDENT_MOCK_GPS?.latitude || 10.7769,
           longitude: parseFloat(longitude) || STUDENT_MOCK_GPS?.longitude || 106.7009
         },
-        skillIds: skillIds.map(Number),
+        skillNames: skillNames || [],
         createdBy: user.name
       });
 
@@ -800,7 +869,7 @@ export const useUpdateJobPostWizardMutation = (user, showToast, STUDENT_MOCK_GPS
         address,
         latitude,
         longitude,
-        skillIds
+        skillNames
       } = data;
 
       return updateJobPostApi(jobPostId, {
@@ -815,7 +884,7 @@ export const useUpdateJobPostWizardMutation = (user, showToast, STUDENT_MOCK_GPS
           latitude: parseFloat(latitude) || STUDENT_MOCK_GPS?.latitude || 10.7769,
           longitude: parseFloat(longitude) || STUDENT_MOCK_GPS?.longitude || 106.7009
         },
-        skillIds: skillIds.map(Number),
+        skillNames: skillNames || [],
         updatedBy: user.name
       });
     },
@@ -856,6 +925,7 @@ export const useApproveApplicationMutation = (user, showToast) => {
       return approveApplication(applicationId, user.id, user.name);
     },
     onSuccess: () => {
+      clearJobShiftsCache();
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
       queryClient.invalidateQueries({ queryKey: ['employerJobs'] });
       queryClient.invalidateQueries({ queryKey: ['staffList'] });
@@ -875,6 +945,7 @@ export const useRejectApplicationMutation = (user, showToast) => {
       return rejectApplication(applicationId, user.id, user.name);
     },
     onSuccess: () => {
+      clearJobShiftsCache();
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
       queryClient.invalidateQueries({ queryKey: ['employerJobs'] });
       showToast('Đã từ chối đơn ứng tuyển.', 'info');

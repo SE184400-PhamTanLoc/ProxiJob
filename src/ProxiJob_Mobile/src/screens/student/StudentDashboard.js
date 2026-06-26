@@ -111,7 +111,7 @@ export default function StudentDashboard() {
         console.log('[StudentDashboard] Error fetching availability:', err);
       }
     };
-    if (user) fetchAvailability();
+    if (user && user.role === 'student') fetchAvailability();
   }, [user]);
 
   const handleToggleAvailability = async () => {
@@ -260,34 +260,36 @@ export default function StudentDashboard() {
           isProfileAddressSetRef.current = true;
         }
 
-        const { getStudentProfileApi } = require('../../api/studentApi');
-        const profileData = await getStudentProfileApi();
-        if (profileData) {
-          if (profileData.address) {
-            setProfileAddress(profileData.address);
-            isProfileAddressSetRef.current = true;
-            await AsyncStorage.setItem('@student_profile_address', profileData.address);
-          }
-          if (profileData.latitude && profileData.longitude) {
-            const coords = { latitude: profileData.latitude, longitude: profileData.longitude };
-            await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
-            if (setStudentCoords) {
-              setStudentCoords(coords);
+        if (user && user.role === 'student') {
+          const { getStudentProfileApi } = require('../../api/studentApi');
+          const profileData = await getStudentProfileApi();
+          if (profileData) {
+            if (profileData.address) {
+              setProfileAddress(profileData.address);
+              isProfileAddressSetRef.current = true;
+              await AsyncStorage.setItem('@student_profile_address', profileData.address);
             }
-          }
+            if (profileData.latitude && profileData.longitude) {
+              const coords = { latitude: profileData.latitude, longitude: profileData.longitude };
+              await AsyncStorage.setItem('@student_custom_gps', JSON.stringify(coords));
+              if (setStudentCoords) {
+                setStudentCoords(coords);
+              }
+            }
 
-          // Sync user state in context
-          const cleanAvatar = profileData.avatarUrl && profileData.avatarUrl !== 'string' && profileData.avatarUrl !== 'null' ? profileData.avatarUrl : '';
-          if (user && setUser && (user.avatarUrl !== cleanAvatar || user.gender !== profileData.gender)) {
-            const updatedUser = { ...user, avatarUrl: cleanAvatar, gender: profileData.gender };
-            setUser(updatedUser);
-            try {
-              const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
-              const token = await getStoredToken();
-              const refreshToken = await getStoredRefreshToken();
-              await saveAuthSession(token, refreshToken, updatedUser);
-            } catch (err) {
-              console.log('[StudentDashboard] Error saving session during background profile sync:', err);
+            // Sync user state in context
+            const cleanAvatar = profileData.avatarUrl && profileData.avatarUrl !== 'string' && profileData.avatarUrl !== 'null' ? profileData.avatarUrl : '';
+            if (user && setUser && (user.avatarUrl !== cleanAvatar || user.gender !== profileData.gender)) {
+              const updatedUser = { ...user, avatarUrl: cleanAvatar, gender: profileData.gender };
+              setUser(updatedUser);
+              try {
+                const { saveAuthSession, getStoredToken, getStoredRefreshToken } = require('../../api/auth');
+                const token = await getStoredToken();
+                const refreshToken = await getStoredRefreshToken();
+                await saveAuthSession(token, refreshToken, updatedUser);
+              } catch (err) {
+                console.log('[StudentDashboard] Error saving session during background profile sync:', err);
+              }
             }
           }
         }
@@ -296,7 +298,7 @@ export default function StudentDashboard() {
       }
     };
     loadAddressAndProfile();
-  }, []);
+  }, [user]);
 
   // Geocode coords back into a text label for initial load/Guest
   useEffect(() => {

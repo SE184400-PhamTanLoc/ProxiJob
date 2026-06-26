@@ -40,6 +40,7 @@ public class GetTimekeepingByEmployeeQueryHandler : IRequestHandler<GetTimekeepi
 
         var timekeepings = await _context.Timekeepings
             .Include(t => t.WorkSchedule)
+            .Include(t => t.Employee)
             .Where(t => t.EmployeeId == request.EmployeeId && 
                         t.WorkSchedule.Date >= request.FromDate && 
                         t.WorkSchedule.Date <= request.ToDate)
@@ -49,6 +50,7 @@ public class GetTimekeepingByEmployeeQueryHandler : IRequestHandler<GetTimekeepi
                 Id = t.Id,
                 EmployeeId = t.EmployeeId,
                 WorkScheduleId = t.WorkScheduleId,
+                JobShiftId = t.WorkSchedule.JobShiftId,
                 CheckInTime = t.CheckInTime,
                 CheckOutTime = t.CheckOutTime,
                 InLatitude = t.InLatitude,
@@ -59,7 +61,10 @@ public class GetTimekeepingByEmployeeQueryHandler : IRequestHandler<GetTimekeepi
                 CheckOutPhoto = t.CheckOutPhoto,
                 Status = t.Status.ToString(),
                 IsManual = t.IsManual,
-                Note = t.Note
+                Note = t.Note,
+                EmployeeName = t.Employee.FullName,
+                Position = t.Employee.Position,
+                ShiftName = t.WorkSchedule.Note
             })
             .ToListAsync(cancellationToken);
 

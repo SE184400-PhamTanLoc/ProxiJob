@@ -215,6 +215,31 @@ export async function updateQrRadius(allowedRadiusMeters) {
 }
 
 /**
+ * Update the GPS coordinates for QR code location verification
+ * @param {number} latitude 
+ * @param {number} longitude 
+ * @returns {Promise<object>}
+ */
+export async function updateQrLocation(latitude, longitude) {
+  try {
+    const headers = await getAuthHeader();
+    const response = await fetch(`${MANAGEMENT_API_BASE_URL}/qr-code/location`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ latitude, longitude })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update QR location: ${response.status}`);
+    }
+    const resData = await response.json().catch(() => ({}));
+    return resData.data !== undefined ? resData.data : resData;
+  } catch (error) {
+    console.log('[ProxiJob Management API] updateQrLocation error:', error);
+    // Don't throw - this is a background sync, non-critical
+  }
+}
+
+/**
  * Fetch work schedules for a given date
  * @param {string} date format YYYY-MM-DD
  * @returns {Promise<object>}
@@ -227,7 +252,19 @@ export async function getSchedules(date) {
       throw new Error(`Failed to fetch schedules: ${response.status}`);
     }
     const resData = await response.json();
-    return resData.data !== undefined ? resData.data : resData;
+    const rawList = resData.data !== undefined ? resData.data : resData;
+    const list = Array.isArray(rawList) ? rawList : [];
+    return list.map(s => ({
+      id: s.id !== undefined ? s.id : s.Id,
+      employeeId: s.employeeId !== undefined ? s.employeeId : s.EmployeeId,
+      businessId: s.businessId !== undefined ? s.businessId : s.BusinessId,
+      jobShiftId: s.jobShiftId !== undefined ? s.jobShiftId : s.JobShiftId,
+      jobShiftSalary: s.jobShiftSalary !== undefined ? s.jobShiftSalary : s.JobShiftSalary,
+      date: s.date !== undefined ? s.date : s.Date,
+      startTime: s.startTime !== undefined ? s.startTime : s.StartTime,
+      endTime: s.endTime !== undefined ? s.endTime : s.EndTime,
+      note: s.note !== undefined ? s.note : s.Note,
+    }));
   } catch (error) {
     console.log('[ProxiJob Management API] getSchedules error:', error);
     throw error;
@@ -249,7 +286,14 @@ export async function createSchedule(employeeId, payload) {
       body: JSON.stringify(payload)
     });
     if (!response.ok) {
-      throw new Error(`Failed to create schedule: ${response.status}`);
+      let errMsg = `Failed to create schedule: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && errJson.message) {
+          errMsg = errJson.message;
+        }
+      } catch (e) {}
+      throw new Error(errMsg);
     }
     const resData = await response.json();
     return resData.data !== undefined ? resData.data : resData;
@@ -365,7 +409,14 @@ export async function deleteSchedule(id) {
       headers
     });
     if (!response.ok) {
-      throw new Error(`Failed to delete schedule: ${response.status}`);
+      let errMsg = `Failed to delete schedule: ${response.status}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && errJson.message) {
+          errMsg = errJson.message;
+        }
+      } catch (e) {}
+      throw new Error(errMsg);
     }
     const resData = await response.json().catch(() => ({}));
     return resData.data !== undefined ? resData.data : resData;
