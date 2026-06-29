@@ -72,5 +72,49 @@ public class IdentityGrpcClient : IIdentityGrpcClient, IDisposable
         }
     }
 
+    public async Task<bool> UpdateStudentReputationAsync(int userId, double rating, string comment, CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0) return false;
+        try
+        {
+            var response = await _client.UpdateStudentReputationAsync(
+                new UpdateStudentReputationRequest
+                {
+                    UserId = userId,
+                    Rating = rating,
+                    Comment = comment ?? ""
+                },
+                cancellationToken: cancellationToken);
+            return response.Success;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "UpdateStudentReputation gRPC failed for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateBusinessReputationAsync(int userId, double rating, string comment, CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0) return false;
+        try
+        {
+            var response = await _client.UpdateBusinessReputationAsync(
+                new UpdateBusinessReputationRequest
+                {
+                    UserId = userId,
+                    Rating = rating,
+                    Comment = comment ?? ""
+                },
+                cancellationToken: cancellationToken);
+            return response.Success;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "UpdateBusinessReputation gRPC failed for user {UserId}", userId);
+            return false;
+        }
+    }
+
     public void Dispose() => _channel.Dispose();
 }

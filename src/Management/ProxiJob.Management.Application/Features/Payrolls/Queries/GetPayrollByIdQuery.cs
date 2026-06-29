@@ -42,7 +42,9 @@ public class GetPayrollByIdQueryHandler : IRequestHandler<GetPayrollByIdQuery, P
             BaseAmount = payroll.BaseAmount,
             Adjustment = payroll.Adjustment,
             AdjustmentNote = payroll.AdjustmentNote,
-            CreatedAt = payroll.CreatedAt
+            CreatedAt = payroll.CreatedAt,
+            EmployeeName = payroll.Employee.FullName,
+            TransactionPhoto = payroll.TransactionPhoto
         };
     }
 }

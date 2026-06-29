@@ -10,4 +10,11 @@ public class PayrollDto
     public decimal FinalAmount { get; set; }
     public DateOnly? PayDate { get; set; }
     public string Status { get; set; } = default!;
+    public string? EmployeeName { get; set; }
+    public string? TransactionPhoto { get; set; }
+    public int? Rating { get; set; }
+    public string? Comments { get; set; }
+    public int? EmployerRating { get; set; }
+    public string? EmployerComments { get; set; }
+    public string? ShopName { get; set; }
 }

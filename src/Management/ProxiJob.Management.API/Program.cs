@@ -5,6 +5,10 @@ using ProxiJob.Management.Infrastructure.BackgroundJobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
 var urls = builder.Configuration["urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
 if (!string.IsNullOrEmpty(urls))
 {

@@ -1,6 +1,0 @@
-@ProxiJob.Matching.API_HostAddress = http://localhost:5147
-
-GET {{ProxiJob.Matching.API_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -20,7 +20,7 @@ import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
-import { useShiftsQuery } from '../../hooks/queries';
+import { useShiftsQuery, usePayrollsQuery } from '../../hooks/queries';
 import { Ionicons } from '@expo/vector-icons';
 
 // TÍCH HỢP THƯ VIỆN ĐỊNH VỊ GPS PHẦN CỨNG CỦA EXPO
@@ -200,8 +200,20 @@ const decodeBase64ToArrayBuffer = (base64String) => {
 };
 
 export default function StudentPortfolio() {
-  const { reviews, user, setUser, showToast, studentCoords, setStudentCoords } = useContext(AppContext);
+  const { user, setUser, showToast, studentCoords, setStudentCoords } = useContext(AppContext);
   const { data: shifts = [] } = useShiftsQuery(user, studentCoords);
+  const { data: payrolls = [] } = usePayrollsQuery(user);
+
+  // Dynamic reviews mapped from real database payrolls rated by employers
+  const reviews = (payrolls || [])
+    .filter(p => (p.rating && p.rating > 0) || (p.Rating && p.Rating > 0))
+    .map(p => ({
+      id: p.id || p.Id,
+      author: p.shopName || p.ShopName || 'Chủ cửa hàng ProxiJob',
+      date: p.payDate || p.PayDate || 'Gần đây',
+      rating: p.rating || p.Rating || 5,
+      comment: p.comments || p.Comments || 'Làm việc tốt, thái độ phục vụ khách hàng tốt.'
+    }));
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState(null);
   const [profileExists, setProfileExists] = useState(false);

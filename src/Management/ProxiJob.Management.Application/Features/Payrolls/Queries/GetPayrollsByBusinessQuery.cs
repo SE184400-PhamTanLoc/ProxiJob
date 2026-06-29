@@ -47,7 +47,13 @@ public class GetPayrollsByBusinessQueryHandler : IRequestHandler<GetPayrollsByBu
                 TotalHours = p.TotalHours,
                 FinalAmount = p.FinalAmount,
                 PayDate = p.PayDate,
-                Status = p.Status.ToString()
+                Status = p.Status.ToString(),
+                EmployeeName = p.Employee.FullName,
+                TransactionPhoto = p.TransactionPhoto,
+                Rating = p.Rating,
+                Comments = p.Comments,
+                EmployerRating = p.EmployerRating,
+                EmployerComments = p.EmployerComments
             })
             .ToListAsync(cancellationToken);
     }

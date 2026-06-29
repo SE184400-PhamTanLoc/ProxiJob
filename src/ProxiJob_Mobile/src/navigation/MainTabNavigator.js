@@ -339,7 +339,7 @@ export default function MainTabNavigator({ isStudent }) {
               <Text style={[
                 styles.tabLabel,
                 (currentScreen === 'payroll_settlement' || currentScreen === 'upgrade_package' || currentScreen === 'payment_qr') && styles.activeTabLabelEmployer
-              ]}>Quyết Toán</Text>
+              ]}>Chi Phí</Text>
             </TouchableOpacity>
           )}
 

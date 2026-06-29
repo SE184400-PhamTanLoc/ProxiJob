@@ -27,10 +27,14 @@ import {
   deleteSchedule,
   getMySchedules,
   getPayrolls,
+  getStudentPayrolls,
   calculatePayroll,
   approvePayroll,
   checkInShiftApi,
-  checkOutShiftApi
+  checkOutShiftApi,
+  getPayrollAnalytics,
+  approveInterimPayroll,
+  confirmReceiptPayroll
 } from '../api/management';
 import { translateError } from '../context/useAuth';
 
@@ -90,7 +94,7 @@ export const useShiftsQuery = (user, studentCoords) => {
       try {
         const res = await getPublishedJobs();
         const jobPosts = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.Items || res?.data?.items || res?.data?.Items || []));
-        
+
         // Fetch all job shifts in parallel instead of sequentially for much faster loading
         const shiftResults = await Promise.all(
           jobPosts.map(async (job) => {
@@ -150,7 +154,7 @@ export const useShiftsQuery = (user, studentCoords) => {
                 if (appStatus === 'Approved') status = 'approved';
                 else if (appStatus === 'Rejected') status = 'available';
                 else if (appStatus === 'Completed') status = 'completed';
-                
+
                 // Let other state logic handle checkin status if needed
                 return { ...shift, status, applicationId: appId };
               }
@@ -163,18 +167,18 @@ export const useShiftsQuery = (user, studentCoords) => {
             fromDateObj.setDate(today.getDate() - 30);
             const toDateObj = new Date(today);
             toDateObj.setDate(today.getDate() + 90);
-            
+
             const formatDateStr = (d) => {
               return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
             };
-            
+
             const fromDate = formatDateStr(fromDateObj);
             const toDate = formatDateStr(toDateObj);
 
             try {
               const myScheds = await getMySchedules(fromDate, toDate);
               const scheds = Array.isArray(myScheds) ? myScheds : (Array.isArray(myScheds?.data) ? myScheds.data : (myScheds?.items || myScheds?.Items || []));
-              
+
               for (const sched of scheds) {
                 const sId = sched.id !== undefined ? sched.id : sched.Id;
                 const sJobShiftId = sched.jobShiftId !== undefined ? sched.jobShiftId : sched.JobShiftId;
@@ -233,7 +237,7 @@ export const useShiftsQuery = (user, studentCoords) => {
                 let address = 'Tại địa chỉ quán';
                 let latitude = 10.8261;
                 let longitude = 106.6297;
-                
+
                 const matchingJob = jobPosts.find(j => Number(j.businessId) === Number(sBusinessId));
                 if (matchingJob) {
                   title = matchingJob.title;
@@ -543,7 +547,7 @@ export const useAttendanceLogsQuery = (user) => {
         const mm = String(localDate.getMonth() + 1).padStart(2, '0');
         const dd = String(localDate.getDate()).padStart(2, '0');
         const today = `${yyyy}-${mm}-${dd}`;
-        
+
         const res = await getTimekeepingLogs(today);
         const logs = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
         return logs.map(log => ({
@@ -557,13 +561,14 @@ export const useAttendanceLogsQuery = (user) => {
           shiftName: log.shiftName,
           checkInTime: log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString('vi-VN') : null,
           checkOutTime: log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString('vi-VN') : null,
-          status: log.status === 'Suspicious' ? 'suspicious' : 
-                  log.status === 'NotCheckedIn' ? 'not_checked_in' :
-                  log.status === 'Absent' ? 'absent' :
-                  (log.checkOutTime ? 'completed' : 'working'),
+          status: log.status === 'Suspicious' ? 'suspicious' :
+            log.status === 'NotCheckedIn' ? 'not_checked_in' :
+              log.status === 'Absent' ? 'absent' :
+                (log.checkOutTime ? 'completed' : 'working'),
           date: log.date || new Date().toLocaleDateString('vi-VN'),
           photo: log.checkInPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80',
-          gpsStatus: log.status === 'Suspicious' ? 'Nghi vấn GPS' : 'Hợp lệ'
+          gpsStatus: log.status === 'Suspicious' ? 'Nghi vấn GPS' : 'Hợp lệ',
+          studentPhone: log.studentPhone
         }));
       } catch (err) {
         console.log('Error loading attendance logs query:', err);
@@ -576,20 +581,25 @@ export const useAttendanceLogsQuery = (user) => {
   });
 };
 
-export const usePayrollsQuery = (user) => {
+export const usePayrollsQuery = (user, status = '') => {
   return useQuery({
-    queryKey: ['payrolls', user?.id],
+    queryKey: ['payrolls', user?.id, status],
     queryFn: async () => {
-      if (!user || user.role !== 'employer') return [];
+      if (!user) return [];
       try {
-        const res = await getPayrolls();
-        return Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
+        if (user.role === 'employer') {
+          const res = await getPayrolls(status);
+          return Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
+        } else {
+          const res = await getStudentPayrolls(status);
+          return Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.items || res?.data?.items || []));
+        }
       } catch (err) {
         console.log('Error loading payrolls query:', err);
         return [];
       }
     },
-    enabled: !!user && user.role === 'employer',
+    enabled: !!user,
     staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
   });
@@ -1085,14 +1095,16 @@ export const useCalculatePayrollMutation = (user, showToast) => {
 export const useApprovePayrollMutation = (user, showToast) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payrollId) => {
+    mutationFn: async ({ payrollId, transactionPhoto }) => {
       return approvePayroll(payrollId, {
-        businessId: user.id,
-        updatedBy: user.name
+        businessId: user?.id,
+        updatedBy: user?.name || 'System',
+        transactionPhoto
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payrolls'] });
+      queryClient.invalidateQueries({ queryKey: ['attendanceLogs'] });
       showToast('Thanh toán lương thành công!', 'success');
     },
     onError: (err) => {
@@ -1178,5 +1190,87 @@ export const useConversationsQuery = (user) => {
     enabled: !!user?.id,
     staleTime: 0,
     gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
+  });
+};
+
+export const usePayrollAnalyticsQuery = (user, period = 'week') => {
+  return useQuery({
+    queryKey: ['payrollAnalytics', user?.id, period],
+    queryFn: async () => {
+      if (!user || user.role !== 'employer') return {
+        totalDisbursedThisMonth: 0,
+        pendingApprovalAmount: 0,
+        activeEmployees: 0,
+        chartData: { labels: [], datasets: [{ data: [] }] }
+      };
+      try {
+        const res = await getPayrollAnalytics(period);
+        return res || {
+          totalDisbursedThisMonth: 0,
+          pendingApprovalAmount: 0,
+          activeEmployees: 0,
+          chartData: { labels: [], datasets: [{ data: [] }] }
+        };
+      } catch (err) {
+        console.log('Error loading payroll analytics query:', err);
+        return {
+          totalDisbursedThisMonth: 0,
+          pendingApprovalAmount: 0,
+          activeEmployees: 0,
+          chartData: { labels: [], datasets: [{ data: [] }] }
+        };
+      }
+    },
+    enabled: !!user && user.role === 'employer',
+    staleTime: 0,
+    gcTime: 5 * 60 * 1000,
+  });
+};
+
+export const useApproveInterimPayrollMutation = (user, showToast) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ payrollId, rating, comments, totalHours, finalAmount }) => {
+      return approveInterimPayroll(payrollId, {
+        businessId: user?.id,
+        rating,
+        comments,
+        updatedBy: user?.name || 'System',
+        totalHours,
+        finalAmount
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payrolls'] });
+      queryClient.invalidateQueries({ queryKey: ['payrollAnalytics'] });
+      queryClient.invalidateQueries({ queryKey: ['attendanceLogs'] });
+      showToast('Chốt bảng lương thành công!', 'success');
+    },
+    onError: (err) => {
+      showToast('Chốt bảng lương lỗi: ' + err.message, 'error');
+    }
+  });
+};
+
+export const useConfirmReceiptPayrollMutation = (user, showToast) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ payrollId, rating, comments }) => {
+      return confirmReceiptPayroll(payrollId, {
+        userId: user?.id,
+        rating,
+        comments,
+        updatedBy: user?.name || 'Student'
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payrolls'] });
+      queryClient.invalidateQueries({ queryKey: ['payrollAnalytics'] });
+      queryClient.invalidateQueries({ queryKey: ['attendanceLogs'] });
+      showToast('Xác nhận nhận tiền thành công!', 'success');
+    },
+    onError: (err) => {
+      showToast('Xác nhận lỗi: ' + err.message, 'error');
+    }
   });
 };

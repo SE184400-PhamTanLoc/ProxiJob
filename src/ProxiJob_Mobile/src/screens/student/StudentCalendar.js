@@ -6,12 +6,19 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  Dimensions
+  Dimensions,
+  Modal,
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../styles/theme';
 import { AppContext } from '../../context/AppContext';
-import { useShiftsQuery } from '../../hooks/queries';
+import {
+  useShiftsQuery,
+  usePayrollsQuery,
+  useConfirmReceiptPayrollMutation
+} from '../../hooks/queries';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -79,11 +86,42 @@ const getShiftDateLabel = (startTime) => {
 };
 
 export default function StudentCalendar() {
-  const { navigateTo, user, studentCoords, activeShift } = useContext(AppContext);
+  const { navigateTo, user, studentCoords, activeShift, showToast } = useContext(AppContext);
   const { data: shifts = [], refetch: loadMyApplications } = useShiftsQuery(user, studentCoords);
+  const { data: payrolls = [], refetch: refetchPayrolls } = usePayrollsQuery(user);
+  const confirmReceiptMutation = useConfirmReceiptPayrollMutation(user, showToast);
+
+  const [selectedPayroll, setSelectedPayroll] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comments, setComments] = useState('');
   const [weekDays, setWeekDays] = useState([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'completed'
+
+  const handleOpenConfirmModal = (payroll) => {
+    setSelectedPayroll(payroll);
+    setRating(5);
+    setComments('');
+    setIsModalVisible(true);
+  };
+
+  const handleSubmitConfirm = () => {
+    if (!selectedPayroll) return;
+
+    confirmReceiptMutation.mutateAsync({
+      payrollId: selectedPayroll.id || selectedPayroll.Id,
+      rating,
+      comments
+    }).then(() => {
+      setIsModalVisible(false);
+      setSelectedPayroll(null);
+      refetchPayrolls();
+    }).catch(() => {
+      setIsModalVisible(false);
+      setSelectedPayroll(null);
+    });
+  };
 
   React.useEffect(() => {
     const days = getCurrentWeekDays();
@@ -125,9 +163,20 @@ export default function StudentCalendar() {
     selectedDay ? isSameDate(s.startTime, selectedDay.apiDateStr) : true
   );
 
+  const getShiftHours = (shift) => {
+    if (!shift.startTime || !shift.endTime) return 4;
+    try {
+      const diffMs = new Date(shift.endTime) - new Date(shift.startTime);
+      const diffHrs = diffMs / (1000 * 60 * 60);
+      return diffHrs > 0 ? diffHrs : 4;
+    } catch (e) {
+      return 4;
+    }
+  };
+
   // Calculate monthly earnings
-  const completedEarnings = completedShiftsGlobal.reduce((sum, s) => sum + s.hourlyRate * 4, 0); // assume 4hr shifts
-  const projectedEarnings = upcomingShiftsGlobal.filter(s => s.status !== 'applied').reduce((sum, s) => sum + s.hourlyRate * 4, 0);
+  const completedEarnings = completedShiftsGlobal.reduce((sum, s) => sum + s.hourlyRate * getShiftHours(s), 0);
+  const projectedEarnings = upcomingShiftsGlobal.filter(s => s.status !== 'applied').reduce((sum, s) => sum + s.hourlyRate * getShiftHours(s), 0);
   const totalEarnings = completedEarnings + projectedEarnings + 3250000; // seed static baseline earnings
 
   const getTimelineLabel = () => {
@@ -228,7 +277,7 @@ export default function StudentCalendar() {
           <View style={styles.earningsWrapper}>
             <Text style={styles.earningsLabelText}>Lương ước tính</Text>
             <Text style={styles.earningsValueText}>
-              {(shift.hourlyRate * 4).toLocaleString('vi-VN')}đ
+              {(shift.hourlyRate * getShiftHours(shift)).toLocaleString('vi-VN')}đ
             </Text>
           </View>
         </View>
@@ -259,6 +308,8 @@ export default function StudentCalendar() {
       </View>
     );
   };
+
+  const pendingConfirmationPayrolls = (payrolls || []).filter(p => p.status === 'PendingStudentConfirmation' || p.Status === 'PendingStudentConfirmation');
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
@@ -304,6 +355,36 @@ export default function StudentCalendar() {
             </View>
           </View>
         </View>
+
+        {pendingConfirmationPayrolls.length > 0 && (
+          <View style={styles.pendingSection}>
+            <View style={styles.pendingSectionHeader}>
+              <View style={styles.alertIconBg}>
+                <Ionicons name="notifications-outline" size={14} color="#FF6B00" />
+              </View>
+              <Text style={styles.pendingSectionTitle}>BẢNG LƯƠNG CHỜ BẠN XÁC NHẬN</Text>
+            </View>
+            
+            {pendingConfirmationPayrolls.map((payroll) => (
+              <View key={payroll.id || payroll.Id} style={styles.pendingCard}>
+                <View style={styles.pendingCardHeader}>
+                  <View style={styles.pendingStoreInfo}>
+                    <Text style={styles.pendingStoreName}>{payroll.employeeName || payroll.EmployeeName || 'Cửa hàng ProxiJob'}</Text>
+                    <Text style={styles.pendingShiftMeta}>Tổng: {payroll.totalHours || payroll.TotalHours || 4} giờ làm</Text>
+                  </View>
+                  <Text style={styles.pendingAmount}>{payroll.finalAmount ? (payroll.finalAmount.toLocaleString('vi-VN') + ' đ') : '0 đ'}</Text>
+                </View>
+                <View style={styles.pendingCardDivider} />
+                <TouchableOpacity 
+                  style={styles.pendingActionBtn}
+                  onPress={() => handleOpenConfirmModal(payroll)}
+                >
+                  <Text style={styles.pendingActionBtnText}>Xác nhận đã nhận tiền & Đánh giá chéo ⚡</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Elegant Week Timeline Navigation */}
         <View style={styles.timelineSection}>
@@ -420,6 +501,84 @@ export default function StudentCalendar() {
           )}
         </View>
       </ScrollView>
+
+      {/* Student Rating & Confirmation Modal */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalHeading}>Xác nhận nhận lương</Text>
+            <Text style={styles.modalSubheading}>
+              Đang đối soát nhận tiền từ chủ quán. Vui lòng xác thực giao dịch chuyển khoản/tiền mặt ở đời thực.
+            </Text>
+
+            <View style={styles.modalDivider} />
+
+            {/* Checkbox (Mandatory/Informational) */}
+            <View style={styles.checkboxRow}>
+              <View style={[styles.checkboxBox, { backgroundColor: '#FF6B00', borderColor: '#FF6B00' }]}>
+                <Text style={styles.checkboxTick}>✓</Text>
+              </View>
+              <Text style={styles.checkboxText}>
+                Tôi xác nhận đã nhận đủ số tiền <Text style={{ fontWeight: '800', color: '#FF6B00' }}>{selectedPayroll?.finalAmount ? (selectedPayroll.finalAmount.toLocaleString('vi-VN') + ' đ') : '0 đ'}</Text> từ chủ cửa hàng.
+              </Text>
+            </View>
+
+            {/* Star Rating Section */}
+            <Text style={styles.modalLabel}>ĐÁNH GIÁ CHẤT LƯỢNG MÔI TRƯỜNG LÀM VIỆC (BẮT BUỘC)</Text>
+            <View style={styles.starRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity 
+                  key={star}
+                  onPress={() => setRating(star)}
+                >
+                  <Text style={[styles.starIcon, star <= rating && styles.starIconActive]}>★</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Feedback Comments Text Input */}
+            <Text style={styles.modalLabel}>Ý KIẾN ĐÓNG GÓP, NHẬN XÉT VỀ CỬA HÀNG (TÙY CHỌN)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.feedbackInput}
+                value={comments}
+                onChangeText={(text) => setComments(text)}
+                placeholder="Ví dụ: Chủ quán rất thân thiện, môi trường làm việc thoải mái, hỗ trợ nhiệt tình..."
+                multiline={true}
+                numberOfLines={3}
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={styles.modalSubmitBtn}
+                disabled={confirmReceiptMutation.isPending}
+                onPress={handleSubmitConfirm}
+              >
+                {confirmReceiptMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSubmitBtnText}>Xác nhận & Gửi đánh giá chéo ⚡</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.modalCloseBtn}
+                onPress={() => setIsModalVisible(false)}
+              >
+                <Text style={styles.modalCloseBtnText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -873,5 +1032,200 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '500',
     lineHeight: 16,
+  },
+  pendingSection: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  pendingSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  alertIconBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: '#FFEFEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingSectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FF6B00',
+    letterSpacing: 1,
+  },
+  pendingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFDBCC',
+    padding: 16,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+    marginBottom: 12,
+  },
+  pendingCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pendingStoreInfo: {
+    flex: 1,
+  },
+  pendingStoreName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  pendingShiftMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  pendingAmount: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FF6B00',
+  },
+  pendingCardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  pendingActionBtn: {
+    backgroundColor: '#FF6B00',
+    paddingVertical: 10,
+    borderRadius: 99,
+    alignItems: 'center',
+  },
+  pendingActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  modalHeading: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSubheading: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 6,
+    lineHeight: 16,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 14,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginVertical: 8,
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxTick: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  checkboxText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  modalLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  starRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 4,
+  },
+  starIcon: {
+    fontSize: 28,
+    color: '#E2E8F0',
+  },
+  starIconActive: {
+    color: '#FF6B00',
+  },
+  inputContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+  },
+  feedbackInput: {
+    width: '100%',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    fontSize: 12,
+    color: '#0F172A',
+  },
+  modalActionRow: {
+    marginTop: 20,
+    gap: 10,
+  },
+  modalSubmitBtn: {
+    backgroundColor: '#FF6B00',
+    paddingVertical: 14,
+    borderRadius: 99,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  modalCloseBtn: {
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 12,
+    borderRadius: 99,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
   }
 });

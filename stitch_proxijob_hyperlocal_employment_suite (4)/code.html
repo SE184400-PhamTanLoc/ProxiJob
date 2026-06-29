@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Phân Tích Chi Phí &amp; Lương - ProxiJob</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&amp;family=Hanken+Grotesk:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary": "#a04100",
+                    "background": "#F8FAFC",
+                    "on-background": "#181c1e",
+                    "surface": "#ffffff",
+                    "primary-container": "#FF6B00",
+                    "navy-brand": "#001B3D"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "1.5rem",
+                    "xl": "1.5rem",
+                    "2xl": "1.5rem",
+                    "3xl": "2rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-padding": "20px",
+                    "unit": "8px"
+            },
+            "fontFamily": {
+                    "display": ["Sora", "sans-serif"],
+                    "body": ["Hanken Grotesk", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .bento-card {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+        .glass-paywall {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-32 font-body">
+<!-- Header Section -->
+<header class="w-full px-container-padding pt-8 pb-6 flex justify-between items-start">
+<div>
+<h1 class="text-2xl font-semibold text-slate-800 font-display">Phân Tích Chi Phí</h1>
+<p class="text-slate-500 text-sm mt-1">Theo dõi &amp; quyết toán quỹ lương thông minh.</p>
+</div>
+<button class="bg-white p-2 rounded-full border border-slate-200 text-slate-600 shadow-sm">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="px-container-padding space-y-6">
+<!-- TOP SECTION: Bento Card Financial Summary -->
+<section class="grid grid-cols-2 gap-3">
+<div class="bg-white rounded-2xl p-4 bento-card col-span-2 border-l-4 border-[#FF6B00]">
+<span class="text-slate-500 text-xs font-medium">Tổng chi tháng này</span>
+<div class="flex items-baseline gap-1 mt-1">
+<h2 class="text-2xl font-black text-[#FF6B00] font-display">42.850.000 <span class="text-xs">đ</span></h2>
+</div>
+<p class="text-[10px] text-green-600 mt-1 font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +12% so với tháng trước
+            </p>
+</div>
+<div class="bg-[#001B3D] rounded-2xl p-4 bento-card">
+<span class="text-slate-300 text-[10px] font-medium uppercase tracking-wider">Quỹ lương chờ chốt</span>
+<h2 class="text-lg font-bold text-white font-display mt-1">1.450k</h2>
+</div>
+<div class="bg-white rounded-2xl p-4 bento-card border border-slate-100">
+<span class="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Đang làm việc</span>
+<div class="flex items-center gap-2 mt-1">
+<h2 class="text-lg font-bold text-slate-800 font-display">24</h2>
+<span class="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full font-bold">Live</span>
+</div>
+</div>
+</section>
+<!-- MIDDLE SECTION: Expense Breakdown Chart -->
+<section class="bg-white rounded-2xl p-5 bento-card relative overflow-hidden">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-slate-800 font-bold text-sm">Biểu đồ chi phí</h3>
+<div class="flex bg-slate-100 rounded-lg p-1">
+<button class="px-3 py-1 text-[10px] font-bold rounded-md bg-white shadow-sm">Ngày</button>
+<button class="px-3 py-1 text-[10px] font-medium text-slate-500">Tuần</button>
+<button class="px-3 py-1 text-[10px] font-medium text-slate-500">Tháng</button>
+</div>
+</div>
+<!-- Custom SVG Chart -->
+<div class="h-32 w-full flex items-end justify-between gap-2 px-1">
+<div class="w-full bg-slate-100 rounded-t-sm h-[40%] relative group">
+<div class="absolute bottom-0 w-full bg-[#001B3D] rounded-t-sm h-[60%] transition-all duration-500"></div>
+</div>
+<div class="w-full bg-slate-100 rounded-t-sm h-[60%] relative">
+<div class="absolute bottom-0 w-full bg-[#001B3D] rounded-t-sm h-[75%] transition-all duration-500"></div>
+</div>
+<div class="w-full bg-slate-100 rounded-t-sm h-[80%] relative">
+<div class="absolute bottom-0 w-full bg-[#FF6B00] rounded-t-sm h-[85%] transition-all duration-500"></div>
+</div>
+<div class="w-full bg-slate-100 rounded-t-sm h-[50%] relative">
+<div class="absolute bottom-0 w-full bg-[#001B3D] rounded-t-sm h-[40%] transition-all duration-500"></div>
+</div>
+<div class="w-full bg-slate-100 rounded-t-sm h-[70%] relative">
+<div class="absolute bottom-0 w-full bg-[#001B3D] rounded-t-sm h-[55%] transition-all duration-500"></div>
+</div>
+<div class="w-full bg-slate-100 rounded-t-sm h-[90%] relative">
+<div class="absolute bottom-0 w-full bg-[#FF6B00] rounded-t-sm h-[95%] transition-all duration-500"></div>
+</div>
+<div class="w-full bg-slate-100 rounded-t-sm h-[45%] relative">
+<div class="absolute bottom-0 w-full bg-[#001B3D] rounded-t-sm h-[30%] transition-all duration-500 animate-pulse"></div>
+</div>
+</div>
+<div class="flex justify-between mt-2 px-1">
+<span class="text-[9px] text-slate-400 font-medium">T2</span>
+<span class="text-[9px] text-slate-400 font-medium">T3</span>
+<span class="text-[9px] text-slate-400 font-medium">T4</span>
+<span class="text-[9px] text-slate-400 font-medium">T5</span>
+<span class="text-[9px] text-slate-400 font-medium">T6</span>
+<span class="text-[9px] text-slate-400 font-medium">T7</span>
+<span class="text-[9px] text-[#FF6B00] font-bold">CN</span>
+</div>
+<!-- PREMIUM PAYWALL OVERLAY (Subtle hinting) -->
+<div class="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
+<div class="flex gap-2">
+<div class="h-6 w-16 bg-slate-100 rounded-full"></div>
+<div class="h-6 w-16 bg-slate-100 rounded-full"></div>
+</div>
+<div class="glass-paywall absolute inset-x-0 bottom-0 py-2 px-4 flex items-center justify-center gap-2 cursor-pointer">
+<span class="text-[10px] font-bold text-slate-700">Mở khóa Phân tích chuyên sâu với Gói <span class="text-[#FF6B00]">ProxiJob Pro</span> ⚡</span>
+</div>
+</div>
+</section>
+<!-- Export Action -->
+<div class="flex justify-end">
+<button class="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl text-slate-700 text-xs font-bold shadow-sm active:bg-slate-50">
+<span class="material-symbols-outlined text-sm">download</span>
+            Xuất file Excel đối soát
+        </button>
+</div>
+<!-- BOTTOM SECTION: Employee List Grouped -->
+<section class="space-y-6">
+<!-- Group: Pending -->
+<div class="space-y-3">
+<div class="flex justify-between items-center px-1">
+<h3 class="text-slate-800 text-sm font-bold flex items-center gap-2">
+                    Chờ chốt
+                    <span class="bg-[#FF6B00]/10 text-[#FF6B00] text-[10px] px-1.5 py-0.5 rounded-md">02</span>
+</h3>
+</div>
+<div class="space-y-3">
+<!-- Staff Card 1 -->
+<div class="bg-white rounded-xl p-4 flex items-center gap-4 border border-orange-50">
+<div class="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-slate-100 ring-2 ring-orange-100">
+<img alt="Nguyễn Minh Hoàng" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRUbS8zex6rPPl9uNz8fPd7rihkx4mSLAZ-pdAoUIXzfEyaSuwSI47F9XEpNn8pZPtsKCYU5GkWzWoBG_JXE_198nNlsq-qoCuQusb_D277CfbuogPpPxPnLH3dhauxrc5nZvRaFTRlJ4UelYv8nU-WgWV4CK_ZpwmOjotSgSgmnAtnrK14wZzCAmVcnL5LqWo8Z34lLBcaccqaKgmh-WMbTHGLZXZav-_MA619iCmTmUo_q7Gm8kbhd91GIW9Lb7DZYFZydjVeuc"/>
+</div>
+<div class="flex-grow min-w-0">
+<p class="font-bold text-sm text-slate-900 truncate">Nguyễn Minh Hoàng</p>
+<span class="text-green-600 text-[10px] font-medium flex items-center gap-1">✓ GPS Hợp lệ</span>
+</div>
+<div class="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
+<p class="font-bold text-slate-900 text-xs">+ 157.500 đ</p>
+<button class="bg-[#FF6B00] text-white px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm active:scale-95 transition-all" onclick="this.innerHTML='Đã chốt ✓'; this.classList.remove('bg-[#FF6B00]'); this.classList.add('bg-slate-800');">Chốt bảng lương</button>
+</div>
+</div>
+<!-- Staff Card 2 -->
+<div class="bg-white rounded-xl p-4 flex items-center gap-4 border border-orange-50">
+<div class="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-slate-100 ring-2 ring-orange-100">
+<img alt="Lê Quang Minh" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXHiyrMkN-BQMmIAzeGl3ciaf71arTYMt02i0uLV8f2OaC3oEmyVt2ORpFvVyt7ZOxayVQue64YrzJmMIDnJWWaae-LQFtz4jxIacve0H3793IBEnL5NvG7N_TW9yV-ojr5Wwi6cdykcdsYToJtPy2QNEhdd_TSTmA9hGXwC7eqycCB3znVLfOuMDaAlTSMJHK97EgHh5CVpgBR9whIh6lzex_a3CyBGA4U1ktTYYQlsyVoY6NpT6LZw4mywMKi9bqxxy92XpG1MY"/>
+</div>
+<div class="flex-grow min-w-0">
+<p class="font-bold text-sm text-slate-900 truncate">Lê Quang Minh</p>
+<span class="text-green-600 text-[10px] font-medium flex items-center gap-1">✓ GPS Hợp lệ</span>
+</div>
+<div class="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
+<p class="font-bold text-slate-900 text-xs">+ 320.000 đ</p>
+<button class="bg-[#FF6B00] text-white px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm active:scale-95 transition-all" onclick="this.innerHTML='Đã chốt ✓'; this.classList.remove('bg-[#FF6B00]'); this.classList.add('bg-slate-800');">Chốt bảng lương</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Group: Settled -->
+<div class="space-y-3">
+<h3 class="text-slate-500 text-sm font-bold px-1">✓ Đã chốt chi phí</h3>
+<div class="space-y-3 opacity-60 grayscale-[0.5]">
+<!-- Staff Card 3 (Settled) -->
+<div class="bg-white rounded-xl p-4 flex items-center gap-4 border border-slate-100">
+<div class="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-slate-100">
+<img alt="Trần Phương Anh" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVWvoUeXwFozYgz9_aPK6rbefESWxvfcsTL76tJe1jJGQlYKGwDhXOjHFK9mDotSrizjhthMKsbFCno-Am1v5YF_AGOdUYHn6ObzLfSXdD3BHb9WOZtSvWYZd8VZbViKpxM-5z2bDzkQUCG9LYlJVS-J_UtcSPGKja120CzYOfJeTykVuUoPcwo_9rm_yaQKFw7aT0KBj7JMox6AYc2gVOO1Pl9ArIEBszojbYZB7OHK7angvH9kFz_2vucTk0H4NLQpxyVx-QiL0"/>
+</div>
+<div class="flex-grow min-w-0">
+<p class="font-bold text-sm text-slate-900 truncate">Trần Phương Anh</p>
+<span class="text-slate-400 text-[10px]">Chốt lúc 14:20 hôm nay</span>
+</div>
+<div class="text-right flex-shrink-0">
+<p class="font-bold text-slate-900 text-xs">+ 210.000 đ</p>
+<span class="text-green-600 text-[10px] font-bold">Đã chốt</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 shadow-[0_-8px_30px_rgba(0,0,0,0.04)] z-50 flex justify-between items-center px-2 py-2 pb-6">
+<a class="flex flex-col items-center justify-center text-slate-400 flex-1 py-1" href="#">
+<span class="material-symbols-outlined text-2xl">list_alt</span>
+<span class="text-[10px] font-medium mt-1">Tin Tuyển</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 flex-1 py-1" href="#">
+<span class="material-symbols-outlined text-2xl">group</span>
+<span class="text-[10px] font-medium mt-1">Nhân Sự</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 flex-1 py-1" href="#">
+<span class="material-symbols-outlined text-2xl">calendar_today</span>
+<span class="text-[10px] font-medium mt-1">Xếp Lịch</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 flex-1 py-1" href="#">
+<span class="material-symbols-outlined text-2xl">radar</span>
+<span class="text-[10px] font-medium mt-1">GPS Live</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#FF6B00] flex-1 py-1" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="text-[10px] font-bold mt-1">Phân Tích</span>
+</a>
+</nav>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+<!-- Modal Container -->
+<div class="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 overflow-hidden animate-in fade-in zoom-in duration-300">
+<!-- Header -->
+<div class="mb-4">
+<h3 class="text-slate-900 font-bold text-lg font-display">Xác nhận &amp; Đánh giá ca làm</h3>
+<p class="text-slate-500 text-sm mt-1">Sinh viên: <span class="font-semibold text-slate-700">Nguyễn Minh Hoàng</span> • Số tiền: <span class="font-semibold text-[#FF6B00]">157.500 đ</span></p>
+</div>
+<!-- Verification Section -->
+<div class="bg-slate-50 rounded-2xl p-4 my-4 border border-slate-100 flex items-start gap-3">
+<div class="mt-0.5">
+<input class="w-5 h-5 rounded border-slate-300 text-[#FF6B00] focus:ring-[#FF6B00] cursor-pointer" id="confirm-payment" type="checkbox"/>
+</div>
+<label class="text-sm text-slate-600 leading-snug cursor-pointer" for="confirm-payment">
+        Tôi xác nhận đã thực hiện chuyển khoản ngoài đời thực cho sinh viên này.
+      </label>
+</div>
+<!-- Rating Section -->
+<div class="space-y-4">
+<div>
+<label class="text-slate-400 text-[10px] font-semibold uppercase tracking-wider mb-2 block">Đánh giá hiệu suất làm việc của sinh viên</label>
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-[#FF6B00] cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[#FF6B00] cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[#FF6B00] cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[#FF6B00] cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-slate-300 cursor-pointer">star</span>
+</div>
+</div>
+<textarea class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm min-h-[80px] w-full focus:ring-1 focus:ring-[#FF6B00] focus:border-[#FF6B00] outline-none transition-all" placeholder="Nhập nhận xét nhanh về thái độ, tác phong (Tùy chọn)..."></textarea>
+</div>
+<!-- Footer -->
+<div class="mt-6 flex flex-col gap-2">
+<button class="w-full bg-[#FF6B00] text-white font-bold py-3.5 rounded-2xl shadow-[0_4px_15px_rgba(255,107,0,0.3)] active:scale-[0.98] transition-all">
+        Xác nhận chốt &amp; Gửi đánh giá ⚡
+      </button>
+<button class="w-full py-2 text-slate-400 font-semibold text-sm active:bg-slate-50 rounded-xl transition-colors">
+        Hủy bỏ
+      </button>
+</div>
+</div>
+</div></body></html>

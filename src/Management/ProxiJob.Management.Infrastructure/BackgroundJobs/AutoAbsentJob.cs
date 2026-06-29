@@ -34,14 +34,29 @@ public class AutoAbsentJob : BackgroundService
             try
             {
                 await ProcessAbsentRecordsAsync(stoppingToken);
+                
+                // Run every 30 minutes
+                await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Graceful exit on shutdown
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred executing AutoAbsentJob.");
+                
+                try
+                {
+                    // Delay 1 minute on failure to prevent hammering the DB in a tight loop
+                    await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
-
-            // Run every 30 minutes
-            await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
         }
 
         _logger.LogInformation("AutoAbsentJob is stopping.");

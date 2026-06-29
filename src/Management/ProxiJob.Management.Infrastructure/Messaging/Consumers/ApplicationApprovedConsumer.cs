@@ -10,17 +10,24 @@ using ProxiJob.Management.Domain.Enums;
 using ProxiJob.Management.Infrastructure.Data;
 using ProxiJob.Shared.Contract.Events;
 
+using ProxiJob.Management.Application.Common.Interfaces;
+
 namespace ProxiJob.Management.Infrastructure.Messaging.Consumers;
 
 public class ApplicationApprovedConsumer : IConsumer<ApplicationApprovedEvent>
 {
     private readonly ManagementDbContext _context;
     private readonly ILogger<ApplicationApprovedConsumer> _logger;
+    private readonly IIdentityGrpcClient _identityGrpcClient;
 
-    public ApplicationApprovedConsumer(ManagementDbContext context, ILogger<ApplicationApprovedConsumer> logger)
+    public ApplicationApprovedConsumer(
+        ManagementDbContext context, 
+        ILogger<ApplicationApprovedConsumer> logger,
+        IIdentityGrpcClient identityGrpcClient)
     {
         _context = context;
         _logger = logger;
+        _identityGrpcClient = identityGrpcClient;
     }
 
     public async Task Consume(ConsumeContext<ApplicationApprovedEvent> context)
@@ -34,11 +41,29 @@ public class ApplicationApprovedConsumer : IConsumer<ApplicationApprovedEvent>
 
         if (employee == null)
         {
+            string fullName = "Sinh viên";
+            string? phone = null;
+
+            try
+            {
+                var user = await _identityGrpcClient.GetUserByIdAsync(msg.StudentId);
+                if (user != null)
+                {
+                    fullName = user.FullName;
+                    phone = user.PhoneNumber;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch student details from gRPC for UserId={UserId}", msg.StudentId);
+            }
+
             employee = new Employee
             {
                 UserId = msg.StudentId,
                 BusinessId = msg.BusinessId,
-                FullName = msg.JobTitle, // Placeholder: ideally fetched via gRPC from Identity Service
+                FullName = fullName,
+                PhoneNumber = phone,
                 IsExternal = true,
                 PaymentType = PaymentType.PerShift,
                 Status = EmployeeStatus.Active,
@@ -47,7 +72,7 @@ public class ApplicationApprovedConsumer : IConsumer<ApplicationApprovedEvent>
             };
             _context.Employees.Add(employee);
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Created new external Employee UserId={UserId}", msg.StudentId);
+            _logger.LogInformation("Created new external Employee UserId={UserId} (Name: {Name}, Phone: {Phone})", msg.StudentId, fullName, phone);
         }
 
         // 2. Idempotent: Check if WorkSchedule for this JobShiftId already exists

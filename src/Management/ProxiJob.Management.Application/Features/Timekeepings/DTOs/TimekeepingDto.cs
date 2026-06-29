@@ -19,6 +19,7 @@ public class TimekeepingDto
     public string? EmployeeName { get; set; }
     public string? Position { get; set; }
     public string? ShiftName { get; set; }
+    public string? StudentPhone { get; set; }
     public string Status { get; set; } = default!;
     public bool IsManual { get; set; }
     public string? Note { get; set; }

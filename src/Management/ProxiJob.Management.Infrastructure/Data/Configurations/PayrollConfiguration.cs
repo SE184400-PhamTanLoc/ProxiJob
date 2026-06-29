@@ -42,6 +42,18 @@ public class PayrollConfiguration : IEntityTypeConfiguration<Payroll>
                 v => v.ToString(),
                 v => Enum.Parse<PayrollStatus>(v));
 
+        builder.Property(p => p.Rating)
+            .HasColumnName("rating");
+
+        builder.Property(p => p.Comments)
+            .HasColumnName("comments");
+
+        builder.Property(p => p.EmployerRating)
+            .HasColumnName("employer_rating");
+
+        builder.Property(p => p.EmployerComments)
+            .HasColumnName("employer_comments");
+
         builder.HasOne(p => p.Employee)
             .WithMany(e => e.Payrolls)
             .HasForeignKey(p => p.EmployeeId);

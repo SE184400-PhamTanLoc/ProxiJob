@@ -58,8 +58,8 @@ public class CalculatePayrollCommandHandler : IRequestHandler<CalculatePayrollCo
                 {
                     var hours = (decimal)(t.CheckOutTime!.Value - t.CheckInTime!.Value).TotalHours;
                     totalHours += hours;
-                    var shiftSalary = t.WorkSchedule.JobShiftSalary ?? 0;
-                    baseAmount += shiftSalary;
+                    var rate = t.WorkSchedule.JobShiftSalary ?? employee.HourlyRate ?? 0;
+                    baseAmount += (hours * rate);
                 }
             }
             else
