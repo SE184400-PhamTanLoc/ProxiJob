@@ -46,6 +46,21 @@ const formatDateVN = (dateInput) => {
   return '';
 };
 
+const checkIsEmergency = (title, description) => {
+  const t = (title || '').toLowerCase();
+  const d = (description || '').toLowerCase();
+  return t.includes('khẩn cấp') || 
+         t.includes('khấn cấp') || 
+         t.includes('khần cấp') || 
+         t.includes('tuyển gấp') || 
+         t.includes('gấp') || 
+         d.includes('khẩn cấp') || 
+         d.includes('khấn cấp') || 
+         d.includes('khần cấp') || 
+         d.includes('tuyển gấp') || 
+         d.includes('gấp');
+};
+
 const INITIAL_SHIFTS = [];
 const INITIAL_LEAVE_REQUESTS = [];
 
@@ -141,7 +156,7 @@ export const useShifts = ({
               rating: 5.0,
               reviewsCount: 1,
               status: s.remainingSlots <= 0 ? 'full' : 'available',
-              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.title || '').toLowerCase().includes('khấn cấp') || (job.description || '').toLowerCase().includes('khẩn cấp') || (job.description || '').toLowerCase().includes('khấn cấp'),
+              isEmergency: checkIsEmergency(job.title, job.description),
               createdAt: job.createdAt || job.CreatedAt || s.startTime,
               auditFields: {
                 createdBy: job.createdBy,
@@ -332,7 +347,7 @@ export const useShifts = ({
               rating: 5.0,
               reviewsCount: 0,
               status: currentStatus,
-              isEmergency: (job.title || '').toLowerCase().includes('khẩn cấp') || (job.title || '').toLowerCase().includes('khấn cấp'),
+              isEmergency: checkIsEmergency(job.title, job.description),
               applicantCount,
               applicantName,
               applicantSchool,

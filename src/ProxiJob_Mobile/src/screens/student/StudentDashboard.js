@@ -23,9 +23,25 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { getStudentProfileApi, activateStudentProfileApi, deactivateStudentProfileApi } from '../../api/studentApi';
 
-const getLeftBorderColor = (index) => {
-  const colors = ['#8B5CF6', '#C2410C', '#0D9488', '#2563EB', '#EC4899'];
-  return colors[index % colors.length];
+const getLeftBorderColorByCategory = (categoryName, shopName) => {
+  const target = (categoryName || shopName || '').trim().toLowerCase();
+  
+  if (target.includes('giao hàng') || target.includes('delivery') || target.includes('shipper')) {
+    return '#EF4444'; // Red
+  }
+  if (target.includes('gia sư') || target.includes('tutor') || target.includes('dạy') || target.includes('học')) {
+    return '#2563EB'; // Blue
+  }
+  if (target.includes('sửa chữa') || target.includes('repair') || target.includes('bảo trì') || target.includes('kỹ thuật')) {
+    return '#F59E0B'; // Yellow/Amber
+  }
+  if (target.includes('phục vụ') || target.includes('waiter') || target.includes('chạy bàn') || target.includes('phụ vụ')) {
+    return '#8B5CF6'; // Purple
+  }
+  if (target.includes('thú cưng') || target.includes('pet')) {
+    return '#EC4899'; // Pink
+  }
+  return '#0D9488'; // Teal default
 };
 
 const getShopBgColor = (shopName) => {
@@ -79,6 +95,25 @@ export default function StudentDashboard() {
     globalViewMode = mode;
     setViewModeState(mode);
   };
+
+  const [pulseAnim] = useState(new Animated.Value(0.3));
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: false,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 900,
+          useNativeDriver: false,
+        })
+      ])
+    ).start();
+  }, [pulseAnim]);
 
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -419,7 +454,7 @@ export default function StudentDashboard() {
     const isApplied = shift.status === 'applied';
     const isApproved = shift.status === 'approved' || shift.status === 'checkin_active' || shift.status === 'completed';
     const isEmergency = shift.isEmergency;
-    const leftBorderColor = getLeftBorderColor(index);
+    const leftBorderColor = getLeftBorderColorByCategory(shift.categoryName, shift.shopName);
 
     return (
       <TouchableOpacity
@@ -428,9 +463,33 @@ export default function StudentDashboard() {
         activeOpacity={0.95}
         onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
       >
-        <View style={[
+        <Animated.View style={[
           styles.cardContent,
-          { borderLeftColor: leftBorderColor, borderLeftWidth: 6 }
+          { borderLeftColor: leftBorderColor, borderLeftWidth: 6 },
+          isEmergency && {
+            borderLeftColor: pulseAnim.interpolate({
+              inputRange: [0.3, 1],
+              outputRange: ['#EF4444', '#F59E0B']
+            }),
+            borderLeftWidth: 8,
+            backgroundColor: pulseAnim.interpolate({
+              inputRange: [0.3, 1],
+              outputRange: ['#FFFFFF', '#FFF1F2']
+            }),
+            borderColor: pulseAnim.interpolate({
+              inputRange: [0.3, 1],
+              outputRange: ['#F1F5F9', '#FDA4AF']
+            }),
+            borderWidth: 1.5,
+            shadowColor: '#EF4444',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: pulseAnim.interpolate({
+              inputRange: [0.3, 1],
+              outputRange: [0.05, 0.35]
+            }),
+            shadowRadius: 12,
+            elevation: 4
+          }
         ]}>
           <View style={styles.cardTopRow}>
             <View style={styles.logoAndName}>
@@ -447,9 +506,9 @@ export default function StudentDashboard() {
 
             <View style={styles.tagRow}>
               {isEmergency && (
-                <View style={styles.emergencyTag}>
+                <Animated.View style={[styles.emergencyTag, { opacity: pulseAnim }]}>
                   <Text style={styles.emergencyTagText}>Tuyển Gấp</Text>
-                </View>
+                </Animated.View>
               )}
               <View style={styles.jobTypeTag}>
                 <Text style={styles.jobTypeTagText}>Part-time</Text>
@@ -496,7 +555,7 @@ export default function StudentDashboard() {
             </Text>
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </View>
-        </View>
+        </Animated.View>
       </TouchableOpacity>
     );
   };
