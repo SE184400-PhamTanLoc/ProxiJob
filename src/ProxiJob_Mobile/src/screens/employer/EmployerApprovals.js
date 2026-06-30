@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Animated
 } from 'react-native';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
@@ -22,9 +23,25 @@ import { getCategoriesApi, getSkillsApi, getJobPostById } from '../../api/jobs';
 import { useEmployerJobsQuery, useDeleteJobPostMutation, useUpdateJobPostWizardMutation, useHandleLeaveRequestMutation } from '../../hooks/queries';
 import { Ionicons } from '@expo/vector-icons';
 
-const getLeftBorderColor = (index) => {
-  const colors = ['#8B5CF6', '#C2410C', '#0D9488', '#2563EB', '#EC4899'];
-  return colors[index % colors.length];
+const getLeftBorderColorByCategory = (categoryName, shopName) => {
+  const target = (categoryName || shopName || '').trim().toLowerCase();
+  
+  if (target.includes('giao hàng') || target.includes('delivery') || target.includes('shipper')) {
+    return '#EF4444'; // Red
+  }
+  if (target.includes('gia sư') || target.includes('tutor') || target.includes('dạy') || target.includes('học')) {
+    return '#2563EB'; // Blue
+  }
+  if (target.includes('sửa chữa') || target.includes('repair') || target.includes('bảo trì') || target.includes('kỹ thuật')) {
+    return '#F59E0B'; // Yellow/Amber
+  }
+  if (target.includes('phục vụ') || target.includes('waiter') || target.includes('chạy bàn') || target.includes('phụ vụ')) {
+    return '#8B5CF6'; // Purple
+  }
+  if (target.includes('thú cưng') || target.includes('pet')) {
+    return '#EC4899'; // Pink
+  }
+  return '#0D9488'; // Teal default
 };
 
 const getShopBgColor = (shopName) => {
@@ -170,12 +187,34 @@ const geocodeAddressWithFallback = async (queryText) => {
   return null;
 };
 
+let globalApprovalsPage = 1;
+
 export default function EmployerApprovals() {
   const {
     navigateTo,
     showToast,
     user
   } = useContext(AppContext);
+
+  const [pulseAnim] = useState(new Animated.Value(0.3));
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState(null);
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 900,
+          useNativeDriver: true,
+        })
+      ])
+    ).start();
+  }, [pulseAnim]);
 
   // TanStack Query
   const { data: employerData = { shifts: [], leaveRequests: [], employerJobs: [] }, isLoading, refetch } = useEmployerJobsQuery(user);
@@ -217,16 +256,44 @@ export default function EmployerApprovals() {
     return timeB - timeA;
   };
 
-  const shifts = [...rawShifts].sort(compareShifts);
+  const filteredShifts = rawShifts.filter(s => {
+    if (!selectedCategoryFilter) return true;
+    const category = s.categoryName || s.shopName || '';
+    return category.trim().toLowerCase().includes(selectedCategoryFilter.toLowerCase());
+  });
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const shifts = [...filteredShifts].sort(compareShifts);
+
+  const [currentPageState, setCurrentPageState] = useState(globalApprovalsPage);
+  const setCurrentPage = (val) => {
+    setCurrentPageState(prev => {
+      const nextPage = typeof val === 'function' ? val(prev) : val;
+      globalApprovalsPage = nextPage;
+      return nextPage;
+    });
+  };
+  const currentPage = currentPageState;
   const ITEMS_PER_PAGE = 5;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeSegment, shifts.length]);
-
   const totalPages = Math.ceil(shifts.length / ITEMS_PER_PAGE);
+
+  // If the number of items reduces so much that currentPage exceeds totalPages, clamp it.
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [shifts.length, totalPages, currentPage]);
+
+  const isMountedRef = useRef(false);
+
+  // Only reset to page 1 when activeSegment (tabs) or selectedCategoryFilter changes.
+  useEffect(() => {
+    if (isMountedRef.current) {
+      setCurrentPage(1);
+    } else {
+      isMountedRef.current = true;
+    }
+  }, [activeSegment, selectedCategoryFilter]);
+
   const paginatedShifts = shifts.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -803,6 +870,7 @@ export default function EmployerApprovals() {
           skillNames: finalSelectedSkillNames
         }
       });
+      showToast('Cập nhật tin đăng thành công!', 'success');
       setEditModalVisible(false);
     } catch (err) {
       console.log('Error updating job post:', err);
@@ -898,6 +966,41 @@ export default function EmployerApprovals() {
         {activeSegment === 'job_posts' ? (
           /* Job Posts Management Tab */
           <View style={styles.cardsWrapper}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.categoryFilterContainer}
+              contentContainerStyle={styles.categoryFilterContent}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.categoryChip,
+                  !selectedCategoryFilter && styles.categoryChipActive
+                ]}
+                onPress={() => setSelectedCategoryFilter(null)}
+              >
+                <Text style={[
+                  styles.categoryChipText,
+                  !selectedCategoryFilter && styles.categoryChipTextActive
+                ]}>Tất cả</Text>
+              </TouchableOpacity>
+              {categories.filter(c => c.id !== 9999).map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.categoryChip,
+                    selectedCategoryFilter === cat.name && styles.categoryChipActive
+                  ]}
+                  onPress={() => setSelectedCategoryFilter(cat.name)}
+                >
+                  <Text style={[
+                    styles.categoryChipText,
+                    selectedCategoryFilter === cat.name && styles.categoryChipTextActive
+                  ]}>{cat.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
             {shifts.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyEmoji}>📬</Text>
@@ -908,7 +1011,7 @@ export default function EmployerApprovals() {
               paginatedShifts.map((shift, index) => {
                 const applicantCount = shift.applicantCount !== undefined ? shift.applicantCount : (shift.status === 'applied' ? 1 : 0);
                 const hasApplicants = applicantCount > 0;
-                const leftBorderColor = getLeftBorderColor(index);
+                const leftBorderColor = getLeftBorderColorByCategory(shift.categoryName, shift.shopName);
                 const cardViews = (shift.applicantCount || 0) * 15 + 120;
                 
                 return (
@@ -918,10 +1021,34 @@ export default function EmployerApprovals() {
                     activeOpacity={0.9}
                     onPress={() => navigateTo('job_detail', { shiftId: shift.id })}
                   >
-                    <View style={[
-                      styles.cardContent,
-                      { borderLeftColor: leftBorderColor, borderLeftWidth: 6 }
-                    ]}>
+                     <Animated.View style={[
+                       styles.cardContent,
+                       { borderLeftColor: leftBorderColor, borderLeftWidth: 6 },
+                       shift.isEmergency && {
+                         borderLeftColor: pulseAnim.interpolate({
+                           inputRange: [0.3, 1],
+                           outputRange: ['#EF4444', '#F59E0B']
+                         }),
+                         borderLeftWidth: 8,
+                         backgroundColor: pulseAnim.interpolate({
+                           inputRange: [0.3, 1],
+                           outputRange: ['#FFFFFF', '#FFF1F2']
+                         }),
+                         borderColor: pulseAnim.interpolate({
+                           inputRange: [0.3, 1],
+                           outputRange: ['#F1F5F9', '#FDA4AF']
+                         }),
+                         borderWidth: 1.5,
+                         shadowColor: '#EF4444',
+                         shadowOffset: { width: 0, height: 6 },
+                         shadowOpacity: pulseAnim.interpolate({
+                           inputRange: [0.3, 1],
+                           outputRange: [0.05, 0.35]
+                         }),
+                         shadowRadius: 12,
+                         elevation: 4
+                       }
+                     ]}>
                       <View style={styles.cardTopRow}>
                         <View style={styles.logoAndName}>
                           <View style={[styles.shopLogoCircle, { backgroundColor: getShopBgColor(shift.shopName) }]}>
@@ -935,6 +1062,11 @@ export default function EmployerApprovals() {
                               {cardViews >= 1000 ? (cardViews / 1000).toFixed(1) + 'k' : cardViews} lượt xem
                             </Text>
                           </View>
+                          {shift.isEmergency && (
+                            <Animated.View style={[styles.urgentBadge, { opacity: pulseAnim }]}>
+                              <Text style={styles.urgentBadgeText}>🔥 TUYỂN GẤP</Text>
+                            </Animated.View>
+                          )}
                         </View>
 
                         <View style={styles.cardActionsRow}>
@@ -999,7 +1131,7 @@ export default function EmployerApprovals() {
                           )}
                         </TouchableOpacity>
                       </View>
-                    </View>
+                    </Animated.View>
                   </TouchableOpacity>
                 );
               })
@@ -1835,7 +1967,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 110, // Generous padding to clear the FAB and Navigation tabs
+    paddingBottom: 170, // Generous padding to clear the FAB and Navigation tabs
   },
   welcomeSection: {
     marginBottom: 16,
@@ -2763,5 +2895,58 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     color: '#64748B',
+  },
+  urgentBadge: {
+    backgroundColor: '#EF4444',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginLeft: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  urgentBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  categoryFilterContainer: {
+    marginHorizontal: -24,
+    marginBottom: 16,
+  },
+  categoryFilterContent: {
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  categoryChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  categoryChipActive: {
+    backgroundColor: '#FFEFEB',
+    borderColor: '#FFD3C0',
+    borderWidth: 1.5,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  categoryChipTextActive: {
+    color: '#FF6B00',
+    fontWeight: '800',
   },
 });

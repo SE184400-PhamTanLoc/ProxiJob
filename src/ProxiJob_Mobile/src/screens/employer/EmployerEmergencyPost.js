@@ -741,6 +741,7 @@ export default function EmployerEmergencyPost() {
     setLoading(false);
 
     if (success) {
+      showToast('Đăng tin tuyển dụng thành công!', 'success');
       navigateTo('employer_approvals');
     }
   };

@@ -119,7 +119,7 @@ function MainAppShell() {
               ) : (
                 <>
                   <Image
-                    source={require("./src/img/proxijob logo.png")}
+                    source={require("./src/img/logoproxijobcamden.png")}
                     style={styles.headerLogo}
                     resizeMode="contain"
                   />

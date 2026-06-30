@@ -100,7 +100,7 @@ export default function LoginScreen() {
           {/* Logo / Header Area */}
           <View style={styles.logoContainer}>
             <Image
-              source={require('../img/proxijob logo.png')}
+              source={require('../img/logoproxijobcamden.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />

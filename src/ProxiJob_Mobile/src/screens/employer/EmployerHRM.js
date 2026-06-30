@@ -162,13 +162,11 @@ export default function EmployerHRM() {
         onPress={() => toggleExpand(staff.id)}
         style={[styles.accordionItem, isExpanded && styles.accordionItemActive]}
       >
-        {/* Viewfinder corners on first card */}
-        {isFirst && (
-          <>
-            <View style={styles.viewfinderTL} />
-            <View style={styles.viewfinderBR} />
-          </>
-        )}
+        {/* Viewfinder corners on all cards */}
+        <>
+          <View style={styles.viewfinderTL} />
+          <View style={styles.viewfinderBR} />
+        </>
 
         <View style={styles.accordionHeader}>
           <View style={styles.headerLeft}>
@@ -347,16 +345,8 @@ export default function EmployerHRM() {
 
   // ─── External Staff Card (VÃNG LAI) ────────
   const renderExternalCard = (staff, index) => {
-    const isFirst = index === 0;
+    const isDeleting = deletingId === staff.id;
     const isExpanded = !!expandedIds[staff.id];
-    // Simulate different shift states based on position
-    const shiftStates = [
-      { icon: '🕐', label: 'Ca hiện tại:', value: '16:50 - 20:50', status: 'AI Face Verified', statusColor: '#A04100', bgColor: '#F8FAFC' },
-      { icon: '📅', label: 'Lịch làm:', value: '08:00 - 12:00 (Mai)', status: 'Chờ vào ca ⏳', statusColor: '#5A4136', bgColor: '#F8FAFC' },
-      { icon: '🕑', label: 'Kết thúc:', value: '13:00 - 17:00', status: 'Chờ quyết toán 💰', statusColor: '#A04100', bgColor: '#F8FAFC' },
-    ];
-    const shiftState = shiftStates[index % shiftStates.length];
-    const isCompleted = index % 3 === 2; // Third card has reduced opacity
     const avatarSource = getAvatarSource(staff.avatarUrl, staff.gender, staff.name);
 
     return (
@@ -364,19 +354,13 @@ export default function EmployerHRM() {
         key={staff.id}
         activeOpacity={0.9}
         onPress={() => toggleExpand(staff.id)}
-        style={[
-          styles.accordionItem,
-          isExpanded && styles.accordionItemActive,
-          isCompleted && { opacity: 0.8 }
-        ]}
+        style={[styles.accordionItem, isExpanded && styles.accordionItemActive]}
       >
-        {/* Viewfinder corners on first card */}
-        {isFirst && (
-          <>
-            <View style={styles.viewfinderTL} />
-            <View style={styles.viewfinderBR} />
-          </>
-        )}
+        {/* Viewfinder corners on all cards */}
+        <>
+          <View style={styles.viewfinderTL} />
+          <View style={styles.viewfinderBR} />
+        </>
 
         <View style={styles.accordionHeader}>
           <View style={styles.headerLeft}>
@@ -444,57 +428,62 @@ export default function EmployerHRM() {
         {/* Accordion Content */}
         {isExpanded && (
           <View style={styles.accordionContentContainer}>
-            {staff.name === 'Lương Hoàng Thông' || index % 3 === 2 ? (
-              <View style={styles.accordionInnerCard}>
-                <View style={styles.flexRowBetween}>
-                  <Text style={styles.metaLabelText}>LỊCH LÀM VIỆC</Text>
-                  <Text style={[styles.badgeText, { color: '#5B00DF', fontWeight: 'bold' }]}>Full-time</Text>
+            <View style={styles.accordionInnerCard}>
+              <View style={styles.grid2Col}>
+                <View style={styles.gridCol}>
+                  <Text style={styles.metaLabelText}>LOẠI NHÂN SỰ</Text>
+                  <Text style={styles.metaValueText}>Vãng lai</Text>
                 </View>
-                <Text style={styles.scheduleText}>Tất cả các ngày: 08:00 - 17:00</Text>
+                <View style={styles.gridCol}>
+                  <Text style={styles.metaLabelText}>HIỆU SUẤT</Text>
+                  <View style={styles.ratingWrapper}>
+                    <Text style={styles.metaValueText}>4.8</Text>
+                    <Text style={styles.starIconYellow}>★</Text>
+                  </View>
+                </View>
               </View>
-            ) : (
-              <View style={{ gap: 8 }}>
-                <View style={styles.accordionInnerCard}>
-                  <View style={styles.flexRowBetween}>
-                    <Text style={styles.metaLabelText}>TRẠNG THÁI CA</Text>
-                    <View style={[styles.badgeItem, { backgroundColor: 'rgba(255, 107, 0, 0.1)', paddingHorizontal: 8, paddingVertical: 2 }]}>
-                      <Text style={[styles.badgeText, { color: '#FF6B00', fontWeight: 'bold' }]}>Đang làm</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.scheduleText}>
-                    {shiftState.label} {shiftState.value}
-                  </Text>
-                  <View style={styles.aiVerifiedRow}>
-                    <Text style={[styles.verifiedIcon, { color: '#5B00DF' }]}>✓</Text>
-                    <Text style={styles.aiVerifiedText}>AI VERIFIED</Text>
-                  </View>
-                </View>
 
-                {/* Show approve/reject buttons for second card pattern */}
-                {index % 3 === 1 && (
-                  <View style={styles.approvalButtonsRow}>
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      activeOpacity={0.8}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      <Text style={styles.rejectBtnText}>TỪ CHỐI</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.approveBtn}
-                      activeOpacity={0.85}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      <Text style={styles.approveBtnText}>DUYỆT ĐỔI ⚡</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+              <View style={styles.contactDetailsRow}>
+                <Text style={styles.metaLabelText}>SỐ ĐIỆN THOẠI</Text>
+                <Text style={styles.metaValueText}>{staff.phone}</Text>
               </View>
-            )}
+
+              {staff.shiftsCount > 0 && (
+                <View style={[styles.contactDetailsRow, { marginTop: 8 }]}>
+                  <Text style={styles.metaLabelText}>SỐ CA ĐÃ LÀM</Text>
+                  <Text style={styles.metaValueText}>{staff.shiftsCount} ca</Text>
+                </View>
+              )}
+
+              <View style={styles.buttonsRow}>
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleEditPress(staff);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.editBtnText}>✏️ Chỉnh sửa</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleDelete(staff.id);
+                  }}
+                  disabled={isDeleting}
+                  activeOpacity={0.8}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator size="small" color="#BA1A1A" />
+                  ) : (
+                    <Text style={styles.deleteBtnText}>🗑️ Xóa</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         )}
       </TouchableOpacity>
